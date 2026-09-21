@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Bossnu SlieLo",
+      "hasCanvas": false,
+      "bodyTextLen": 1070,
+      "bodyTextHash": "487dd83f1a3c8ce66b5b7903d6cc959a10b8daee05ad68b66909bfc1ba0ba789",
+      "bodyTextPrefix": "Bossnu SlieLo Chat Sandbox Plugins Models Puter AI CODING AGENT ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Bossnu SlieLo",
+      "hasCanvas": false,
+      "bodyTextLen": 1042,
+      "bodyTextHash": "097bf1785fad84fd8105c433ee872d978dde7ccf045cb852f762913e78476252",
+      "bodyTextPrefix": "Bossnu SlieLo Puter AI CODING AGENT Bossnu SlieLo ไม่มีอะไรที่ทำ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
