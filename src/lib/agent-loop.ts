@@ -68,11 +68,14 @@ function verificationPassed(results: ToolExecutionResult[]): { passed: boolean; 
 }
 
 /** Plan → Select → Act → Observe → Refine → Verify. */
-export async function runAgentLoop(prompt: string, tools: CodingFleetTool[], maxIterations = 6, authToken?: string): Promise<AgentRunResult> {
-  const steps: AgentStep[] = [
+export async function runAgentLoop(prompt: string, tools: CodingFleetTool[], maxIterations = 6, authToken?: string, onStep?: (step: AgentStep) => void): Promise<AgentRunResult> {
+  const steps: AgentStep[] = [];
+  const emitStep = (step: AgentStep) => { emitStep(step); onStep?.(step); };
+  const initialSteps: AgentStep[] = [
     { phase: "plan", detail: "วิเคราะห์เป้าหมายและแตกงานเป็นขั้นตอน" },
     { phase: "select", detail: `เลือกเครื่องมือจาก Tool Registry: ${summarizeToolNames(tools) || "ไม่มีชื่อเครื่องมือ"}` },
   ];
+  initialSteps.forEach(emitStep);
   const mcp = await discoverMCPTools();
   const mcpCount = mcp.reduce((sum, item) => sum + item.tools.length, 0);
   let currentPrompt = `${prompt}
@@ -95,7 +98,7 @@ Never claim an external action succeeded without evidence.`;
 
   for (let iteration = 0; iteration < Math.max(1, Math.min(maxIterations, 8)); iteration += 1) {
     steps.push({ phase: "act", detail: `รอบที่ ${iteration + 1}: ลงมือทำผ่านเครื่องมือ` });
-    const result = await callWithFallback(currentPrompt, tools, undefined, undefined, authToken);
+    const result = await callWithFallback(currentPrompt, tools, undefined, (activity) => activity.forEach((detail) => emitStep({ phase: "observe", detail })), authToken);
     if (!result.ok) {
       steps.push({ phase: "observe", detail: `เครื่องมือ/โมเดลแจ้งข้อผิดพลาด: ${result.error.slice(0, 300)}` });
       return { ok: false, text: result.error, steps, verified: false };
