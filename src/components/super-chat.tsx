@@ -9,25 +9,49 @@ import { useFleet } from "@/lib/store";
 import { backgroundLab } from "@/lib/background-sandbox";
 import { freeAI } from "@/lib/autonomous";
 import { runAgent, runAgentSandbox, runAgentStream } from "@/lib/agent.functions";
-import { loadPuter } from "@/lib/puter";
+import { listPuterModels, loadPuter, type PuterModel } from "@/lib/puter";
 
 export function SuperChat() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [typingText, setTypingText] = useState("");
-  const [selectedModel, setSelectedModel] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("boss-model") : null) || "gpt-5.6-luna");
+  const storedModel = useFleet((s) => s.modelId);
+  const setStoreModel = useFleet((s) => s.setModel);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
-  const models = [
-    { id: "gpt-5.6-luna", name: "GPT-5.6 Luna", note: "เร็ว / สมดุล" },
-    { id: "gpt-5-nano", name: "GPT-5 Nano", note: "เร็วมาก" },
-    { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", note: "วิเคราะห์ / โค้ด" },
-    { id: "gemini-3.1-flash-lite", name: "Gemini 3.1 Flash Lite", note: "เร็ว / ประหยัด" },
-  ];
-  const selectedModelInfo = models.find((m) => m.id === selectedModel) ?? models[0];
+  const [models, setModels] = useState<PuterModel[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(true);
+  const selectedModel = storedModel || "gpt-5.6-luna";
+  const selectedModelInfo = models.find((m) => m.id === selectedModel) ?? {
+    id: selectedModel,
+    name: selectedModel,
+    provider: "puter",
+  };
 
   useEffect(() => {
-    localStorage.setItem("boss-model", selectedModel);
-  }, [selectedModel]);
+    let cancelled = false;
+    setModelsLoading(true);
+    void listPuterModels()
+      .then((items) => {
+        if (cancelled) return;
+        const chatModels = items.filter((m) => !/image|audio|video|embedding|rerank|moderation/i.test(m.id));
+        setModels(chatModels);
+        if (!chatModels.some((m) => m.id === selectedModel) && chatModels.some((m) => m.id === "gpt-5.6-luna")) {
+          setStoreModel("gpt-5.6-luna");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setModels([
+            { id: "gpt-5.6-luna", name: "GPT-5.6 Luna", provider: "openai" },
+            { id: "gpt-5-nano", name: "GPT-5 Nano", provider: "openai" },
+            { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", provider: "anthropic" },
+            { id: "gemini-3.1-flash-lite", name: "Gemini 3.1 Flash Lite", provider: "google" },
+          ]);
+        }
+      })
+      .finally(() => { if (!cancelled) setModelsLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedModel, setStoreModel]);
   const threads = useFleet((s) => s.threads);
   const activeThreadId = useFleet((s) => s.activeThreadId);
   const appendMessage = useFleet((s) => s.appendMessage);
@@ -67,6 +91,7 @@ export function SuperChat() {
     const assistantId = appendMessage(thread.id, {
       role: "assistant",
       content: "กำลังทำงาน…",
+      model: selectedModel,
       activity: ["วิเคราะห์"],
     });
 
@@ -169,17 +194,17 @@ export function SuperChat() {
         </div>
         <button type="button" onClick={() => setModelMenuOpen((open) => !open)} className="flex items-center gap-2 max-w-[58%] rounded-xl border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-left hover:bg-zinc-800" aria-label="เลือกโมเดล">
           <Sparkles className="size-3.5 text-zinc-300 shrink-0" />
-          <span className="truncate text-xs text-zinc-200">{selectedModelInfo.name}</span>
+          <span className="truncate text-xs text-zinc-200">{modelsLoading ? "กำลังโหลดโมเดล..." : selectedModelInfo.name}</span>
           <ChevronDown className="size-3.5 text-zinc-500 shrink-0" />
         </button>
         {modelMenuOpen && (
           <div className="absolute right-4 top-[58px] z-50 w-64 rounded-2xl border border-zinc-700 bg-zinc-950 p-1.5 shadow-2xl">
             <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-zinc-500">เลือกโมเดลสำหรับ Boss</div>
             {models.map((model) => (
-              <button key={model.id} type="button" onClick={() => { setSelectedModel(model.id); setModelMenuOpen(false); }} className={"flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left hover:bg-zinc-800 " + (model.id === selectedModel ? "bg-zinc-800" : "")}>
+              <button key={model.id} type="button" onClick={() => { setStoreModel(model.id); setModelMenuOpen(false); }} className={"flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left hover:bg-zinc-800 " + (model.id === selectedModel ? "bg-zinc-800" : "")}>
                 <span className="min-w-0">
                   <span className="block truncate text-xs text-zinc-100">{model.name}</span>
-                  <span className="block text-[10px] text-zinc-500">{model.note}</span>
+                  <span className="block text-[10px] text-zinc-500">{model.provider ?? "Puter"}{model.context ? ` · ${Math.round(model.context / 1000)}k context` : ""}</span>
                 </span>
                 {model.id === selectedModel && <span className="ml-2 text-[10px] text-emerald-400">✓</span>}
               </button>
