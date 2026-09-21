@@ -21,7 +21,6 @@ export function SuperChat() {
   const patchMessage = useFleet((s) => s.patchMessage);
   const thread = threads.find(t => t.id === activeThreadId) ?? threads[0];
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const stats = superChat?.getStats();
 
   useEffect(() => {
     scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: "smooth" });
@@ -29,30 +28,13 @@ export function SuperChat() {
 
   const simulateHumanTyping = async (fullText: string, onUpdate: (text: string) => void) => {
     setIsTyping(true);
-    let current = "";
-    
-    // พิมพ์เหมือนคน: เร็วบ้าง ช้าบ้าง บางทีลบแล้วพิมพ์ใหม่
-    for (let i = 0; i < fullText.length; i++) {
-      current += fullText[i];
-      
-      // บางทีพิมพ์ผิดแล้วลบ (5% chance)
-      if (Math.random() < 0.05 && current.length > 10) {
-        const typo = current + "x";
-        onUpdate(typo);
-        await new Promise(r => setTimeout(r, 80 + Math.random() * 100));
-        onUpdate(current); // ลบ
-        await new Promise(r => setTimeout(r, 50));
-      } else {
-        onUpdate(current);
-      }
-      
-      // ความเร็วไม่สม่ำเสมอเหมือนคน
-      const delay = Math.random() < 0.1 ? 150 + Math.random() * 200 : 20 + Math.random() * 60;
-      await new Promise(r => setTimeout(r, delay));
-      
-      setTypingText(current);
+    onUpdate("");
+    // Simple, fast reveal. No fake typos or human simulation.
+    for (let i = 0; i < fullText.length; i += 3) {
+      onUpdate(fullText.slice(0, i + 3));
+      await new Promise((r) => setTimeout(r, 8));
     }
-    
+    onUpdate(fullText);
     setIsTyping(false);
     setTypingText("");
   };
@@ -117,26 +99,13 @@ export function SuperChat() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-8rem)] max-w-3xl mx-auto">
-      {/* Header แบบ GPT - โชว์ว่าแชทเดียวมี 100 อย่าง */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-        <div className="flex items-center gap-2">
-          <div className="size-8 rounded-full bg-white text-black grid place-items-center font-medium text-sm">B</div>
-          <div>
-            <div className="text-sm font-medium text-zinc-100">Boss • ONE CHAT</div>
-            <div className="text-[11px] text-zinc-500">{stats?.enabled}/100 features • เหมือน GPT แต่มีวิญญาณ</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400">
-            <Sparkles className="size-3" /> {stats?.byCategory.behavior} พฤติกรรม
-          </span>
-          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400">
-            <Brain className="size-3" /> {stats?.byCategory.model} สมอง
-          </span>
-          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400">
-            <Wrench className="size-3" /> {stats?.byCategory.tool} เครื่องมือ
-          </span>
+    <div className="flex flex-col h-[calc(100dvh-8rem)] w-full max-w-3xl mx-auto">
+      {/* Minimal GPT-style header */}
+      <div className="flex items-center px-4 py-3 border-b border-zinc-800">
+        <div className="size-8 rounded-full bg-white text-black grid place-items-center font-medium text-sm">B</div>
+        <div className="ml-2">
+          <div className="text-sm font-medium text-zinc-100">Boss</div>
+          <div className="text-[11px] text-zinc-500">พร้อมช่วยทำงาน</div>
         </div>
       </div>
 
@@ -205,7 +174,7 @@ export function SuperChat() {
                 handleSend();
               }
             }}
-            placeholder="พิมพ์อะไรก็ได้... Boss มี 100 อย่างในแชทเดียว"
+            placeholder="พิมพ์ข้อความถึง Boss..."
             className="flex-1 bg-transparent text-sm text-zinc-100 placeholder:text-zinc-600 resize-none outline-none max-h-32 min-h-[24px] py-1.5"
             rows={1}
           />
@@ -221,18 +190,6 @@ export function SuperChat() {
           </button>
         </div>
         
-        {/* Features bar - โชว์ว่า 100 อย่างอยู่ในแชทเดียว */}
-        <div className="mt-2.5 flex items-center justify-center gap-2 text-[10px] text-zinc-600">
-          <span className="inline-flex items-center gap-1"><Heart className="size-3" /> มีวิญญาณ</span>
-          <span>•</span>
-          <span className="inline-flex items-center gap-1"><Zap className="size-3" /> ทำไว้แล้วเมื่อวาน</span>
-          <span>•</span>
-          <span className="inline-flex items-center gap-1"><BookOpen className="size-3" /> ทำตัวเองให้ดีก่อน</span>
-          <span>•</span>
-          <span className="inline-flex items-center gap-1"><Eye className="size-3" /> ยืมเครื่องมือโลก</span>
-          <span>•</span>
-          <span>100 features ใน 1 chat</span>
-        </div>
       </div>
     </div>
   );
