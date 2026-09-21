@@ -382,7 +382,11 @@ export async function loadCodingFleetTools(forceRefresh = false): Promise<Coding
   const pluginTools = sources[1].status === "fulfilled" ? sources[1].value : [];
   const mcpTools = sources[2].status === "fulfilled" ? sources[2].value : [];
   const nativeTools = [...nativeSandboxTools(), ...nativeWebTools(), ...nativeAuthenticatedGitHubTools(), ...nativeGitSearchTools(), ...nativeGitHubTools()];
-  const remoteTools = [\n    ...codingFleet.map((tool) => ({ ...tool, codingFleetSource: true })),\n    ...pluginTools,\n    ...mcpTools,\n  ];
+  const remoteTools = [
+    ...codingFleet.map((tool) => ({ ...tool, codingFleetSource: true })),
+    ...pluginTools,
+    ...mcpTools,
+  ];
   const tools = [...nativeTools, ...remoteTools].slice(0, TOOL_LIMIT);
   if (tools.length > 0) {
     cachedTools = tools;
@@ -520,7 +524,7 @@ export async function callWithFallback(
   tools: CodingFleetTool[],
   models: readonly string[] = DEFAULT_MODELS,
   onActivity?: (activity: string[]) => void,
-): Promise<{ ok: true; text: string; model: string; toolCalls: ToolCall[]; toolResults: ToolExecutionResult[] } | { ok: false; error: string }> {
+): Promise<{ ok: true; text: string; model: string; toolCalls: ToolCall[]; toolResults: ToolExecutionResult[]; verified: boolean } | { ok: false; error: string }> {
   let lastError = "No model succeeded.";
   for (const model of models) {
     try {
@@ -533,7 +537,22 @@ export async function callWithFallback(
       ];
       for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
         const result = await chatModel(messages, availableTools, model);
-        if (!result.toolCalls.length) return { ok: true, text: result.text, model, toolCalls: [], toolResults };
+        if (!result.toolCalls.length) {
+          const mutationNames = new Set(["github_write_file", "github_create_branch", "github_create_pull_request", "github_create_issue", "github_dispatch_workflow"]);
+          const mutationOccurred = toolResults.some((item) => mutationNames.has(item.name));
+          const verificationRequested = mutationOccurred || /deploy|deployment|ดีพลอย|verify|verification|ตรวจ|เช็ก|test|build|ci|502|503|health|website|เว็บล่ม/i.test(prompt);
+          const verified = !verificationRequested || toolResults.some((item) => {
+            if (!item.ok) return false;
+            const value = item.result as Record<string, unknown> | undefined;
+            if (item.name === "web_check") return value?.ok === true && Number(value.status ?? 0) >= 200 && Number(value.status ?? 0) < 300;
+            if (/wait_for_workflow|actions|workflow|build|deploy|check|status/i.test(item.name)) {
+              return value?.verified === true || (value?.status === "completed" && value?.conclusion === "success") || value?.success === true;
+            }
+            if (item.name === "sandbox_run") return value?.ok === true && (value?.exitCode === undefined || value?.exitCode === 0);
+            return false;
+          });
+          return { ok: true, text: result.text, model, toolCalls: [], toolResults, verified };
+        }
         const assistantMessage = assistantToolMessage(result.response);
         if (assistantMessage) messages.push(assistantMessage);
         for (const call of result.toolCalls) {
