@@ -85,8 +85,10 @@ export function SuperChat() {
     try {
       patchActivity(thread.id, assistantId, ["วิเคราะห์", "เลือกเครื่องมือ", "ลงมือทำ"]);
       const result = await runAgent({
-        prompt: userText,
-        maxIterations: 6,
+        data: {
+          prompt: userText,
+          maxIterations: 6,
+        },
       });
 
       const response = result.ok
