@@ -2,7 +2,7 @@ name: Boss MVP Verification
 
 on:
   push:
-    branches: ["main", "boss-mvp-full-20260921"]
+    branches: ["main", "boss-mvp-hardening-20260921"]
   pull_request:
     branches: ["main"]
 
@@ -16,7 +16,7 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,6 +29,15 @@ jobs:
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+
+      - name: Auth invariant
+        run: npm run check:auth
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
 
       - name: Typecheck
         run: npm run typecheck
