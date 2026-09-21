@@ -9,6 +9,7 @@ import { useFleet } from "@/lib/store";
 import { backgroundLab } from "@/lib/background-sandbox";
 import { freeAI } from "@/lib/autonomous";
 import { runAgent, runAgentSandbox } from "@/lib/agent.functions";
+import { loadPuter } from "@/lib/puter";
 
 export function SuperChat() {
   const [input, setInput] = useState("");
@@ -84,10 +85,13 @@ export function SuperChat() {
     // ปกติ: ส่งข้อความเข้า Boss Agent จริง ไม่ใช้ template ตอบสำเร็จรูป
     try {
       patchActivity(thread.id, assistantId, ["วิเคราะห์", "เลือกเครื่องมือ", "ลงมือทำ"]);
+      const puter = await loadPuter();
+      const authToken = (puter as unknown as { authToken?: string }).authToken;
       const result = await runAgent({
         data: {
           prompt: userText,
           maxIterations: 6,
+          ...(authToken ? { authToken } : {}),
         },
       });
 
