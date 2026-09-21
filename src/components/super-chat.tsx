@@ -9,7 +9,7 @@ import { superChat } from "@/lib/super-chat";
 import { useFleet } from "@/lib/store";
 import { backgroundLab } from "@/lib/background-sandbox";
 import { freeAI } from "@/lib/autonomous";
-import { runAgentSandbox } from "@/lib/agent.functions";
+import { runAgent, runAgentSandbox } from "@/lib/agent.functions";
 
 export function SuperChat() {
   const [input, setInput] = useState("");
@@ -78,24 +78,19 @@ export function SuperChat() {
       return;
     }
 
-    const result = await superChat?.processMessage(userText, thread.messages) || {
-      response: `ได้เลย เดี๋ยวจัดให้ - ${userText}`,
-      mode: "thai-slang" as const,
-    };
-
-    // จำลองการพิมพ์เหมือนคน
-    await simulateHumanTyping(result.response, (text) => {
-      patchMessage(thread.id, assistantId, text);
+    // ปกติ: ส่งข้อความเข้า Boss Agent จริง ไม่ใช้ template ตอบสำเร็จรูป
+    const result = await runAgent({
+      prompt: userText,
+      maxIterations: 6,
     });
 
-    // ถ้ามี yesterday template ให้ทดสอบใน background lab เงียบๆ
-    if (result.yesterdayTemplate) {
-      backgroundLab?.testQuietly({
-        code: `// Yesterday template: ${result.yesterdayTemplate.title}\nconsole.log("ทดสอบ template: ${result.yesterdayTemplate.id}");`,
-        purpose: `ทดสอบ ${result.yesterdayTemplate.title}`,
-        createdBy: "free-ai",
-      });
-    }
+    const response = result.ok
+      ? result.text
+      : `ยังทำงานนี้ไม่สำเร็จ: ${result.text || "Agent ไม่มีผลลัพธ์"}`;
+
+    await simulateHumanTyping(response, (text) => {
+      patchMessage(thread.id, assistantId, text);
+    });
   };
 
   return (
