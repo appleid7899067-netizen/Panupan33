@@ -4,7 +4,7 @@ import { selectToolsForTask } from "@/lib/tool-registry";
 import { runGitHubAgent } from "@/lib/github-agent-tools.server";
 import { executeAgentCode, runAgentLoop } from "@/lib/agent-loop";
 
-const loopSchema = z.object({ prompt: z.string().min(1).max(60_000), maxIterations: z.number().int().min(1).max(8).optional(), authToken: z.string().min(20).max(10000).optional() });
+const loopSchema = z.object({ prompt: z.string().min(1).max(60_000), maxIterations: z.number().int().min(1).max(8).optional(), authToken: z.string().min(20).max(10000).optional(), context: z.string().max(45_000).optional() });
 const codeSchema = z.object({ language: z.string().min(1).max(40), code: z.string().max(500_000) });
 
 function prefersAuthenticatedGitHub(prompt: string): boolean {
@@ -14,13 +14,14 @@ function prefersAuthenticatedGitHub(prompt: string): boolean {
 export const runAgent = createServerFn({ method: "POST" })
   .validator(loopSchema)
   .handler(async ({ data }) => {
-    const selected = await selectToolsForTask(data.prompt, 20);
+    const taskPrompt = data.context ? `${data.context}\n\nCurrent user request:\n${data.prompt}` : data.prompt;
+    const selected = await selectToolsForTask(taskPrompt, 20);
     const selectedNames = selected.slice(0, 8).map((tool) => String(tool.name ?? "")).filter(Boolean);
     const registryStep = { phase: "plan" as const, detail: `Tool Registry selected ${selectedNames.length} tools: ${selectedNames.join(", ")}` };
 
     const registryHasGitHub = selected.some((tool) => String(tool.name ?? "").toLowerCase().includes("github"));
     if (registryHasGitHub && prefersAuthenticatedGitHub(data.prompt)) {
-      const result = await runGitHubAgent(data.prompt, data.authToken);
+      const result = await runGitHubAgent(taskPrompt, data.authToken);
       if (!result.ok) {
         return {
           ok: false,
@@ -49,10 +50,36 @@ export const runAgent = createServerFn({ method: "POST" })
       };
     }
 
-    const result = await runAgentLoop(data.prompt, selected, data.maxIterations ?? 6, data.authToken);
+    const result = await runAgentLoop(taskPrompt, selected, data.maxIterations ?? 6, data.authToken);
     return { ...result, steps: [registryStep, ...result.steps] };
   });
 
 export const runAgentSandbox = createServerFn({ method: "POST" })
   .validator(codeSchema)
   .handler(async ({ data }) => executeAgentCode(data.language, data.code));
+
+
+export type AgentStreamEvent =
+  | { type: "step"; step: import("@/lib/agent-loop").AgentStep }
+  | { type: "done"; result: import("@/lib/agent-loop").AgentRunResult };
+
+export const runAgentStream = createServerFn({ method: "POST" })
+  .validator(loopSchema)
+  .handler(async function* ({ data }) {
+    const events: AgentStreamEvent[] = [];
+    const taskPrompt = data.context ? `${data.context}\n\nCurrent user request:\n${data.prompt}` : data.prompt;
+    const selected = await selectToolsForTask(taskPrompt, 20);
+    const selectedNames = selected.slice(0, 8).map((tool) => String(tool.name ?? "")).filter(Boolean);
+    const registryStep = { phase: "plan" as const, detail: `Tool Registry selected ${selectedNames.length} tools: ${selectedNames.join(", ")}` };
+    events.push({ type: "step", step: registryStep });
+    yield { type: "step", step: registryStep };
+    const result = await runAgentLoop(
+      taskPrompt,
+      selected,
+      data.maxIterations ?? 6,
+      data.authToken,
+      (step) => events.push({ type: "step", step }),
+    );
+    for (const event of events.slice(1)) yield event;
+    yield { type: "done", result: { ...result, steps: [registryStep, ...result.steps] } };
+  });
