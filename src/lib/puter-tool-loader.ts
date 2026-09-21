@@ -121,7 +121,6 @@ function nativeSandboxTools(): CodingFleetTool[] {
       name: "sandbox_run",
       description: "Run JavaScript/HTML/CSS in the in-browser sandbox and return stdout, stderr, logs, and runtime errors. Use this to reproduce errors and verify fixes.",
       sandboxSource: true,
-      webSource: true,
       inputSchema: {
         type: "object",
         properties: {
@@ -140,6 +139,7 @@ function nativeWebTools(): CodingFleetTool[] {
   return [
     {
       name: "web_check",
+      webSource: true,
       description: "Check a deployed website URL over HTTPS. Return final URL, HTTP status, response time, and a short body preview.",
       inputSchema: {
         type: "object",
