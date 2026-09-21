@@ -144,6 +144,7 @@ function ChatPage() {
       }
       if (res.activity) patchActivity(thread.id, assistantId, res.activity);
       patchMessage(thread.id, assistantId, res.text);
+      useFleet.getState().patchVerified(thread.id, assistantId, res.verified === true);
       learnMemory(
         `Task: ${text.replace(/Attached files:[\s\S]*/i, "").trim().slice(0, 700)} | Result: ${res.text.replace(/\s+/g, " ").slice(0, 600)} | Trace: ${(res.activity ?? []).slice(-6).join(" → ")}`,
       );
