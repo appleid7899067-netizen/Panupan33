@@ -202,17 +202,31 @@ export async function runFleet(
       onDelta?.(loop.text);
       const activity = loop.steps.map((step) => `${step.phase}: ${step.detail}`);
       onActivity?.(activity);
-      if (!loop.ok || loop.verified === false) {
+      if (!loop.ok || loop.verified !== true) {
         return {
           ok: false,
-          error: loop.text || "ยังไม่มีหลักฐานจากเครื่องมือว่างานสำเร็จ",
+          error: loop.text || "งานยังไม่ผ่าน verification gate จึงยังไม่ประกาศว่าสำเร็จ",
           activity,
+          verified: false,
         };
       }
-      return { ok: true, text: loop.text, model: selectedModelId || DEFAULT_PUTER_MODEL, activity, verified: loop.verified === true };
+      return {
+        ok: true,
+        text: loop.text,
+        model: selectedModelId || DEFAULT_PUTER_MODEL,
+        activity,
+        verified: true,
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      onActivity?.(["Agent loop error", message.slice(0, 180)]);
+      const activity = ["วิเคราะห์", "เลือกเครื่องมือ", "Agent loop error"];
+      onActivity?.([...activity, message.slice(0, 180)]);
+      return {
+        ok: false,
+        error: `Agent loop หยุดเพราะเกิดข้อผิดพลาดจริง: ${message.slice(0, 500)}`,
+        activity: [...activity, message.slice(0, 180)],
+        verified: false,
+      };
     }
   }
 
