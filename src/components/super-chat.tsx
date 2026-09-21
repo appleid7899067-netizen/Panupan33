@@ -4,8 +4,7 @@
  */
 
 import { useEffect, useState, useRef } from "react";
-import { Send, Paperclip, Mic, Sparkles, Brain, Wrench, Users, Heart, Hammer, Eye, BookOpen, Zap } from "lucide-react";
-import { superChat } from "@/lib/super-chat";
+import { Send, Paperclip, Mic } from "lucide-react";
 import { useFleet } from "@/lib/store";
 import { backgroundLab } from "@/lib/background-sandbox";
 import { freeAI } from "@/lib/autonomous";
@@ -19,6 +18,8 @@ export function SuperChat() {
   const activeThreadId = useFleet((s) => s.activeThreadId);
   const appendMessage = useFleet((s) => s.appendMessage);
   const patchMessage = useFleet((s) => s.patchMessage);
+  const patchActivity = useFleet((s) => s.patchActivity);
+  const patchVerified = useFleet((s) => s.patchVerified);
   const thread = threads.find(t => t.id === activeThreadId) ?? threads[0];
   const scrollerRef = useRef<HTMLDivElement>(null);
 
@@ -51,13 +52,13 @@ export function SuperChat() {
     // สร้างข้อความ assistant เปล่าๆ ไว้ก่อน
     const assistantId = appendMessage(thread.id, {
       role: "assistant",
-      content: "",
-      activity: ["วิเคราะห์", "ยืมเครื่องมือ", "ตรวจตัวเอง"],
+      content: "กำลังทำงาน…",
+      activity: ["วิเคราะห์"],
     });
 
     // ประมวลผลแบบ ONE CHAT 100 อย่าง
     // ถ้าข้อความมี code block หรือสั่ง "รันโค้ด" ให้ Boss เรียก Sandbox โดยตรง
-    const sandboxMatch = userText.match(/```([\\w-]+)?\\n([\\s\\S]*?)```/);
+    const sandboxMatch = userText.match(/```([\\w-]+)?\n([\s\S]*?)```/);
     const wantsSandbox = Boolean(sandboxMatch) || /(?:รันโค้ด|รัน code|run code|ทดสอบโค้ด|test code|sandbox)/i.test(userText);
     if (wantsSandbox) {
       const language = sandboxMatch?.[1] || "javascript";
@@ -72,25 +73,41 @@ export function SuperChat() {
         sandbox.stderr ? `stderr:\\n${sandbox.stderr}` : "",
         `runtime: ${sandbox.runtime ?? "unknown"} | ${sandbox.durationMs ?? 0}ms`,
       ].filter(Boolean).join("\\n\\n");
+      patchActivity(thread.id, assistantId, []);
       await simulateHumanTyping(output, (text) => {
         patchMessage(thread.id, assistantId, text);
       });
+      patchVerified(thread.id, assistantId, sandbox.ok);
       return;
     }
 
     // ปกติ: ส่งข้อความเข้า Boss Agent จริง ไม่ใช้ template ตอบสำเร็จรูป
-    const result = await runAgent({
-      prompt: userText,
-      maxIterations: 6,
-    });
+    try {
+      patchActivity(thread.id, assistantId, ["วิเคราะห์", "เลือกเครื่องมือ", "ลงมือทำ"]);
+      const result = await runAgent({
+        prompt: userText,
+        maxIterations: 6,
+      });
 
-    const response = result.ok
-      ? result.text
-      : `ยังทำงานนี้ไม่สำเร็จ: ${result.text || "Agent ไม่มีผลลัพธ์"}`;
+      const response = result.ok
+        ? (result.text || "Boss ทำงานเสร็จแล้ว แต่ Agent ไม่ได้ส่งข้อความกลับมา")
+        : `ยังทำงานนี้ไม่สำเร็จ: ${result.text || "Agent ไม่มีผลลัพธ์"}`;
 
-    await simulateHumanTyping(response, (text) => {
-      patchMessage(thread.id, assistantId, text);
-    });
+      patchActivity(thread.id, assistantId, result.steps?.map((step) => `${step.phase}: ${step.detail}`).slice(-6) ?? []);
+      patchVerified(thread.id, assistantId, result.verified === true);
+      await simulateHumanTyping(response, (text) => {
+        patchMessage(thread.id, assistantId, text);
+      });
+      patchActivity(thread.id, assistantId, []);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const response = `Boss เรียก Agent ไม่สำเร็จ: ${message.slice(0, 700)}`;
+      patchActivity(thread.id, assistantId, []);
+      patchVerified(thread.id, assistantId, false);
+      await simulateHumanTyping(response, (text) => {
+        patchMessage(thread.id, assistantId, text);
+      });
+    }
   };
 
   return (
