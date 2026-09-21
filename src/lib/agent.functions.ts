@@ -66,20 +66,44 @@ export type AgentStreamEvent =
 export const runAgentStream = createServerFn({ method: "POST" })
   .validator(loopSchema)
   .handler(async function* ({ data }) {
-    const events: AgentStreamEvent[] = [];
     const taskPrompt = data.context ? `${data.context}\n\nCurrent user request:\n${data.prompt}` : data.prompt;
     const selected = await selectToolsForTask(taskPrompt, 20);
     const selectedNames = selected.slice(0, 8).map((tool) => String(tool.name ?? "")).filter(Boolean);
     const registryStep = { phase: "plan" as const, detail: `Tool Registry selected ${selectedNames.length} tools: ${selectedNames.join(", ")}` };
-    events.push({ type: "step", step: registryStep });
     yield { type: "step", step: registryStep };
-    const result = await runAgentLoop(
+
+    const queue: AgentStreamEvent[] = [];
+    let wake: (() => void) | null = null;
+    let finished = false;
+    let finalResult: import("@/lib/agent-loop").AgentRunResult | null = null;
+
+    const push = (event: AgentStreamEvent) => {
+      queue.push(event);
+      wake?.();
+      wake = null;
+    };
+
+    const runner = runAgentLoop(
       taskPrompt,
       selected,
       data.maxIterations ?? 6,
       data.authToken,
-      (step) => events.push({ type: "step", step }),
-    );
-    for (const event of events.slice(1)) yield event;
-    yield { type: "done", result: { ...result, steps: [registryStep, ...result.steps] } };
-  });
+      (step) => push({ type: "step", step }),
+    ).then((result) => {
+      finalResult = { ...result, steps: [registryStep, ...result.steps] };
+      finished = true;
+      wake?.();
+      wake = null;
+    });
+
+    while (!finished || queue.length) {
+      if (!queue.length) {
+        await new Promise<void>((resolve) => { wake = resolve; });
+      }
+      while (queue.length) {
+        yield queue.shift()!;
+      }
+    }
+    await runner;
+    yield { type: "done", result: finalResult! };
+  });\n
