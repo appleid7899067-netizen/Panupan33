@@ -30,8 +30,22 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Start dev server
+        run: |
+          nohup npm run dev > /tmp/boss-dev.log 2>&1 &
+          echo $! > /tmp/boss-dev.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8080/__app-env > /tmp/app-env.json; then
+              echo "Dev server ready"
+              cat /tmp/app-env.json
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8080/__app-env
+
       - name: Auth invariant
-        run: npm run check:auth
+        run: npm run check:auth -- --dev-url http://127.0.0.1:8080
 
       - name: Unit tests
         run: npm test
