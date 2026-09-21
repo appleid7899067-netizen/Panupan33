@@ -4,7 +4,7 @@ import { selectToolsForTask } from "@/lib/tool-registry";
 import { runGitHubAgent } from "@/lib/github-agent-tools.server";
 import { executeAgentCode, runAgentLoop } from "@/lib/agent-loop";
 
-const loopSchema = z.object({ prompt: z.string().min(1).max(60_000), maxIterations: z.number().int().min(1).max(8).optional() });
+const loopSchema = z.object({ prompt: z.string().min(1).max(60_000), maxIterations: z.number().int().min(1).max(8).optional(), authToken: z.string().min(20).max(10000).optional() });
 const codeSchema = z.object({ language: z.string().min(1).max(40), code: z.string().max(500_000) });
 
 function prefersAuthenticatedGitHub(prompt: string): boolean {
@@ -20,7 +20,7 @@ export const runAgent = createServerFn({ method: "POST" })
 
     const registryHasGitHub = selected.some((tool) => String(tool.name ?? "").toLowerCase().includes("github"));
     if (registryHasGitHub && prefersAuthenticatedGitHub(data.prompt)) {
-      const result = await runGitHubAgent(data.prompt);
+      const result = await runGitHubAgent(data.prompt, data.authToken);
       if (!result.ok) {
         return {
           ok: false,
@@ -49,7 +49,7 @@ export const runAgent = createServerFn({ method: "POST" })
       };
     }
 
-    const result = await runAgentLoop(data.prompt, selected, data.maxIterations ?? 6);
+    const result = await runAgentLoop(data.prompt, selected, data.maxIterations ?? 6, data.authToken);
     return { ...result, steps: [registryStep, ...result.steps] };
   });
 
