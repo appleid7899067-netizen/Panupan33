@@ -13,13 +13,12 @@ import { listPuterModels, loadPuter, type PuterModel } from "@/lib/puter";
 
 export function SuperChat() {
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [typingText, setTypingText] = useState("");
   const storedModel = useFleet((s) => s.modelId);
   const setStoreModel = useFleet((s) => s.setModel);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [models, setModels] = useState<PuterModel[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
+  const [liveStream, setLiveStream] = useState<{ id: string; steps: string[]; active: boolean }>({ id: "", steps: [], active: false });
   const selectedModel = storedModel || "gpt-5.6-luna";
   const selectedModelInfo = models.find((m) => m.id === selectedModel) ?? {
     id: selectedModel,
@@ -131,11 +130,14 @@ export function SuperChat() {
           maxIterations: 6,
           context,
           ...(authToken ? { authToken } : {}),
+          model: selectedModel,
         },
       })) {
         if (event.type === "step") {
           liveSteps.push(`${event.step.phase}: ${event.step.detail}`);
-          patchActivity(thread.id, assistantId, liveSteps.slice(-8));
+          const visibleSteps = liveSteps.slice(-10);
+          patchActivity(thread.id, assistantId, visibleSteps);
+          setLiveStream({ id: assistantId, steps: visibleSteps, active: true });
         } else if (event.type === "done") {
           result = event.result;
         }
@@ -145,18 +147,16 @@ export function SuperChat() {
         ? (result.text || "Boss ทำงานเสร็จแล้ว แต่ Agent ไม่ได้ส่งข้อความกลับมา")
         : `ยังทำงานนี้ไม่สำเร็จ: ${result.text || "Agent ไม่มีผลลัพธ์"}`;
       patchVerified(thread.id, assistantId, result.verified === true);
-      await simulateHumanTyping(response, (text) => {
-        patchMessage(thread.id, assistantId, text);
-      });
-      patchActivity(thread.id, assistantId, liveSteps.slice(-8));
+      patchMessage(thread.id, assistantId, response);
+      patchActivity(thread.id, assistantId, liveSteps.slice(-10));
+      setLiveStream({ id: assistantId, steps: liveSteps.slice(-10), active: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const response = `Boss เรียก Agent ไม่สำเร็จ: ${message.slice(0, 700)}`;
       patchActivity(thread.id, assistantId, []);
       patchVerified(thread.id, assistantId, false);
-      await simulateHumanTyping(response, (text) => {
-        patchMessage(thread.id, assistantId, text);
-      });
+      patchMessage(thread.id, assistantId, response);
+      setLiveStream((s) => s.id === assistantId ? { ...s, active: false } : s);
     }
   };
 
@@ -214,17 +214,21 @@ export function SuperChat() {
                 ? "bg-white text-black" 
                 : "bg-zinc-900 border border-zinc-800 text-zinc-100"
             }`}>
-              <div className="whitespace-pre-wrap">{m.content || (isTyping && m.id === thread.messages[thread.messages.length-1]?.id ? typingText : "")}</div>
+              <div className="whitespace-pre-wrap">{m.content}</div>
               {m.activity && m.activity.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {m.activity.map((a, i) => (
-                    <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-400">
-                      {a}
-                    </span>
-                  ))}
+                <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950/70 overflow-hidden">
+                  <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-800/80 text-[10px] uppercase tracking-wider text-zinc-500"><Activity className="size-3" /> Boss activity
+                    {m.id === liveStream.id && liveStream.active && <span className="ml-auto text-emerald-400">● live</span>}
+                  </div>
+                  <div className="px-3 py-2 space-y-1.5">
+                    {m.activity.map((a, i) => {
+                      const parts = a.split(": "); const phase = parts[0] ?? ""; const detail = parts.slice(1).join(": ") || a;
+                      const done = i < m.activity!.length - 1 || (m.id === liveStream.id && !liveStream.active);
+                      return <div key={i} className="flex items-start gap-2 text-[11px] text-zinc-400"><span>{done ? <CheckCircle2 className="size-3 text-emerald-400" /> : <Loader2 className="size-3 animate-spin" />}</span><span><span className="text-zinc-500 mr-1">{phase}</span>{detail}</span></div>;
+                    })}
+                  </div>
                 </div>
-              )}
-            </div>
+              )           </div>
             {m.role === "user" && (
               <div className="size-7 rounded-full bg-zinc-700 grid place-items-center shrink-0 mt-0.5">
                 <span className="text-[11px]">U</span>
@@ -233,25 +237,14 @@ export function SuperChat() {
           </div>
         ))}
         
-        {isTyping && (
-          <div className="flex gap-3">
-            <div className="size-7 rounded-full bg-zinc-800 border border-zinc-700 grid place-items-center shrink-0">
-              <span className="text-[11px]">B</span>
-            </div>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-zinc-400">
-              <div className="flex items-center gap-2">
-                <div className="relative h-2 w-12 overflow-hidden rounded-full bg-zinc-800">
-                  <span
-                    className="absolute left-0 top-0 h-2 w-3 rounded-full bg-zinc-300"
-                    style={{ animation: "boss-swoosh 0.72s ease-in-out infinite" }}
-                  />
-                </div>
-                <span className="text-[11px]">วุ้ปๆ Boss กำลังทำงาน...</span>
-              </div>
+        {liveStream.active && liveStream.steps.length > 0 && (
+          <div className="flex gap-3"><div className="size-7 rounded-full bg-white text-black grid place-items-center shrink-0"><span className="text-[11px] font-semibold">B</span></div>
+            <div className="max-w-[88%] rounded-2xl border border-zinc-800 bg-zinc-900/90 px-4 py-3 shadow-xl">
+              <div className="flex items-center gap-2 text-xs text-zinc-300"><Activity className="size-3.5 text-emerald-400" /><span>Boss กำลังทำงานแบบเรียลไทม์</span><span className="ml-auto text-[10px] text-emerald-400">LIVE</span></div>
+              <div className="mt-3 space-y-2">{liveStream.steps.slice(-5).map((step, i, arr) => <div key={i} className="flex items-start gap-2 text-[11px]"><span>{i === arr.length - 1 ? <Loader2 className="size-3 animate-spin text-emerald-400" /> : <CheckCircle2 className="size-3 text-zinc-500" />}</span><span className={i === arr.length - 1 ? "text-zinc-200" : "text-zinc-500"}>{step}</span></div>)}</div>
             </div>
           </div>
-        )}
-      </div>
+        )}      </div>
 
       {/* Input แบบ GPT */}
       <div className="p-4 border-t border-zinc-800">
