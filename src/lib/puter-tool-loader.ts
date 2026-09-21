@@ -229,6 +229,7 @@ function nativeGitSearchTools(): CodingFleetTool[] {
     name,
     description,
     inputSchema: { type: "object", properties: { q: { type: "string", minLength: 1, maxLength: 256 }, per_page: { type: "integer", minimum: 1, maximum: 20 } }, required: ["q"], additionalProperties: false },
+    githubSearchSource: true,
     githubSource: true,
   });
   return [
