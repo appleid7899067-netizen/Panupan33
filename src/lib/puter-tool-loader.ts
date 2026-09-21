@@ -3,6 +3,7 @@ import { requestPluginPermission } from "@/lib/plugin-permission";
 import { runInSandbox } from "@/lib/sandbox";
 import { executeAuthenticatedGitHubTool } from "@/lib/github-tool-bridge";
 import { executeGithubWithPat } from "@/lib/github-pat";
+import { createRequire } from "node:module";
 
 export type CodingFleetTool = {
   name?: string;
@@ -506,9 +507,16 @@ async function executeTool(tool: CodingFleetTool, args: Record<string, unknown>)
   }
 }
 
-async function chatModel(messages: Array<Record<string, unknown>>, tools: CodingFleetTool[], model: string): Promise<{ text: string; response: unknown; toolCalls: ToolCall[] }> {
-  const puter = await ensurePuter();
-  if (!puter.auth.isSignedIn()) await puter.auth.signIn();
+async function chatModel(messages: Array<Record<string, unknown>>, tools: CodingFleetTool[], model: string, authToken?: string): Promise<{ text: string; response: unknown; toolCalls: ToolCall[] }> {
+  let puter: any;
+  if (authToken || process.env.PUTER_AUTH_TOKEN) {
+    const require = createRequire(import.meta.url);
+    const { init } = require("@heyputer/puter.js/src/init.cjs") as { init: (token: string) => any };
+    puter = init(authToken || process.env.PUTER_AUTH_TOKEN);
+  } else {
+    puter = await ensurePuter();
+    if (!puter.auth.isSignedIn()) await puter.auth.signIn();
+  }
   const response = await puter.ai.chat(messages, { model, tools: toPuterTools(tools), normalize: true, stream: false });
   return { text: extractText(response), response, toolCalls: extractToolCalls(response) };
 }
@@ -526,6 +534,7 @@ export async function callWithFallback(
   tools: CodingFleetTool[],
   models: readonly string[] = DEFAULT_MODELS,
   onActivity?: (activity: string[]) => void,
+  authToken?: string,
 ): Promise<{ ok: true; text: string; model: string; toolCalls: ToolCall[]; toolResults: ToolExecutionResult[]; verified: boolean } | { ok: false; error: string }> {
   let lastError = "No model succeeded.";
   for (const model of models) {
@@ -538,7 +547,7 @@ export async function callWithFallback(
         { role: "user", content: prompt },
       ];
       for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
-        const result = await chatModel(messages, availableTools, model);
+        const result = await chatModel(messages, availableTools, model, authToken);
         if (!result.toolCalls.length) {
           const mutationNames = new Set(["github_write_file", "github_create_branch", "github_create_pull_request", "github_create_issue", "github_dispatch_workflow"]);
           const mutationOccurred = toolResults.some((item) => mutationNames.has(item.name));
