@@ -185,9 +185,9 @@ async function runModel(prompt: string, model: string, authToken?: string): Prom
   return { ok: false, error: `GitHub agent exceeded ${MAX_ROUNDS} tool rounds.`, verified: false };
 }
 
-export async function runGitHubAgent(prompt: string, authToken?: string): Promise<AgentResult> {
+export async function runGitHubAgent(prompt: string, authToken?: string, selectedModel?: string): Promise<AgentResult> {
   let lastError = "No model succeeded.";
-  for (const model of MODELS) {
+  for (const model of selectedModel ? [selectedModel] : MODELS) {
     try { return await runModel(prompt, model, authToken); } catch (error) { lastError = error instanceof Error ? error.message : String(error); }
   }
   return { ok: false, error: lastError, verified: false };
