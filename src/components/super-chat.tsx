@@ -15,7 +15,7 @@ export function SuperChat() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [typingText, setTypingText] = useState("");
-  const [selectedModel, setSelectedModel] = useState(() => localStorage.getItem("boss-model") || "gpt-5.6-luna");
+  const [selectedModel, setSelectedModel] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("boss-model") : null) || "gpt-5.6-luna");
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const models = [
     { id: "gpt-5.6-luna", name: "GPT-5.6 Luna", note: "เร็ว / สมดุล" },
