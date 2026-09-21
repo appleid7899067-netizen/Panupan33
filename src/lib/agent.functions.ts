@@ -89,6 +89,7 @@ export const runAgentStream = createServerFn({ method: "POST" })
       data.maxIterations ?? 6,
       data.authToken,
       (step) => push({ type: "step", step }),
+      data.model,
     ).then((result) => {
       finalResult = { ...result, steps: [registryStep, ...result.steps] };
       finished = true;
