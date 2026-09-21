@@ -1,6 +1,6 @@
 import { loadCodingFleetTools, type CodingFleetTool } from "@/lib/puter-tool-loader";
 
-export type ToolSource = "codingfleet" | "plugin" | "github" | "mcp" | "other";
+export type ToolSource = "codingfleet" | "plugin" | "github" | "github-search" | "mcp" | "sandbox" | "web" | "other";
 
 export type ToolRegistryEntry = CodingFleetTool & {
   source: ToolSource;
@@ -8,7 +8,11 @@ export type ToolRegistryEntry = CodingFleetTool & {
 };
 
 function sourceOf(tool: CodingFleetTool): ToolSource {
+  if (tool.githubSearchSource) return "github-search";
+  if (tool.sandboxSource) return "sandbox";
+  if (tool.webSource) return "web";
   if (tool.githubSource) return "github";
+  if (tool.codingFleetSource) return "codingfleet";
   if (tool.pluginSource) return "plugin";
   if (tool.mcpServer) return "mcp";
   if (String(tool.name ?? "").startsWith("mcp_")) return "mcp";
@@ -64,6 +68,14 @@ export async function selectToolsForTask(prompt: string, maxTools = 20): Promise
   ];
 
   const selected: ToolRegistryEntry[] = [];
+  // Keep the registry genuinely multi-source when those sources are available.
+  // This prevents the first native tools from crowding out CodingFleet, plugins, or MCP.
+  const preferredSources: ToolSource[] = ["sandbox", "web", "github-search", "github", "codingfleet", "plugin", "mcp"];
+  for (const source of preferredSources) {
+    if (selected.length >= limit) break;
+    const match = ranked.find(({ tool }) => tool.source === source && !selected.some((item) => item.name === tool.name));
+    if (match) selected.push(match.tool);
+  }
   for (const name of reservedNames) {
     const match = ranked.find(({ tool }) => tool.name === name);
     if (match && selected.length < limit) selected.push(match.tool);

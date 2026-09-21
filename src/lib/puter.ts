@@ -90,7 +90,7 @@ export function extractText(value: unknown): string {
 }
 
 export type ChatTurn = { role: "system" | "user" | "assistant"; content: string };
-export type ChatResult = { ok: true; text: string; model: string; activity?: string[] } | { ok: false; error: string; activity?: string[] };
+export type ChatResult = { ok: true; text: string; model: string; activity?: string[]; verified?: boolean } | { ok: false; error: string; activity?: string[]; verified?: false };
 
 function withCredentialPolicy(messages: ChatTurn[]): ChatTurn[] {
   const index = messages.findIndex((m) => m.role === "system");
@@ -173,7 +173,7 @@ export async function chatWithPuter(opts: { messages: ChatTurn[]; model: string;
     const text = extractText(resp); if (text) opts.onDelta?.(text); return text;
   };
   try {
-    const text = await run(true); if (!text.trim()) return { ok: false, error: "Empty response from the model." }; return { ok: true, text, model: opts.model };
+    const text = await run(true); if (!text.trim()) return { ok: false, error: "Empty response from the model." }; return { ok: true, text, model: opts.model, verified: false };
   } catch (err) {
     try { const text = await run(false); if (!text.trim()) return { ok: false, error: friendlyError(err) }; return { ok: true, text, model: opts.model }; }
     catch (err2) { return { ok: false, error: friendlyError(err2) }; }

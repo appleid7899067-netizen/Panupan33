@@ -163,7 +163,7 @@ async function runOpenRouterTurn(data: FleetRequest, userMessage: string, onDelt
     "ส่งผลลัพธ์",
   ];
   onActivity?.(activity);
-  return { ok: true, text: result.text, model: `openrouter:${selected.id}`, activity };
+  return { ok: true, text: result.text, model: `openrouter:${selected.id}`, activity, verified: false };
 }
 
 export async function runFleet(
@@ -209,7 +209,7 @@ export async function runFleet(
           activity,
         };
       }
-      return { ok: true, text: loop.text, model: selectedModelId || DEFAULT_PUTER_MODEL, activity };
+      return { ok: true, text: loop.text, model: selectedModelId || DEFAULT_PUTER_MODEL, activity, verified: loop.verified === true };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       onActivity?.(["Agent loop error", message.slice(0, 180)]);
@@ -239,7 +239,7 @@ export async function runFleet(
           "ส่งผลลัพธ์",
         ];
         onActivity?.(activity);
-        return { ok: true, text: fleet.text, model: fleet.model, activity };
+        return { ok: true, text: fleet.text, model: fleet.model, activity, verified: fleet.verified };
       }
     }
   } catch {

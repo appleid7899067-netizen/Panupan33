@@ -144,6 +144,7 @@ function ChatPage() {
       }
       if (res.activity) patchActivity(thread.id, assistantId, res.activity);
       patchMessage(thread.id, assistantId, res.text);
+      useFleet.getState().patchVerified(thread.id, assistantId, res.verified === true);
       learnMemory(
         `Task: ${text.replace(/Attached files:[\s\S]*/i, "").trim().slice(0, 700)} | Result: ${res.text.replace(/\s+/g, " ").slice(0, 600)} | Trace: ${(res.activity ?? []).slice(-6).join(" → ")}`,
       );
@@ -225,6 +226,11 @@ function ChatPage() {
                   ) : null}
                   {m.role === "assistant" && m.activity && m.activity.length > 0 ? (
                     <div className="mb-2 text-xs text-subtle">{m.activity.slice(-1)[0]}</div>
+                  ) : null}
+                  {m.role === "assistant" && m.verified !== undefined ? (
+                    <div className={`mb-2 text-[11px] ${m.verified ? "text-ok" : "text-subtle"}`}>
+                      {m.verified ? "✓ ตรวจสอบด้วยผลจริงแล้ว" : "ยังไม่มีหลักฐาน verification"}
+                    </div>
                   ) : null}
                   <div className={m.role === "user" ? "rounded-lg bg-elevated px-3 py-2 text-sm shadow-[var(--shadow-border)]" : ""}>
                     {m.role === "assistant" ? (
