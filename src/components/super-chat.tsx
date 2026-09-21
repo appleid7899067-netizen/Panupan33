@@ -8,7 +8,7 @@ import { Send, Paperclip, Mic } from "lucide-react";
 import { useFleet } from "@/lib/store";
 import { backgroundLab } from "@/lib/background-sandbox";
 import { freeAI } from "@/lib/autonomous";
-import { runAgent, runAgentSandbox } from "@/lib/agent.functions";
+import { runAgent, runAgentSandbox, runAgentStream } from "@/lib/agent.functions";
 import { loadPuter } from "@/lib/puter";
 
 export function SuperChat() {
@@ -57,6 +57,17 @@ export function SuperChat() {
       activity: ["วิเคราะห์"],
     });
 
+    const history = [
+      ...thread.messages.slice(-24).map((m) => `${m.role.toUpperCase()}: ${m.content}`),
+      `USER: ${userText}`,
+    ].join("\n\n");
+    const memory = useFleet.getState().memory.slice(0, 24).map((m) => m.text).join("\n- ");
+    const context = [
+      "Conversation context: remember and use the recent conversation. Do not make the user repeat information already present.",
+      history ? `Recent conversation:\n${history}` : "",
+      memory ? `Saved memory:\n- ${memory}` : "",
+    ].filter(Boolean).join("\n\n");
+
     // ประมวลผลแบบ ONE CHAT 100 อย่าง
     // ถ้าข้อความมี code block หรือสั่ง "รันโค้ด" ให้ Boss เรียก Sandbox โดยตรง
     const sandboxMatch = userText.match(/```([\\w-]+)?\n([\s\S]*?)```/);
@@ -87,24 +98,32 @@ export function SuperChat() {
       patchActivity(thread.id, assistantId, ["วิเคราะห์", "เลือกเครื่องมือ", "ลงมือทำ"]);
       const puter = await loadPuter();
       const authToken = (puter as unknown as { authToken?: string }).authToken;
-      const result = await runAgent({
+      let result: Awaited<ReturnType<typeof runAgent>> | null = null;
+      const liveSteps: string[] = [];
+      for await (const event of await runAgentStream({
         data: {
           prompt: userText,
           maxIterations: 6,
+          context,
           ...(authToken ? { authToken } : {}),
         },
-      });
-
+      })) {
+        if (event.type === "step") {
+          liveSteps.push(`${event.step.phase}: ${event.step.detail}`);
+          patchActivity(thread.id, assistantId, liveSteps.slice(-8));
+        } else if (event.type === "done") {
+          result = event.result;
+        }
+      }
+      if (!result) throw new Error("Agent stream ended without a final result.");
       const response = result.ok
         ? (result.text || "Boss ทำงานเสร็จแล้ว แต่ Agent ไม่ได้ส่งข้อความกลับมา")
         : `ยังทำงานนี้ไม่สำเร็จ: ${result.text || "Agent ไม่มีผลลัพธ์"}`;
-
-      patchActivity(thread.id, assistantId, result.steps?.map((step) => `${step.phase}: ${step.detail}`).slice(-6) ?? []);
       patchVerified(thread.id, assistantId, result.verified === true);
       await simulateHumanTyping(response, (text) => {
         patchMessage(thread.id, assistantId, text);
       });
-      patchActivity(thread.id, assistantId, []);
+      patchActivity(thread.id, assistantId, liveSteps.slice(-8));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const response = `Boss เรียก Agent ไม่สำเร็จ: ${message.slice(0, 700)}`;
