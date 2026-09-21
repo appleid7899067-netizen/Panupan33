@@ -75,16 +75,16 @@ export function SuperChat() {
     if (wantsSandbox) {
       const language = sandboxMatch?.[1] || "javascript";
       const code = sandboxMatch?.[2] || userText
-        .replace(/^.*?(?:รันโค้ด|รัน code|run code|ทดสอบโค้ด|test code|sandbox)[:\\s]*/i, "")
+        .replace(/^.*?(?:รันโค้ด|รัน code|run code|ทดสอบโค้ด|test code|sandbox)[:\s]*/i, "")
         .trim();
       const sandbox = await runAgentSandbox({ language, code });
       const status = sandbox.ok ? "ผ่าน" : "ไม่ผ่าน";
       const output = [
         `🧪 Sandbox: ${status}`,
-        sandbox.stdout ? `stdout:\\n${sandbox.stdout}` : "",
-        sandbox.stderr ? `stderr:\\n${sandbox.stderr}` : "",
+        sandbox.stdout ? `stdout:\n${sandbox.stdout}` : "",
+        sandbox.stderr ? `stderr:\n${sandbox.stderr}` : "",
         `runtime: ${sandbox.runtime ?? "unknown"} | ${sandbox.durationMs ?? 0}ms`,
-      ].filter(Boolean).join("\\n\\n");
+      ].filter(Boolean).join("\n\n");
       patchActivity(thread.id, assistantId, []);
       await simulateHumanTyping(output, (text) => {
         patchMessage(thread.id, assistantId, text);
@@ -137,6 +137,14 @@ export function SuperChat() {
 
   return (
     <div className="flex flex-col h-[calc(100dvh-8rem)] w-full max-w-3xl mx-auto">
+      <style>{`
+        @keyframes boss-swoosh {
+          0% { transform: translateX(-2px); opacity: .35; }
+          45% { transform: translateX(30px); opacity: 1; }
+          100% { transform: translateX(46px); opacity: .15; }
+        }
+      `}</style>
+
       {/* Minimal GPT-style header */}
       <div className="flex items-center px-4 py-3 border-b border-zinc-800">
         <div className="size-8 rounded-full bg-white text-black grid place-items-center font-medium text-sm">B</div>
@@ -185,12 +193,15 @@ export function SuperChat() {
               <span className="text-[11px]">B</span>
             </div>
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-zinc-400">
-              <span className="inline-flex gap-1">
-                <span className="animate-bounce">•</span>
-                <span className="animate-bounce [animation-delay:0.1s]">•</span>
-                <span className="animate-bounce [animation-delay:0.2s]">•</span>
-              </span>
-              <span className="ml-2 text-[11px]">Boss กำลังพิมพ์...</span>
+              <div className="flex items-center gap-2">
+                <div className="relative h-2 w-12 overflow-hidden rounded-full bg-zinc-800">
+                  <span
+                    className="absolute left-0 top-0 h-2 w-3 rounded-full bg-zinc-300"
+                    style={{ animation: "boss-swoosh 0.72s ease-in-out infinite" }}
+                  />
+                </div>
+                <span className="text-[11px]">วุ้ปๆ Boss กำลังทำงาน...</span>
+              </div>
             </div>
           </div>
         )}
