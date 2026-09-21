@@ -20,6 +20,10 @@ export type CodingFleetTool = {
   pluginSource?: string;
   pluginName?: string;
   githubSource?: boolean;
+  githubSearchSource?: boolean;
+  sandboxSource?: boolean;
+  webSource?: boolean;
+  codingFleetSource?: boolean;
   [key: string]: unknown;
 };
 
@@ -116,6 +120,8 @@ function nativeSandboxTools(): CodingFleetTool[] {
     {
       name: "sandbox_run",
       description: "Run JavaScript/HTML/CSS in the in-browser sandbox and return stdout, stderr, logs, and runtime errors. Use this to reproduce errors and verify fixes.",
+      sandboxSource: true,
+      webSource: true,
       inputSchema: {
         type: "object",
         properties: {
@@ -376,7 +382,7 @@ export async function loadCodingFleetTools(forceRefresh = false): Promise<Coding
   const pluginTools = sources[1].status === "fulfilled" ? sources[1].value : [];
   const mcpTools = sources[2].status === "fulfilled" ? sources[2].value : [];
   const nativeTools = [...nativeSandboxTools(), ...nativeWebTools(), ...nativeAuthenticatedGitHubTools(), ...nativeGitSearchTools(), ...nativeGitHubTools()];
-  const remoteTools = [...codingFleet, ...pluginTools, ...mcpTools];
+  const remoteTools = [\n    ...codingFleet.map((tool) => ({ ...tool, codingFleetSource: true })),\n    ...pluginTools,\n    ...mcpTools,\n  ];
   const tools = [...nativeTools, ...remoteTools].slice(0, TOOL_LIMIT);
   if (tools.length > 0) {
     cachedTools = tools;
