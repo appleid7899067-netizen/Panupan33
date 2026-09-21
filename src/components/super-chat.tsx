@@ -67,6 +67,7 @@ export function SuperChat() {
     const assistantId = appendMessage(thread.id, {
       role: "assistant",
       content: "กำลังทำงาน…",
+      model: selectedModel,
       activity: ["วิเคราะห์"],
     });
 
@@ -90,7 +91,7 @@ export function SuperChat() {
       const code = sandboxMatch?.[2] || userText
         .replace(/^.*?(?:รันโค้ด|รัน code|run code|ทดสอบโค้ด|test code|sandbox)[:\s]*/i, "")
         .trim();
-      const sandbox = await runAgentSandbox({ language, code });
+      const sandbox = await runAgentSandbox({ data: { language, code } });
       const status = sandbox.ok ? "ผ่าน" : "ไม่ผ่าน";
       const output = [
         `🧪 Sandbox: ${status}`,
@@ -119,6 +120,7 @@ export function SuperChat() {
           maxIterations: 6,
           context,
           ...(authToken ? { authToken } : {}),
+          model: selectedModel,
         },
       })) {
         if (event.type === "step") {
@@ -203,6 +205,9 @@ export function SuperChat() {
                 : "bg-zinc-900 border border-zinc-800 text-zinc-100"
             }`}>
               <div className="whitespace-pre-wrap">{m.content || (isTyping && m.id === thread.messages[thread.messages.length-1]?.id ? typingText : "")}</div>
+              {m.model && m.role === "assistant" && (
+                <div className="mb-1 text-[10px] text-zinc-500">{m.model}</div>
+              )}
               {m.activity && m.activity.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {m.activity.map((a, i) => (
