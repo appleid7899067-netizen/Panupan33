@@ -9,6 +9,7 @@ import { superChat } from "@/lib/super-chat";
 import { useFleet } from "@/lib/store";
 import { backgroundLab } from "@/lib/background-sandbox";
 import { freeAI } from "@/lib/autonomous";
+import { runAgentSandbox } from "@/lib/agent.functions";
 
 export function SuperChat() {
   const [input, setInput] = useState("");
@@ -73,6 +74,28 @@ export function SuperChat() {
     });
 
     // ประมวลผลแบบ ONE CHAT 100 อย่าง
+    // ถ้าข้อความมี code block หรือสั่ง "รันโค้ด" ให้ Boss เรียก Sandbox โดยตรง
+    const sandboxMatch = userText.match(/```([\\w-]+)?\\n([\\s\\S]*?)```/);
+    const wantsSandbox = Boolean(sandboxMatch) || /(?:รันโค้ด|รัน code|run code|ทดสอบโค้ด|test code|sandbox)/i.test(userText);
+    if (wantsSandbox) {
+      const language = sandboxMatch?.[1] || "javascript";
+      const code = sandboxMatch?.[2] || userText
+        .replace(/^.*?(?:รันโค้ด|รัน code|run code|ทดสอบโค้ด|test code|sandbox)[:\\s]*/i, "")
+        .trim();
+      const sandbox = await runAgentSandbox({ language, code });
+      const status = sandbox.ok ? "ผ่าน" : "ไม่ผ่าน";
+      const output = [
+        `🧪 Sandbox: ${status}`,
+        sandbox.stdout ? `stdout:\\n${sandbox.stdout}` : "",
+        sandbox.stderr ? `stderr:\\n${sandbox.stderr}` : "",
+        `runtime: ${sandbox.runtime ?? "unknown"} | ${sandbox.durationMs ?? 0}ms`,
+      ].filter(Boolean).join("\\n\\n");
+      await simulateHumanTyping(output, (text) => {
+        patchMessage(thread.id, assistantId, text);
+      });
+      return;
+    }
+
     const result = await superChat?.processMessage(userText, thread.messages) || {
       response: `ได้เลย เดี๋ยวจัดให้ - ${userText}`,
       mode: "thai-slang" as const,
