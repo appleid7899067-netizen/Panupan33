@@ -131,9 +131,16 @@ async function execute(name: string, args: Record<string, unknown>): Promise<unk
   }
 }
 
-async function runModel(prompt: string, model: string): Promise<AgentResult> {
-  const puter = await ensurePuter();
-  if (!puter.auth.isSignedIn()) await puter.auth.signIn();
+async function runModel(prompt: string, model: string, authToken?: string): Promise<AgentResult> {
+  let puter: any;
+  if (authToken || process.env.PUTER_AUTH_TOKEN) {
+    const require = (await import("node:module")).createRequire(import.meta.url);
+    const { init } = require("@heyputer/puter.js/src/init.cjs") as { init: (token: string) => any };
+    puter = init(authToken || process.env.PUTER_AUTH_TOKEN);
+  } else {
+    puter = await ensurePuter();
+    if (!puter.auth.isSignedIn()) await puter.auth.signIn();
+  }
 
   const messages: Array<Record<string, unknown>> = [
     { role: "system", content: "You are CodingFleet GitHub Agent 77. Work as an autonomous software engineer: inspect first, make the smallest safe change, run or dispatch verification, inspect failed workflow logs, fix the root cause, and verify again. For updates to existing files, read the file first and use its current sha. Never claim success without evidence from the actual tool or verification result." },
@@ -178,10 +185,10 @@ async function runModel(prompt: string, model: string): Promise<AgentResult> {
   return { ok: false, error: `GitHub agent exceeded ${MAX_ROUNDS} tool rounds.`, verified: false };
 }
 
-export async function runGitHubAgent(prompt: string): Promise<AgentResult> {
+export async function runGitHubAgent(prompt: string, authToken?: string): Promise<AgentResult> {
   let lastError = "No model succeeded.";
   for (const model of MODELS) {
-    try { return await runModel(prompt, model); } catch (error) { lastError = error instanceof Error ? error.message : String(error); }
+    try { return await runModel(prompt, model, authToken); } catch (error) { lastError = error instanceof Error ? error.message : String(error); }
   }
   return { ok: false, error: lastError, verified: false };
 }
