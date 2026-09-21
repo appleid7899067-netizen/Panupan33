@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState, useRef } from "react";
-import { Send, Paperclip, Mic, ChevronDown, Sparkles } from "lucide-react";
+import { Send, Paperclip, Mic, ChevronDown, Sparkles, Activity, CheckCircle2, Loader2 } from "lucide-react";
 import { useFleet } from "@/lib/store";
 import { backgroundLab } from "@/lib/background-sandbox";
 import { freeAI } from "@/lib/autonomous";
@@ -51,7 +51,7 @@ export function SuperChat() {
       })
       .finally(() => { if (!cancelled) setModelsLoading(false); });
     return () => { cancelled = true; };
-  }, [selectedModel, setStoreModel]);
+  }, [setStoreModel]);
   const threads = useFleet((s) => s.threads);
   const activeThreadId = useFleet((s) => s.activeThreadId);
   const appendMessage = useFleet((s) => s.appendMessage);
@@ -59,24 +59,11 @@ export function SuperChat() {
   const patchActivity = useFleet((s) => s.patchActivity);
   const patchVerified = useFleet((s) => s.patchVerified);
   const thread = threads.find(t => t.id === activeThreadId) ?? threads[0];
-  const scrollerRef = useRef<HTMLDivElement>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);\n  const [liveStream, setLiveStream] = useState<{ id: string; steps: string[]; active: boolean }>({ id: "", steps: [], active: false });
 
   useEffect(() => {
     scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: "smooth" });
   }, [thread?.messages]);
-
-  const simulateHumanTyping = async (fullText: string, onUpdate: (text: string) => void) => {
-    setIsTyping(true);
-    onUpdate("");
-    // Simple, fast reveal. No fake typos or human simulation.
-    for (let i = 0; i < fullText.length; i += 3) {
-      onUpdate(fullText.slice(0, i + 3));
-      await new Promise((r) => setTimeout(r, 8));
-    }
-    onUpdate(fullText);
-    setIsTyping(false);
-    setTypingText("");
-  };
 
   const handleSend = async () => {
     if (!input.trim() || !thread) return;
