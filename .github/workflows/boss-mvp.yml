@@ -2,7 +2,7 @@ name: Boss MVP Verification
 
 on:
   push:
-    branches: ["main", "boss-mvp-full-20260921"]
+    branches: ["main", "boss-clean-rebuild-20260922"]
   pull_request:
     branches: ["main"]
 
@@ -16,7 +16,7 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,8 +30,28 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Unit tests
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
       - name: Typecheck
         run: npm run typecheck
 
       - name: Build
         run: npm run build
+
+      - name: Start production preview
+        run: |
+          nohup npm run preview > /tmp/boss-preview.log 2>&1 &
+          echo $! > /tmp/boss-preview.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4173/ > /tmp/boss-home.html; then
+              echo "Preview ready"
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:4173/ > /tmp/boss-home.html
+          test -s /tmp/boss-home.html
