@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ChatRouteImport } from './routes/chat'
+import { Route as LabRouteImport } from './routes/lab'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as PluginsRouteImport } from './routes/plugins'
 import { Route as SandboxRouteImport } from './routes/sandbox'
@@ -23,6 +24,11 @@ const IndexRoute = IndexRouteImport.update({
 const ChatRoute = ChatRouteImport.update({
   id: '/chat',
   path: '/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LabRoute = LabRouteImport.update({
+  id: '/lab',
+  path: '/lab',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ModelsRoute = ModelsRouteImport.update({
@@ -44,6 +50,7 @@ const SandboxRoute = SandboxRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/lab': typeof LabRoute
   '/models': typeof ModelsRoute
   '/plugins': typeof PluginsRoute
   '/sandbox': typeof SandboxRoute
@@ -51,6 +58,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/lab': typeof LabRoute
   '/models': typeof ModelsRoute
   '/plugins': typeof PluginsRoute
   '/sandbox': typeof SandboxRoute
@@ -59,21 +67,23 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/lab': typeof LabRoute
   '/models': typeof ModelsRoute
   '/plugins': typeof PluginsRoute
   '/sandbox': typeof SandboxRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/chat' | '/models' | '/plugins' | '/sandbox'
+  fullPaths: '/' | '/chat' | '/lab' | '/models' | '/plugins' | '/sandbox'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chat' | '/models' | '/plugins' | '/sandbox'
-  id: '__root__' | '/' | '/chat' | '/models' | '/plugins' | '/sandbox'
+  to: '/' | '/chat' | '/lab' | '/models' | '/plugins' | '/sandbox'
+  id: '__root__' | '/' | '/chat' | '/lab' | '/models' | '/plugins' | '/sandbox'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatRoute: typeof ChatRoute
+  LabRoute: typeof LabRoute
   ModelsRoute: typeof ModelsRoute
   PluginsRoute: typeof PluginsRoute
   SandboxRoute: typeof SandboxRoute
@@ -93,6 +103,13 @@ declare module '@tanstack/react-router' {
       path: '/chat'
       fullPath: '/chat'
       preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lab': {
+      id: '/lab'
+      path: '/lab'
+      fullPath: '/lab'
+      preLoaderRoute: typeof LabRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/models': {
@@ -122,6 +139,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRoute: ChatRoute,
+  LabRoute: LabRoute,
   ModelsRoute: ModelsRoute,
   PluginsRoute: PluginsRoute,
   SandboxRoute: SandboxRoute,
