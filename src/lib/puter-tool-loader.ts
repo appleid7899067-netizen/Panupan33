@@ -35,6 +35,7 @@ const PLUGINS_URL = "https://bosses690.vercel.app/plugins";
 const GITHUB_API = "https://api.github.com";
 const PUBLIC_MCP_SERVERS = ["https://api.keenable.ai/mcp"] as const;
 const TOOL_LIMIT = 20;
+const REGISTRY_CACHE_LIMIT = 80;
 const MAX_TOOL_ROUNDS = 12;
 const DEFAULT_MODELS = ["gpt-5-nano", "gpt-5.6-luna", "claude-sonnet-4-6"] as const;
 const CODINGFLEET_BASE = "https://www.codingfleet.com/api";
@@ -387,7 +388,7 @@ export async function loadCodingFleetTools(forceRefresh = false): Promise<Coding
     ...pluginTools,
     ...mcpTools,
   ];
-  const tools = [...nativeTools, ...remoteTools].slice(0, TOOL_LIMIT);
+  const tools = [...nativeTools, ...remoteTools].slice(0, REGISTRY_CACHE_LIMIT);
   if (tools.length > 0) {
     cachedTools = tools;
     cachedAt = Date.now();
