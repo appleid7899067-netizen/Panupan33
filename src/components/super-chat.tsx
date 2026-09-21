@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState, useRef } from "react";
-import { Send, Paperclip, Mic } from "lucide-react";
+import { Send, Paperclip, Mic, ChevronDown, Sparkles } from "lucide-react";
 import { useFleet } from "@/lib/store";
 import { backgroundLab } from "@/lib/background-sandbox";
 import { freeAI } from "@/lib/autonomous";
@@ -15,6 +15,19 @@ export function SuperChat() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [typingText, setTypingText] = useState("");
+  const [selectedModel, setSelectedModel] = useState(() => localStorage.getItem("boss-model") || "gpt-5.6-luna");
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const models = [
+    { id: "gpt-5.6-luna", name: "GPT-5.6 Luna", note: "เร็ว / สมดุล" },
+    { id: "gpt-5-nano", name: "GPT-5 Nano", note: "เร็วมาก" },
+    { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", note: "วิเคราะห์ / โค้ด" },
+    { id: "gemini-3.1-flash-lite", name: "Gemini 3.1 Flash Lite", note: "เร็ว / ประหยัด" },
+  ];
+  const selectedModelInfo = models.find((m) => m.id === selectedModel) ?? models[0];
+
+  useEffect(() => {
+    localStorage.setItem("boss-model", selectedModel);
+  }, [selectedModel]);
   const threads = useFleet((s) => s.threads);
   const activeThreadId = useFleet((s) => s.activeThreadId);
   const appendMessage = useFleet((s) => s.appendMessage);
@@ -145,13 +158,34 @@ export function SuperChat() {
         }
       `}</style>
 
-      {/* Minimal GPT-style header */}
-      <div className="flex items-center px-4 py-3 border-b border-zinc-800">
-        <div className="size-8 rounded-full bg-white text-black grid place-items-center font-medium text-sm">B</div>
-        <div className="ml-2">
-          <div className="text-sm font-medium text-zinc-100">Boss</div>
-          <div className="text-[11px] text-zinc-500">พร้อมช่วยทำงาน</div>
+      {/* Boss + real model selector */}
+      <div className="relative flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+        <div className="flex items-center min-w-0">
+          <div className="size-8 rounded-full bg-white text-black grid place-items-center font-medium text-sm shrink-0">B</div>
+          <div className="ml-2 min-w-0">
+            <div className="text-sm font-medium text-zinc-100">Boss</div>
+            <div className="text-[11px] text-zinc-500">พร้อมช่วยทำงาน</div>
+          </div>
         </div>
+        <button type="button" onClick={() => setModelMenuOpen((open) => !open)} className="flex items-center gap-2 max-w-[58%] rounded-xl border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-left hover:bg-zinc-800" aria-label="เลือกโมเดล">
+          <Sparkles className="size-3.5 text-zinc-300 shrink-0" />
+          <span className="truncate text-xs text-zinc-200">{selectedModelInfo.name}</span>
+          <ChevronDown className="size-3.5 text-zinc-500 shrink-0" />
+        </button>
+        {modelMenuOpen && (
+          <div className="absolute right-4 top-[58px] z-50 w-64 rounded-2xl border border-zinc-700 bg-zinc-950 p-1.5 shadow-2xl">
+            <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-zinc-500">เลือกโมเดลสำหรับ Boss</div>
+            {models.map((model) => (
+              <button key={model.id} type="button" onClick={() => { setSelectedModel(model.id); setModelMenuOpen(false); }} className={"flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left hover:bg-zinc-800 " + (model.id === selectedModel ? "bg-zinc-800" : "")}>
+                <span className="min-w-0">
+                  <span className="block truncate text-xs text-zinc-100">{model.name}</span>
+                  <span className="block text-[10px] text-zinc-500">{model.note}</span>
+                </span>
+                {model.id === selectedModel && <span className="ml-2 text-[10px] text-emerald-400">✓</span>}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Messages แบบ GPT */}
