@@ -110,10 +110,9 @@ export function SuperChat() {
         `runtime: ${sandbox.runtime ?? "unknown"} | ${sandbox.durationMs ?? 0}ms`,
       ].filter(Boolean).join("\n\n");
       patchActivity(thread.id, assistantId, []);
-      await simulateHumanTyping(output, (text) => {
-        patchMessage(thread.id, assistantId, text);
-      });
+      patchMessage(thread.id, assistantId, output);
       patchVerified(thread.id, assistantId, sandbox.ok);
+      setLiveStream((s) => s.id === assistantId ? { ...s, active: false } : s);
       return;
     }
 
