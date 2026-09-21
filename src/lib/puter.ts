@@ -69,6 +69,25 @@ export function loadPuter(): Promise<PuterAPI> {
   });
 }
 export async function ensurePuter(): Promise<PuterAPI> { return getPuter() ?? loadPuter(); }
+export type PuterModel = {
+  id: string;
+  provider?: string;
+  name?: string;
+  aliases?: string[];
+  context?: number;
+  max_tokens?: number;
+  cost?: { currency?: string; tokens?: number; input?: number; output?: number };
+};
+
+export async function listPuterModels(provider?: string): Promise<PuterModel[]> {
+  const puter = await ensurePuter();
+  if (typeof puter.ai.listModels !== "function") return [];
+  const models = await puter.ai.listModels(provider);
+  return Array.isArray(models)
+    ? models.filter((model): model is PuterModel => Boolean(model && typeof model === "object" && typeof (model as PuterModel).id === "string"))
+    : [];
+}
+
 
 export function extractText(value: unknown): string {
   if (value == null) return "";
