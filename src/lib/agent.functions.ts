@@ -19,6 +19,10 @@ function prefersAuthenticatedGitHub(prompt: string): boolean {
   return /github|repository|repo|pull request|branch|commit|workflow|actions|502|500|503|bug|error|debug|deploy|ดีพลอย|แก้โค้ด|แก้ไฟล์|ล่ม/.test(prompt.toLowerCase());
 }
 
+function hasServerCodexCredential(): boolean {
+  return Boolean(process.env.CODEX_ACCESS_TOKEN || process.env.CODEX_API_KEY || process.env.OPENAI_API_KEY);
+}
+
 export const runAgent = createServerFn({ method: "POST" })
   .validator(loopSchema)
   .handler(async ({ data }) => {
@@ -44,7 +48,7 @@ export const runAgent = createServerFn({ method: "POST" })
     }
 
     const prefersCodex = /แก้|เขียน|สร้าง|fix|bug|debug|repair|refactor|typescript|runtime|error|code|โค้ด|taskContext|deploy/i.test(data.prompt);
-    if (prefersCodex) {
+    if (prefersCodex && hasServerCodexCredential()) {
       const result = await runCodexAgent(taskPrompt, data.githubToken, data.authToken, (detail) => undefined);
       if (result.ok) {
         return {
@@ -57,6 +61,10 @@ export const runAgent = createServerFn({ method: "POST" })
       if (/Missing CODEX_API_KEY|OPENAI_API_KEY/.test(result.error || "")) {
         return { ok: false, text: result.text, steps: [registryStep, { phase: "verify" as const, detail: "Codex ยังไม่มี server API key จึงหยุดโดยไม่แอบอ้างว่าสำเร็จ" }], verified: false };
       }
+    }
+
+    if (prefersCodex && !hasServerCodexCredential()) {
+      yield { type: "step", step: { phase: "act", detail: "🧠 ไม่มี Codex API credential บน Render → ใช้ Puter + โมเดลที่เลือกเป็น Agent driver แทน" } };
     }
 
     const registryHasGitHub = selected.some((tool) => String(tool.name ?? "").toLowerCase().includes("github"));
@@ -131,7 +139,7 @@ export const runAgentStream = createServerFn({ method: "POST" })
     }
 
     const prefersCodex = /แก้|เขียน|สร้าง|fix|bug|debug|repair|refactor|typescript|runtime|error|code|โค้ด|taskContext|deploy/i.test(data.prompt);
-    if (prefersCodex) {
+    if (prefersCodex && hasServerCodexCredential()) {
       yield { type: "step", step: { phase: "act", detail: "🤖 Codex กำลังเข้าประจำการเป็น coding agent หลัก..." } };
       const result = await runCodexAgent(taskPrompt, data.githubToken, data.authToken, (detail) => {
         // Keep the server generator valid; detailed subprocess output is handled by the runner.
