@@ -181,7 +181,7 @@ class BackgroundSandbox {
     send("runtime-error", e.stack || e.message);
     send("done", { ok: false });
   }
-<\/script></body></html>`;
+</script></body></html>`;
   }
 
   private saveAsYesterdayTemplate(test: BackgroundTest) {
@@ -199,7 +199,7 @@ class BackgroundSandbox {
         promoted: false,
       });
       localStorage.setItem(key, JSON.stringify(existing.slice(0, 20)));
-    } catch {}
+    } catch { /* intentionally ignored */ }
   }
 
   // ดูผลทดสอบลับ (สำหรับ debug เท่านั้น ไม่ต้องโชว์ user ทั่วไป)
