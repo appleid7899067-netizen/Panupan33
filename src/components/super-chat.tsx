@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { unzipSync, strFromU8 } from "fflate";
-import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X, Copy, Check, Square, Github, KeyRound } from "lucide-react";
+import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X, Copy, Check, Square, Github, KeyRound, Eye } from "lucide-react";
 import { useFleet } from "@/lib/store";
 import { runAgent, runAgentSandbox, runAgentStream } from "@/lib/agent.functions";
 import { chatWithPuter, listPuterModels, loadPuter, type PuterModel } from "@/lib/puter";
@@ -169,6 +169,10 @@ export function SuperChat() {
   const [liveStream, setLiveStream] = useState<{ id: string; steps: string[]; active: boolean }>({ id: "", steps: [], active: false });
   const [attachmentContext, setAttachmentContext] = useState("");
   const selectedModel = storedModel || DEFAULT_PUTER_MODEL;
+  const openPreviewRoom = () => {
+    if (!thread) return;
+    window.location.assign(`/preview?chat=${encodeURIComponent(thread.id)}`);
+  };
 
   useEffect(() => {
     try {
@@ -551,7 +555,11 @@ export function SuperChat() {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <button type="button" onClick={() => setGithubTokenOpen((open) => !open)} className={"flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-left hover:bg-zinc-800 " + (githubToken ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : "border-zinc-700 bg-zinc-900/90 text-zinc-400")} aria-label="GitHub Token">
+          <button type="button" onClick={openPreviewRoom} className="flex items-center gap-1.5 rounded-xl border border-violet-400/20 bg-violet-500/10 px-2.5 py-2 text-left text-violet-200 hover:bg-violet-500/15" aria-label="เปิดห้อง Preview">
+            <Eye className="size-3.5 shrink-0" />
+            <span className="hidden sm:inline text-[11px]">Preview</span>
+          </button>
+          <button type="button" onClick={() => setGithubTokenOpen((open) => !open) className={"flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-left hover:bg-zinc-800 " + (githubToken ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : "border-zinc-700 bg-zinc-900/90 text-zinc-400")} aria-label="GitHub Token">
             <Github className="size-3.5 shrink-0" />
             <span className="hidden sm:inline text-[11px]">{githubToken ? "GitHub พร้อม" : "GitHub"}</span>
             <span className={"size-1.5 rounded-full " + (githubToken ? "bg-emerald-400" : "bg-zinc-600")} />
