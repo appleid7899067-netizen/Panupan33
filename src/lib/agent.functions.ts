@@ -133,8 +133,8 @@ export const runAgentStream = createServerFn({ method: "POST" })
     const prefersCodex = /แก้|เขียน|สร้าง|fix|bug|debug|repair|refactor|typescript|runtime|error|code|โค้ด|taskContext|deploy/i.test(data.prompt);
     if (prefersCodex) {
       yield { type: "step", step: { phase: "act", detail: "🤖 Codex กำลังเข้าประจำการเป็น coding agent หลัก..." } };
-      const result = await runCodexAgent(taskPrompt, data.githubToken, (detail) => {
-        // The runner emits concrete subprocess activity; the stream remains intentionally concise.
+      const result = await runCodexAgent(taskPrompt, data.githubToken, data.authToken, (detail) => {
+        // Keep the server generator valid; detailed subprocess output is handled by the runner.
       });
       if (result.ok) {
         yield { type: "step", step: { phase: "verify", detail: result.evidence || "✓ Codex verification ผ่าน" } };
