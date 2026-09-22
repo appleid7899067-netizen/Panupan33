@@ -2,8 +2,8 @@ import type { LucideIcon } from "lucide-react";
 import { Bot, Cpu, PlugZap, Server } from "lucide-react";
 
 export const APP_NAME = "Bossnu SlieLo";
-export const MOTTO_TH = "ไม่มีอะไรที่ทำไม่ได้ · ไม่มีสิ่งใดที่แก้ไม่ได้ · สั่งวันนี้ต้องเสร็จเมื่อวาน";
-export const MOTTO_EN = "Nothing is impossible. Nothing can't be fixed. Ordered today, finished yesterday.";
+export const MOTTO_TH = "ไม่มีอะไรที่ทำไม่ได้ · ไม่มีสิ่งใดที่แก้ไม่ได้ · สั่งวันนี้ต้องเสร็จเมื่อวาน · ใครจะรู้ว่า Boss จะทำได้ไกลแค่ไหน";
+export const MOTTO_EN = "Nothing is impossible. Nothing can't be fixed. Ordered today, finished yesterday. Who knows how far Boss can go.";
 export const MOTTO_YESTERDAY = "สั่งวันนี้ต้องเสร็จเมื่อวาน";
 export const FOOTER_LINE =
   "© 2026 Bossnu SlieLo · พัฒนาโดย ภาณุพัน และ สลี่.ออลา · Models run through Puter. Threads stay in this browser.";
