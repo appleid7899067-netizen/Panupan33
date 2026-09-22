@@ -789,7 +789,25 @@ export async function callWithFallback(
             if (item.name === "sandbox_run") return value?.ok === true && (value?.exitCode === undefined || value?.exitCode === 0);
             return false;
           });
-          return { ok: true, text: result.text, model, toolCalls: [], toolResults, verified };
+          // Final answer fan-out: three models answer from the exact same verified context.
+          // Tool execution stays single-threaded so mutations/deployments are never duplicated.
+          const answerModels = Array.from(new Set([...DEFAULT_MODELS]));
+          onActivity?.(["🧠 กำลังขอคำตอบจาก 3 โมเดลพร้อมกัน..."]);
+          const answerResults = await Promise.allSettled(
+            answerModels.map(async (answerModel) => {
+              const answer = await chatModel(messages, [], answerModel, authToken);
+              return { model: answerModel, text: answer.text };
+            }),
+          );
+          const answers = answerResults.flatMap((entry) => {
+            if (entry.status !== "fulfilled" || !entry.value.text.trim()) return [];
+            return [entry.value];
+          });
+          onActivity?.([`✓ ได้คำตอบจาก ${answers.length}/${answerModels.length} โมเดล`]);
+          const combinedText = answers.length
+            ? answers.map((answer) => `### ${answer.model}\n${answer.text.trim()}`).join("\n\n---\n\n")
+            : result.text;
+          return { ok: true, text: combinedText, model: answers.map((answer) => answer.model).join(" + ") || model, toolCalls: [], toolResults, verified };
         }
         const assistantMessage = assistantToolMessage(result.response);
         if (assistantMessage) messages.push(assistantMessage);
