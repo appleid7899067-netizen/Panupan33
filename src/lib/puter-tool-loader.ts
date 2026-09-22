@@ -137,82 +137,122 @@ function nativeSandboxTools(): CodingFleetTool[] {
   ];
 }
 
+function webUrlIsAllowed(rawUrl: string): URL {
+  if (!/^https:\/\//i.test(rawUrl)) throw new Error("เว็บภายนอกต้องใช้ HTTPS");
+  let target: URL;
+  try { target = new URL(rawUrl); } catch { throw new Error("URL ไม่ถูกต้อง"); }
+  if (target.username || target.password) throw new Error("ไม่อนุญาต URL ที่มี credentials");
+  const hostname = target.hostname.toLowerCase().replace(/\.$/, "");
+  const blocked = new Set(["localhost", "localhost.localdomain", "ip6-localhost", "metadata.google.internal"]);
+  const parts = hostname.split(".").map(Number);
+  const ipv4 = parts.length === 4 && parts.every((n) => Number.isInteger(n) && n >= 0 && n <= 255);
+  const private4 = ipv4 && (parts[0] === 10 || parts[0] === 127 || parts[0] === 0 || (parts[0] === 169 && parts[1] === 254) || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) || (parts[0] === 192 && parts[1] === 168));
+  const private6 = hostname === "::1" || hostname.startsWith("fc") || hostname.startsWith("fd") || /^fe[89ab]/.test(hostname);
+  if (blocked.has(hostname) || hostname.endsWith(".local") || private4 || private6) throw new Error("บล็อก private/local/metadata host เพื่อความปลอดภัย");
+  return target;
+}
+
 function nativeWebTools(): CodingFleetTool[] {
+  const url = { type: "string", minLength: 8, maxLength: 4096 };
+  const timeoutMs = { type: "integer", minimum: 1000, maximum: 30000 };
   return [
-    {
-      name: "web_check",
-      webSource: true,
-      description: "Check a deployed website URL over HTTPS. Return final URL, HTTP status, response time, and a short body preview.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          url: { type: "string", minLength: 8, maxLength: 2048 },
-          timeoutMs: { type: "integer", minimum: 1000, maximum: 30000 },
-        },
-        required: ["url"],
-        additionalProperties: false,
-      },
-    },
+    { name: "web_check", webSource: true, description: "ตรวจเว็บ HTTPS: status, final URL, response time และ body preview.", inputSchema: { type: "object", properties: { url, timeoutMs }, required: ["url"], additionalProperties: false } },
+    { name: "web_open", webSource: true, description: "เปิด URL ภายนอกจริงและอ่านหน้าเว็บแบบลึก: title, text, links, scripts, metadata และ final URL.", inputSchema: { type: "object", properties: { url, timeoutMs }, required: ["url"], additionalProperties: false } },
+    { name: "web_fetch", webSource: true, description: "ดึง URL ภายนอกโดยตรง เหมาะกับ HTML, JSON, text และ public API พร้อม headers/status.", inputSchema: { type: "object", properties: { url, timeoutMs }, required: ["url"], additionalProperties: false } },
+    { name: "web_trace", webSource: true, description: "ไล่ redirect ของ URL ภายนอกทีละ hop พร้อม status, location และ final URL.", inputSchema: { type: "object", properties: { url, maxHops: { type: "integer", minimum: 1, maximum: 10 }, timeoutMs }, required: ["url"], additionalProperties: false } },
   ];
 }
 
-async function executeWebCheck(args: Record<string, unknown>): Promise<unknown> {
-  const rawUrl = String(args.url ?? "").trim();
-  if (!/^https:\/\//i.test(rawUrl)) throw new Error("web_check only accepts HTTPS URLs.");
-  let target: URL;
-  try {
-    target = new URL(rawUrl);
-  } catch {
-    throw new Error("web_check received an invalid URL.");
-  }
-  if (target.username || target.password) throw new Error("web_check does not allow URL credentials.");
-  const hostname = target.hostname.toLowerCase().replace(/\.$/, "");
-  const blockedHostnames = new Set(["localhost", "localhost.localdomain", "ip6-localhost", "metadata.google.internal"]);
-  const isPrivateIpv4 = (host: string) => {
-    const parts = host.split(".").map(Number);
-    if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
-    const [a, b] = parts;
-    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
-  };
-  const isPrivateIpv6 = (host: string) =>
-    host === "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe8") || host.startsWith("fe9") || host.startsWith("fea") || host.startsWith("feb");
-  if (blockedHostnames.has(hostname) || hostname.endsWith(".local") || isPrivateIpv4(hostname) || isPrivateIpv6(hostname)) {
-    throw new Error("web_check blocked a private, local, or metadata host.");
-  }
-  const timeoutMs = Math.min(30000, Math.max(1000, Number(args.timeoutMs ?? 15000)));
+async function fetchExternal(url: string, timeoutMs = 15000, redirect: RequestRedirect = "follow"): Promise<{ response: Response; body: string; responseTimeMs: number }> {
+  const target = webUrlIsAllowed(url);
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort(), Math.min(30000, Math.max(1000, timeoutMs)));
   const started = Date.now();
   try {
     const response = await fetch(target.toString(), {
       method: "GET",
-      redirect: "follow",
+      redirect,
       signal: controller.signal,
-      headers: { Accept: "text/html,application/json,text/plain;q=0.9,*/*;q=0.1", "User-Agent": "Bossnu-WebCheck/1.0" },
+      headers: { Accept: "text/html,application/json,text/plain;q=0.9,*/*;q=0.1", "User-Agent": "Bossnu-Codex-Web/1.0" },
     });
-    const text = await response.text();
-    return {
-      ok: response.ok,
-      status: response.status,
-      statusText: response.statusText,
-      finalUrl: response.url,
-      responseTimeMs: Date.now() - started,
-      contentType: response.headers.get("content-type"),
-      contentLength: response.headers.get("content-length"),
-      bodyPreview: text.slice(0, 1200),
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      status: 0,
-      responseTimeMs: Date.now() - started,
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return { response, body: await response.text(), responseTimeMs: Date.now() - started };
   } finally {
     clearTimeout(timer);
   }
 }
 
+async function executeWebCheck(args: Record<string, unknown>): Promise<unknown> {
+  const rawUrl = String(args.url ?? "").trim();
+  const { response, body, responseTimeMs } = await fetchExternal(rawUrl, Number(args.timeoutMs ?? 15000));
+  return { ok: response.ok, status: response.status, statusText: response.statusText, finalUrl: response.url, responseTimeMs, contentType: response.headers.get("content-type"), contentLength: response.headers.get("content-length"), bodyPreview: body.slice(0, 2000) };
+}
+
+function decodeHtmlText(html: string): string {
+  return html
+    .replace(/<script[\\s\\S]*?<\\/script>/gi, " ")
+    .replace(/<style[\\s\\S]*?<\\/style>/gi, " ")
+    .replace(/<noscript[\\s\\S]*?<\\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&").replace(/&quot;/gi, '"').replace(/&#39;/gi, "'")
+    .replace(/\\s+/g, " ").trim();
+}
+
+async function executeWebOpen(args: Record<string, unknown>): Promise<unknown> {
+  const rawUrl = String(args.url ?? "").trim();
+  const { response, body, responseTimeMs } = await fetchExternal(rawUrl, Number(args.timeoutMs ?? 15000));
+  const title = body.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i)?.[1]?.replace(/<[^>]+>/g, " ").replace(/\\s+/g, " ").trim() ?? "";
+  const links: Array<{ text: string; url: string }> = [];
+  const seen = new Set<string>();
+  const linkPattern = /<a\\b[^>]*href=["']([^"']+)["'][^>]*>([\\s\\S]*?)<\\/a>/gi;
+  for (const match of body.matchAll(linkPattern)) {
+    try {
+      const href = new URL(match[1], response.url);
+      if (href.protocol !== "https:") continue;
+      const hrefText = decodeHtmlText(match[2]).slice(0, 240);
+      if (!hrefText || seen.has(href.toString())) continue;
+      seen.add(href.toString());
+      links.push({ text: hrefText, url: href.toString() });
+      if (links.length >= 30) break;
+    } catch {}
+  }
+  const scripts = Array.from(body.matchAll(/<script[^>]+src=["']([^"']+)["']/gi)).slice(0, 20).map((m) => {
+    try { return new URL(m[1], response.url).toString(); } catch { return m[1]; }
+  });
+  return { ok: response.ok, status: response.status, finalUrl: response.url, responseTimeMs, contentType: response.headers.get("content-type"), title, text: decodeHtmlText(body).slice(0, 12000), links, scripts };
+}
+
+async function executeWebFetch(args: Record<string, unknown>): Promise<unknown> {
+  const rawUrl = String(args.url ?? "").trim();
+  const { response, body, responseTimeMs } = await fetchExternal(rawUrl, Number(args.timeoutMs ?? 15000));
+  let data: unknown = body.slice(0, 30000);
+  const contentType = response.headers.get("content-type") ?? "";
+  if (/json/i.test(contentType)) {
+    try { data = JSON.parse(body); } catch {}
+  }
+  return { ok: response.ok, status: response.status, statusText: response.statusText, finalUrl: response.url, responseTimeMs, contentType, headers: Object.fromEntries(response.headers.entries()), data };
+}
+
+async function executeWebTrace(args: Record<string, unknown>): Promise<unknown> {
+  let current = String(args.url ?? "").trim();
+  const maxHops = Math.min(10, Math.max(1, Number(args.maxHops ?? 8)));
+  const timeoutMs = Math.min(30000, Math.max(1000, Number(args.timeoutMs ?? 12000)));
+  const hops: Array<Record<string, unknown>> = [];
+  for (let i = 0; i < maxHops; i++) {
+    const target = webUrlIsAllowed(current);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const started = Date.now();
+      const response = await fetch(target.toString(), { method: "GET", redirect: "manual", signal: controller.signal, headers: { Accept: "text/html,application/json,text/plain;q=0.9,*/*;q=0.1", "User-Agent": "Bossnu-Codex-Web/1.0" } });
+      const location = response.headers.get("location");
+      hops.push({ hop: i + 1, url: target.toString(), status: response.status, location, responseTimeMs: Date.now() - started });
+      if (!location || response.status < 300 || response.status >= 400) return { ok: response.ok, finalUrl: target.toString(), hops };
+      current = new URL(location, target).toString();
+    } finally { clearTimeout(timer); }
+  }
+  return { ok: false, finalUrl: current, hops, error: "redirect limit exceeded" };
+}
 function nativeAuthenticatedGitHubTools(): CodingFleetTool[] {
   return [
     { name: "github_write_file", description: "Write/update a repository file. Creates a real Git commit.", inputSchema: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, path: { type: "string" }, content: { type: "string" }, message: { type: "string" }, sha: { type: "string" }, branch: { type: "string" } }, required: ["owner", "repo", "path", "content", "message"], additionalProperties: false }, githubSource: true },
@@ -486,7 +526,7 @@ async function executeAuthenticatedGithub(name: string, args: Record<string, unk
 async function executeTool(tool: CodingFleetTool, args: Record<string, unknown>): Promise<unknown> {
   const name = toolName(tool);
   if (name === "sandbox_run") return executeSandboxTool(args);
-  if (name === "web_check") return executeWebCheck(args);
+  if (name === "web_check") return executeWebCheck(args);\n  if (name === "web_open") return executeWebOpen(args);\n  if (name === "web_fetch") return executeWebFetch(args);\n  if (name === "web_trace") return executeWebTrace(args);
   if (tool.githubSource && AUTH_GITHUB.includes(name)) return executeAuthenticatedGithub(name, args);
   if (tool.githubSource) return executeGitHubTool(tool, args);
   if (tool.mcpServer) return callPublicMcpTool(tool, args);
