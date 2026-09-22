@@ -110,15 +110,34 @@ export function SuperChat() {
     provider: "puter",
   };
 
+  const modelFallbacks: PuterModel[] = [
+    { id: "nex-agi/nex-n2.5-pro:free", name: "Nex N2.5 Pro (ฟรี)", provider: "nex-agi" },
+    { id: "dots-studio/dots-3-note-preview:free", name: "Dots 3 Note Preview (ฟรี)", provider: "dots-studio" },
+    { id: "inclusionai/ling-3.0-flash-sante:free", name: "Ling 3.0 Flash Sante (ฟรี)", provider: "inclusionai" },
+    { id: "nex-agi/nex-n2.5-mini:free", name: "Nex N2.5 Mini (ฟรี)", provider: "nex-agi" },
+    { id: "upstage/solar-pro-4", name: "Solar Pro 4", provider: "upstage" },
+    { id: "qwen/qwen3.7-flash", name: "Qwen 3.7 Flash", provider: "qwen" },
+    { id: "deepseek/deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash", provider: "deepseek" },
+    { id: "deepseek/deepseek-v4-flash", name: "DeepSeek V4 Flash", provider: "deepseek" },
+    { id: "google/gemini-3.1-flash-lite", name: "Gemini 3.1 Flash Lite", provider: "google" },
+    { id: "openai/gpt-5.6-luna", name: "GPT-5.6 Luna", provider: "openai" },
+    { id: "openai/gpt-5.6-luna-pro", name: "GPT-5.6 Luna Pro", provider: "openai" },
+    { id: "x-ai/grok-4-20-reasoning", name: "Grok 4.20 Reasoning", provider: "x-ai" },
+  ];
+
   useEffect(() => {
     let cancelled = false;
     setModelsLoading(true);
     void listPuterModels()
       .then((items) => {
         if (cancelled) return;
-        const chatModels = items
+        const liveModels = items
           .filter((m) => !/image|audio|video|embedding|rerank|moderation/i.test(m.id))
           .filter((m) => POWER_PUTER_MODEL_IDS.includes(m.id as (typeof POWER_PUTER_MODEL_IDS)[number]));
+        const byId = new Map<string, PuterModel>();
+        for (const model of modelFallbacks) byId.set(model.id, model);
+        for (const model of liveModels) byId.set(model.id, model);
+        const chatModels = [...byId.values()];
         setModels(chatModels);
         if (chatModels.length && !chatModels.some((m) => m.id === selectedModel)) {
           const preferred = chatModels.find((m) => m.id === DEFAULT_PUTER_MODEL) ?? chatModels[0];
@@ -126,21 +145,11 @@ export function SuperChat() {
         }
       })
       .catch(() => {
-        if (!cancelled) {
-          setModels([
-            { id: "nex-agi/nex-n2.5-pro:free", name: "Nex N2.5 Pro (ฟรี)", provider: "nex-agi" },
-            { id: "dots-studio/dots-3-note-preview:free", name: "Dots 3 Note Preview (ฟรี)", provider: "dots-studio" },
-            { id: "inclusionai/ling-3.0-flash-sante:free", name: "Ling 3.0 Flash Sante (ฟรี)", provider: "inclusionai" },
-            { id: "nex-agi/nex-n2.5-mini:free", name: "Nex N2.5 Mini (ฟรี)", provider: "nex-agi" },
-            { id: "upstage/solar-pro-4", name: "Solar Pro 4", provider: "upstage" },
-            { id: "qwen/qwen3.7-flash", name: "Qwen 3.7 Flash", provider: "qwen" },
-            { id: "deepseek/deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash", provider: "deepseek" },
-          ]);
-        }
+        if (!cancelled) setModels(modelFallbacks);
       })
       .finally(() => { if (!cancelled) setModelsLoading(false); });
     return () => { cancelled = true; };
-  }, [setStoreModel]);
+  }, [setStoreModel, selectedModel]);
 
   const threads = useFleet((s) => s.threads);
   const activeThreadId = useFleet((s) => s.activeThreadId);
