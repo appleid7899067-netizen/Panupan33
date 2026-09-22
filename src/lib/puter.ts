@@ -119,12 +119,32 @@ function withCredentialPolicy(messages: ChatTurn[]): ChatTurn[] {
 }
 
 function friendlyError(err: unknown): string {
-  const raw = err instanceof Error ? err.message : String(err ?? "Unknown error");
+  const toText = (value: unknown): string => {
+    if (value instanceof Error) return value.message;
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    if (value == null) return "Unknown error";
+    if (typeof value === "object") {
+      const rec = value as Record<string, unknown>;
+      for (const key of ["message", "error", "detail", "description", "statusText"]) {
+        if (rec[key] !== undefined) {
+          const nested = toText(rec[key]);
+          if (nested && nested !== "[object Object]") return nested;
+        }
+      }
+      try {
+        const json = JSON.stringify(value);
+        if (json && json !== "{}") return json;
+      } catch {}
+    }
+    return String(value);
+  };
+  const raw = toText(err);
   const lower = raw.toLowerCase();
   if (lower.includes("popup") || lower.includes("blocked")) return "Popup blocked. Allow popups for this site, then sign in with Puter.";
   if (lower.includes("auth_window_closed") || lower.includes("closed")) return "Sign-in window closed. Try again — Puter is required for free models.";
   if (lower.includes("not signed") || lower.includes("unauthorized") || lower.includes("auth")) return "Sign in with Puter to use free models.";
-  return raw.slice(0, 240);
+  return raw.slice(0, 700);
 }
 
 let signInInFlight: Promise<PuterUser | null> | null = null;
