@@ -195,16 +195,16 @@ function decodeHtmlText(html: string): string {
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&").replace(/&quot;/gi, '"').replace(/&#39;/gi, "'")
-    .replace(/\\s+/g, " ").trim();
+    .replace(/\s+/g, " ").trim();
 }
 
 async function executeWebOpen(args: Record<string, unknown>): Promise<unknown> {
   const rawUrl = String(args.url ?? "").trim();
   const { response, body, responseTimeMs } = await fetchExternal(rawUrl, Number(args.timeoutMs ?? 15000));
-  const title = body.match(/<title[^>]*>([\s\S]*?)<\\/title>/i)?.[1]?.replace(/<[^>]+>/g, " ").replace(/\\s+/g, " ").trim() ?? "";
+  const title = body.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() ?? "";
   const links: Array<{ text: string; url: string }> = [];
   const seen = new Set<string>();
-  const linkPattern = /<a\\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\\/a>/gi;
+  const linkPattern = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
   for (const match of body.matchAll(linkPattern)) {
     try {
       const href = new URL(match[1], response.url);
@@ -469,7 +469,7 @@ function extractToolCalls(value: unknown): ToolCall[] {
     return name ? [{ id: typeof call.id === "string" ? call.id : undefined, name, arguments: parseArguments(fn?.arguments ?? call.arguments ?? call.input) }] : [];
   });
 }
-function assistantToolMessage(response: unknown): Record<string, unknown> | null {
+function safeText(value: unknown, fallback = ""): string {\n  if (typeof value === "string") return value;\n  try { return JSON.stringify(value) ?? fallback; } catch { return fallback; }\n}\nfunction assistantToolMessage(response: unknown): Record<string, unknown> | null {
   const message = (response as Record<string, unknown> | null)?.message;
   return message && typeof message === "object" ? (message as Record<string, unknown>) : null;
 }
@@ -526,7 +526,10 @@ async function executeAuthenticatedGithub(name: string, args: Record<string, unk
 async function executeTool(tool: CodingFleetTool, args: Record<string, unknown>): Promise<unknown> {
   const name = toolName(tool);
   if (name === "sandbox_run") return executeSandboxTool(args);
-  if (name === "web_check") return executeWebCheck(args);\n  if (name === "web_open") return executeWebOpen(args);\n  if (name === "web_fetch") return executeWebFetch(args);\n  if (name === "web_trace") return executeWebTrace(args);
+  if (name === "web_check") return executeWebCheck(args);
+  if (name === "web_open") return executeWebOpen(args);
+  if (name === "web_fetch") return executeWebFetch(args);
+  if (name === "web_trace") return executeWebTrace(args);
   if (tool.githubSource && AUTH_GITHUB.includes(name)) return executeAuthenticatedGithub(name, args);
   if (tool.githubSource) return executeGitHubTool(tool, args);
   if (tool.mcpServer) return callPublicMcpTool(tool, args);
