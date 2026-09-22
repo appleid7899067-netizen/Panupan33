@@ -84,7 +84,7 @@ function score(tool: ToolRegistryEntry, prompt: string): number {
 /** Infer primary user intent — drives how many tools the agent may open. */
 export function inferTaskIntent(prompt: string): TaskIntent {
   const text = prompt.toLowerCase();
-  if (/^(คับ|ครับ|ค่ะ|ใช่|โอเค|ok|ตกลง|ได้|ขอบคุณ|hello|hi|hey)[!\.\s]*$/i.test(prompt.trim())) return "chat";
+  if (/^(คับ|ครับ|ค่ะ|ใช่|โอเค|ok|ตกลง|ได้|ขอบคุณ|hello|hi|hey)[!.\s]*$/i.test(prompt.trim())) return "chat";
   if (/github|repository|repo|pull request|branch|commit/.test(text)) return "github";
   if (/deploy|ดีพลอย|vercel|netlify|railway|render/.test(text)) return "deploy";
   if (/(?:^|\s)(ค้นหา|หาให้หน่อย|search|ค้นเว็บ|เว็บเกี่ยวกับ|หาข้อมูล)(?:\s|$)/i.test(prompt)) return "search";
