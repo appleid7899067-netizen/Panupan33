@@ -335,32 +335,32 @@ export function SuperChat() {
 
     // ZIP is unpacked locally in the browser so Boss can inspect the raw project
     // without uploading the archive itself. Keep only useful text/source files.
-    if (/\\.zip$/i.test(file.name) || file.type === "application/zip") {
+    if (/\.zip$/i.test(file.name) || file.type === "application/zip") {
       try {
         const bytes = new Uint8Array(await file.arrayBuffer());
         const entries = unzipSync(bytes);
-        const textExt = /\\.(tsx?|jsx?|mjs|cjs|json|md|mdx|css|scss|html|htm|yaml|yml|toml|xml|txt|env|gitignore|dockerfile|sh|py|go|rs|java|kt|sql|graphql|gql)$/i;
+        const textExt = /\.(tsx?|jsx?|mjs|cjs|json|md|mdx|css|scss|html|htm|yaml|yml|toml|xml|txt|env|gitignore|dockerfile|sh|py|go|rs|java|kt|sql|graphql|gql)$/i;
         const chunks: string[] = [];
         let count = 0;
         let totalChars = 0;
         for (const [path, data] of Object.entries(entries)) {
           if (count >= 80 || totalChars >= 90000) break;
-          if (!path || path.endsWith("/") || /(^|\\/)(node_modules|.git|dist|build|coverage)(\\/|$)/i.test(path)) continue;
-          if (!textExt.test(path) && !/(^|\\/)(Dockerfile|Makefile|README|LICENSE|\.env(?:\\..*)?)$/i.test(path)) continue;
+          if (!path || path.endsWith("/") || /(^|\/)(node_modules|\.git|dist|build|coverage)(\/|$)/i.test(path)) continue;
+          if (!textExt.test(path) && !/(^|\/)(Dockerfile|Makefile|README|LICENSE|\.env(?:\..*)?)$/i.test(path)) continue;
           try {
-            const text = strFromU8(data).replace(/\\u0000/g, "").slice(0, 12000);
+            const text = strFromU8(data).replace(/\u0000/g, "").slice(0, 12000);
             if (!text.trim()) continue;
-            chunks.push(`===== ${path} =====\\n${text}`);
+            chunks.push(`===== ${path} =====\n${text}`);
             totalChars += text.length;
             count++;
           } catch {}
         }
-        const extracted = `ZIP RAW EXTRACT: ${file.name}\\nไฟล์ข้อความที่อ่านได้: ${count}\\n\\n${chunks.join("\\n\\n")}`.slice(0, 100000);
+        const extracted = `ZIP RAW EXTRACT: ${file.name}\nไฟล์ข้อความที่อ่านได้: ${count}\n\n${chunks.join("\n\n")}`.slice(0, 100000);
         setAttachmentContext(extracted);
         const status = [`📦 แตก ZIP สำเร็จ: ${file.name}`, `📄 อ่านไฟล์ดิบแล้ว ${count} ไฟล์`];
         patchActivity(thread.id, thread.messages.length ? thread.messages[thread.messages.length - 1]?.id || "" : "", status);
       } catch (error) {
-        setAttachmentContext(`ZIP RAW EXTRACT FAILED: ${file.name}\\n${error instanceof Error ? error.message : String(error)}`);
+        setAttachmentContext(`ZIP RAW EXTRACT FAILED: ${file.name}\n${error instanceof Error ? error.message : String(error)}`);
       }
     }
   };
