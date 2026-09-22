@@ -155,17 +155,17 @@ async function execute(name: string, args: Record<string, unknown>, githubToken?
   if (!owner || !repo) throw new Error("owner and repo are required");
 
   switch (name) {
-    case "github_get_repo": return githubStatus(owner, repo, githubToken ? { githubToken } : undefined);
-    case "github_get_file": return githubGetFile({ owner, repo, path: String(args.path ?? ""), ref: args.ref ? String(args.ref) : undefined }, githubToken ? { githubToken } : undefined);
-    case "github_list_dir": return githubListDir({ owner, repo, path: args.path ? String(args.path) : undefined, ref: args.ref ? String(args.ref) : undefined }, githubToken ? { githubToken } : undefined);
-    case "github_write_file": return githubWriteFile({ owner, repo, path: String(args.path ?? ""), content: String(args.content ?? ""), message: String(args.message ?? "Agent update"), sha: args.sha ? String(args.sha) : undefined, branch: args.branch ? String(args.branch) : undefined }, githubToken ? { githubToken } : undefined);
-    case "github_create_branch": return githubCreateBranch({ owner, repo, branch: String(args.branch ?? ""), from: args.from ? String(args.from) : undefined }, githubToken ? { githubToken } : undefined);
-    case "github_create_pull_request": return githubCreatePullRequest({ owner, repo, head: String(args.head ?? ""), base: args.base ? String(args.base) : undefined, title: String(args.title ?? ""), body: args.body ? String(args.body) : undefined }, githubToken ? { githubToken } : undefined);
-    case "github_create_issue": return githubCreateIssue({ owner, repo, title: String(args.title ?? ""), body: args.body ? String(args.body) : undefined }, githubToken ? { githubToken } : undefined);
-    case "github_actions": return githubActions({ owner, repo, branch: args.branch ? String(args.branch) : undefined }, githubToken ? { githubToken } : undefined);
-    case "github_workflow_diagnostics": return githubWorkflowDiagnostics({ owner, repo, runId: Number(args.runId) }, githubToken ? { githubToken } : undefined);
-    case "github_wait_for_workflow": return githubWaitForWorkflow({ owner, repo, runId: Number(args.runId), timeoutMs: args.timeoutMs ? Number(args.timeoutMs) : undefined, pollMs: args.pollMs ? Number(args.pollMs) : undefined }, githubToken ? { githubToken } : undefined);
-    case "github_dispatch_workflow": return githubDispatchWorkflow({ owner, repo, workflow: String(args.workflow ?? ""), branch: args.branch ? String(args.branch) : undefined, inputs: args.inputs && typeof args.inputs === "object" ? args.inputs as Record<string, string> : undefined }, githubToken ? { githubToken } : undefined);
+    case "github_get_repo": return githubStatus(owner, repo, githubToken);
+    case "github_get_file": return githubGetFile({ owner, repo, path: String(args.path ?? ""), ref: args.ref ? String(args.ref) : undefined, githubToken });
+    case "github_list_dir": return githubListDir({ owner, repo, path: args.path ? String(args.path) : undefined, ref: args.ref ? String(args.ref) : undefined, githubToken });
+    case "github_write_file": return githubWriteFile({ owner, repo, path: String(args.path ?? ""), content: String(args.content ?? ""), message: String(args.message ?? "Agent update"), sha: args.sha ? String(args.sha) : undefined, branch: args.branch ? String(args.branch) : undefined, githubToken });
+    case "github_create_branch": return githubCreateBranch({ owner, repo, branch: String(args.branch ?? ""), from: args.from ? String(args.from) : undefined, githubToken });
+    case "github_create_pull_request": return githubCreatePullRequest({ owner, repo, head: String(args.head ?? ""), base: args.base ? String(args.base) : undefined, title: String(args.title ?? ""), body: args.body ? String(args.body) : undefined, githubToken });
+    case "github_create_issue": return githubCreateIssue({ owner, repo, title: String(args.title ?? ""), body: args.body ? String(args.body) : undefined, githubToken });
+    case "github_actions": return githubActions({ owner, repo, branch: args.branch ? String(args.branch) : undefined, githubToken });
+    case "github_workflow_diagnostics": return githubWorkflowDiagnostics({ owner, repo, runId: Number(args.runId), githubToken });
+    case "github_wait_for_workflow": return githubWaitForWorkflow({ owner, repo, runId: Number(args.runId), timeoutMs: args.timeoutMs ? Number(args.timeoutMs) : undefined, pollMs: args.pollMs ? Number(args.pollMs) : undefined, githubToken });
+    case "github_dispatch_workflow": return githubDispatchWorkflow({ owner, repo, workflow: String(args.workflow ?? ""), branch: args.branch ? String(args.branch) : undefined, inputs: args.inputs && typeof args.inputs === "object" ? args.inputs as Record<string, string> : undefined, githubToken });
     default: throw new Error(`Unknown GitHub tool: ${name}`);
   }
 }
