@@ -286,7 +286,7 @@ export function SuperChat() {
       maxChars: 12000,
     });
     const wantsAgent = /(?:ทำให้|แก้|สร้าง|เขียน|deploy|ดีพลอย|github|git|repo|repository|โค้ด|code|run|รัน|ทดสอบ|sandbox|api|database|ฐานข้อมูล|ไฟล์|file|ติดตั้ง|เชื่อมต่อ|ตรวจสอบระบบ|แก้บั๊ก|bug|task|งาน|ค้นหา|search|เว็บ|ค้นเว็บ)/i.test(userText);
-    const quickReply = /^(คับ|ครับ|ค่ะ|ใช่|โอเค|ok|ตกลง|ได้|ต่อเลย|ทำเลย|ขอบคุณ|ขอบใจ|รับทราบ|อืม|hello|hi|hey)[!.\\s]*$/i.test(userText.trim());
+    const quickReply = /^(คับ|ครับ|ค่ะ|ใช่|โอเค|ok|ตกลง|ได้|ต่อเลย|ทำเลย|ขอบคุณ|ขอบใจ|รับทราบ|อืม|hello|hi|hey)[!.\s]*$/i.test(userText.trim());
 
     if (!wantsAgent || quickReply) {
       try {
@@ -314,7 +314,7 @@ export function SuperChat() {
       }
     }
 
-    const wantsWebSearch = /(?:^|\\s)(ค้นหา|หาให้หน่อย|search|ค้นเว็บ|เว็บเกี่ยวกับ|หาข้อมูล)(?:\\s|$)/i.test(userText);
+    const wantsWebSearch = /(?:^|\s)(ค้นหา|หาให้หน่อย|search|ค้นเว็บ|เว็บเกี่ยวกับ|หาข้อมูล)(?:\s|$)/i.test(userText);
     if (wantsWebSearch) {
       const searchSteps = ["🔎 กำลังค้นหา...", "🌐 Yandex"];
       patchActivity(thread.id, assistantId, searchSteps);
@@ -349,11 +349,11 @@ export function SuperChat() {
       }
     }
 
-    const sandboxMatch = userText.match(/```([\\w-]+)?\n([\\s\\S]*?)```/);
+    const sandboxMatch = userText.match(/```([\w-]+)?\n([\s\\S]*?)```/);
     const wantsSandbox = Boolean(sandboxMatch) || /(?:รันโค้ด|รัน code|run code|ทดสอบโค้ด|test code|sandbox)/i.test(userText);
     if (wantsSandbox) {
       const language = sandboxMatch?.[1] || "javascript";
-      const code = sandboxMatch?.[2] || userText.replace(/^.*?(?:รันโค้ด|รัน code|run code|ทดสอบโค้ด|test code|sandbox)[:\\s]*/i, "").trim();
+      const code = sandboxMatch?.[2] || userText.replace(/^.*?(?:รันโค้ด|รัน code|run code|ทดสอบโค้ด|test code|sandbox)[:\s]*/i, "").trim();
       const sandbox = await runAgentSandbox({ language, code });
       const status = sandbox.ok ? "ผ่าน" : "ไม่ผ่าน";
       const output = [
@@ -370,7 +370,7 @@ export function SuperChat() {
     }
 
     try {
-      patchActivity(thread.id, assistantId, ["วิเคราะห์", "เลือกเครื่องมือ", "ลงมือทำ"]);
+      patchActivity(thread.id, assistantId, ["🧠 กำลังเริ่มตรวจงาน..."]);
       const puter = await loadPuter();
       const authToken = (puter as unknown as { authToken?: string }).authToken;
       let result: Awaited<ReturnType<typeof runAgent>> | null = null;

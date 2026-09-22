@@ -285,7 +285,7 @@ function nativeGitSearchTools(): CodingFleetTool[] {
 function nativeGitHubTools(): CodingFleetTool[] {
   return [
     { name: "github_get_repo", description: "Read public GitHub repository metadata.", inputSchema: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" } }, required: ["owner", "repo"], additionalProperties: false }, githubSource: true },
-    { name: "github_get_file", description: "Read a file from a public GitHub repository.", inputSchema: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, path: { type: "string" }, ref: { type: "string" } }, required: ["owner", "repo", "path"], additionalProperties: false }, githubSource: true },
+    { name: "github_get_file", description: "Read a file from a public GitHub repository.", inputSchema: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, path: { type: "string" }, ref: { type: "string" } }, required: ["owner", "repo", "path"], additionalProperties: false }, githubSource: true },    { name: "github_list_dir", description: "List real files and directories from a GitHub repository path.", inputSchema: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, path: { type: "string" }, ref: { type: "string" } }, required: ["owner", "repo"], additionalProperties: false }, githubSource: true },
     { name: "github_list_commits", description: "Read recent commits from a public GitHub repository.", inputSchema: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, per_page: { type: "integer", minimum: 1, maximum: 20 } }, required: ["owner", "repo"], additionalProperties: false }, githubSource: true },
   ];
 }
@@ -327,7 +327,12 @@ async function executeGitHubTool(tool: CodingFleetTool, args: Record<string, unk
   }
   if (!owner || !repo) throw new Error("GitHub requires owner and repo.");
   let path = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
-  if (name === "github_get_file") {
+  if (name === "github_list_dir") {
+    path += "/contents";
+    const directoryPath = String(args.path ?? "").replace(/^\/+/, "");
+    if (directoryPath) path += "/" + directoryPath.split("/").map(encodeURIComponent).join("/");
+    if (args.ref) path += "?ref=" + encodeURIComponent(String(args.ref));
+  } else if (name === "github_get_file") {
     const filePath = String(args.path ?? "").replace(/^\/+/, "");
     if (!filePath) throw new Error("GitHub file path is required.");
     path += `/contents/${filePath.split("/").map(encodeURIComponent).join("/")}`;

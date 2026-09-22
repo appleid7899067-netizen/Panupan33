@@ -105,6 +105,20 @@ export async function githubGetFile(input: {
   return { ...result.data, content };
 }
 
+export async function githubListDir(input: { owner: string; repo: string; path?: string; ref?: string }) {
+  const token = await getInstallationToken(input.owner, input.repo);
+  const basePath = input.path
+    ? contentPath(input.owner, input.repo, input.path)
+    : "/repos/" + encodeURIComponent(input.owner) + "/" + encodeURIComponent(input.repo) + "/contents";
+  const ref = input.ref ? "?ref=" + encodeURIComponent(input.ref) : "";
+  const result = await github<Array<{ name: string; path: string; sha: string; type: string; size?: number; html_url?: string }>>(basePath + ref, {}, token);
+  if (!Array.isArray(result.data)) throw new Error("GitHub path is not a directory.");
+  return {
+    path: input.path || "",
+    ref: input.ref || null,
+    entries: result.data.map((item) => ({ name: item.name, path: item.path, type: item.type, sha: item.sha, size: item.size ?? null, html_url: item.html_url ?? null })),
+  };
+}
 export async function githubWriteFile(input: {
   owner: string;
   repo: string;

@@ -6,6 +6,7 @@ import {
   githubCreatePullRequest,
   githubDispatchWorkflow,
   githubGetFile,
+  githubListDir,
   githubStatus,
   githubWorkflowDiagnostics,
   githubWaitForWorkflow,
@@ -40,7 +41,7 @@ const FAST_MAX_ROUNDS = 4;
 
 const TOOLS: ToolDef[] = [
   { type: "function", function: { name: "github_get_repo", description: "Read GitHub repository status and metadata using the installed GitHub App.", parameters: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" } }, required: ["owner", "repo"], additionalProperties: false } } },
-  { type: "function", function: { name: "github_get_file", description: "Read a file from a GitHub repository using the installed GitHub App.", parameters: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, path: { type: "string" }, ref: { type: "string" } }, required: ["owner", "repo", "path"], additionalProperties: false } } },
+  { type: "function", function: { name: "github_get_file", description: "Read a file from a GitHub repository using the installed GitHub App.", parameters: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, path: { type: "string" }, ref: { type: "string" } }, required: ["owner", "repo", "path"], additionalProperties: false } } }, { type: "function", function: { name: "github_list_dir", description: "List the real files and directories at a GitHub repository path. Use this instead of emitting fake tool markup.", parameters: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, path: { type: "string" }, ref: { type: "string" } }, required: ["owner", "repo"], additionalProperties: false } } },
   { type: "function", function: { name: "github_write_file", description: "Write or update a file in a GitHub repository. For an existing file, first read it and pass its current sha to avoid overwriting concurrent changes.", parameters: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, path: { type: "string" }, content: { type: "string" }, message: { type: "string" }, sha: { type: "string" }, branch: { type: "string" } }, required: ["owner", "repo", "path", "content", "message"], additionalProperties: false } } },
   { type: "function", function: { name: "github_create_branch", description: "Create a Git branch from the default branch or a specified base.", parameters: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, branch: { type: "string" }, from: { type: "string" } }, required: ["owner", "repo", "branch"], additionalProperties: false } } },
   { type: "function", function: { name: "github_create_pull_request", description: "Create a pull request after changes have been written to a branch.", parameters: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, head: { type: "string" }, base: { type: "string" }, title: { type: "string" }, body: { type: "string" } }, required: ["owner", "repo", "head", "title"], additionalProperties: false } } },
@@ -156,6 +157,7 @@ async function execute(name: string, args: Record<string, unknown>): Promise<unk
   switch (name) {
     case "github_get_repo": return githubStatus(owner, repo);
     case "github_get_file": return githubGetFile({ owner, repo, path: String(args.path ?? ""), ref: args.ref ? String(args.ref) : undefined });
+    case "github_list_dir": return githubListDir({ owner, repo, path: args.path ? String(args.path) : undefined, ref: args.ref ? String(args.ref) : undefined });
     case "github_write_file": return githubWriteFile({ owner, repo, path: String(args.path ?? ""), content: String(args.content ?? ""), message: String(args.message ?? "Agent update"), sha: args.sha ? String(args.sha) : undefined, branch: args.branch ? String(args.branch) : undefined });
     case "github_create_branch": return githubCreateBranch({ owner, repo, branch: String(args.branch ?? ""), from: args.from ? String(args.from) : undefined });
     case "github_create_pull_request": return githubCreatePullRequest({ owner, repo, head: String(args.head ?? ""), base: args.base ? String(args.base) : undefined, title: String(args.title ?? ""), body: args.body ? String(args.body) : undefined });
