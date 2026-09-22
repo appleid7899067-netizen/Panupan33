@@ -11,6 +11,24 @@ import { freeAI } from "@/lib/autonomous";
 import { runAgent, runAgentSandbox, runAgentStream } from "@/lib/agent.functions";
 import { listPuterModels, loadPuter, type PuterModel } from "@/lib/puter";
 
+function displayAgentText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value == null) return "";
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(displayAgentText).filter(Boolean).join("\n");
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    for (const key of ["text", "content", "message", "error", "detail"]) {
+      if (record[key] !== undefined) {
+        const nested = displayAgentText(record[key]);
+        if (nested) return nested;
+      }
+    }
+    try { return JSON.stringify(value, null, 2); } catch { return "[ผลลัพธ์ไม่สามารถแสดงได้]"; }
+  }
+  return String(value);
+}
+
 export function SuperChat() {
   const [input, setInput] = useState("");
   const storedModel = useFleet((s) => s.modelId);
@@ -142,9 +160,10 @@ export function SuperChat() {
         }
       }
       if (!result) throw new Error("Agent stream ended without a final result.");
+      const resultText = displayAgentText(result.text);
       const response = result.ok
-        ? (result.text || "Boss ทำงานเสร็จแล้ว แต่ Agent ไม่ได้ส่งข้อความกลับมา")
-        : `ยังทำงานนี้ไม่สำเร็จ: ${result.text || "Agent ไม่มีผลลัพธ์"}`;
+        ? (resultText || "Boss ทำงานเสร็จแล้ว แต่ Agent ไม่ได้ส่งข้อความกลับมา")
+        : `ยังทำงานนี้ไม่สำเร็จ: ${resultText || "Agent ไม่มีผลลัพธ์"}`;
       patchVerified(thread.id, assistantId, result.verified === true);
       patchMessage(thread.id, assistantId, response);
       patchActivity(thread.id, assistantId, liveSteps.slice(-10));
