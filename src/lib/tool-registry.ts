@@ -7,6 +7,16 @@ export type ToolRegistryEntry = CodingFleetTool & {
   capability: string;
 };
 
+export type TaskIntent =
+  | "github"
+  | "deploy"
+  | "code"
+  | "data"
+  | "verify"
+  | "search"
+  | "chat"
+  | "general";
+
 function sourceOf(tool: CodingFleetTool): ToolSource {
   if (tool.githubSearchSource) return "github-search";
   if (tool.sandboxSource) return "sandbox";
@@ -29,6 +39,7 @@ function capabilityOf(tool: CodingFleetTool): string {
   if (/debug|error|log|diagnos/.test(text)) return "debug";
   if (/file|read|write|edit|code/.test(text)) return "code";
   if (/database|sql|query/.test(text)) return "data";
+  if (/search|web_search|yandex|browse/.test(text)) return "search";
   return "general";
 }
 
@@ -41,10 +52,26 @@ function score(tool: ToolRegistryEntry, prompt: string): number {
   if (capability === "verify" && /test|verify|ตรวจ|เช็ก|build|ci|ผ่าน|sandbox|รัน|run|เว็บ|http|health|502|500|503|timeout|url/.test(text)) value += 6;
   if (capability === "deploy" && /deploy|ดีพลอย|vercel|netlify|railway/.test(text)) value += 7;
   if (capability === "code" && /code|โค้ด|แก้ไฟล์|ไฟล์/.test(text)) value += 5;
+  if (capability === "search" && /ค้นหา|search|หาข้อมูล|เว็บ/.test(text)) value += 9;
   if (tool.name === "sandbox_run" && /code|โค้ด|รัน|run|error|bug|debug|แก้|test|verify/.test(text)) value += 10;
   if (tool.name === "web_check" && /เว็บ|website|url|http|502|500|503|timeout|deploy|ดีพลอย|ตรวจ|เช็ก/.test(text)) value += 12;
   if (tool.source === "github" && /github|repo|repository/.test(text)) value += 5;
   return value;
+}
+
+/** Infer primary user intent — drives how many tools the agent may open. */
+export function inferTaskIntent(prompt: string): TaskIntent {
+  const text = prompt.toLowerCase();
+  if (/^(คับ|ครับ|ค่ะ|ใช่|โอเค|ok|ตกลง|ได้|ขอบคุณ|hello|hi|hey)[!\.\s]*$/i.test(prompt.trim())) return "chat";
+  if (/github|repository|repo|pull request|branch|commit/.test(text)) return "github";
+  if (/deploy|ดีพลอย|vercel|netlify|railway|render/.test(text)) return "deploy";
+  if (/(?:^|\s)(ค้นหา|หาให้หน่อย|search|ค้นเว็บ|เว็บเกี่ยวกับ|หาข้อมูล)(?:\s|$)/i.test(prompt)) return "search";
+  if (/code|โค้ด|แก้ไฟล์|ไฟล์|bug|error|debug|sandbox|รันโค้ด/.test(text)) return "code";
+  if (/database|ฐานข้อมูล|sql/.test(text)) return "data";
+  if (/test|verify|ตรวจ|เช็ก|build|ci|health|http/.test(text)) return "verify";
+  // Pure conversation / explanation — no toolbox
+  if (!/(ทำให้|สร้าง|เขียน|แก้|deploy|run|รัน|ติดตั้ง|เชื่อม|api|repo|github|ไฟล์|bug)/i.test(text)) return "chat";
+  return "general";
 }
 
 export async function buildToolRegistry(forceRefresh = false): Promise<ToolRegistryEntry[]> {
@@ -52,20 +79,28 @@ export async function buildToolRegistry(forceRefresh = false): Promise<ToolRegis
   return tools.map((tool) => ({ ...tool, source: sourceOf(tool), capability: capabilityOf(tool) }));
 }
 
-export async function selectToolsForTask(prompt: string, maxTools = 20): Promise<ToolRegistryEntry[]> {
+/**
+ * Codex-style tool selection: open only tools needed for THIS intent.
+ * Never hand the model the whole registry in one shot.
+ */
+export async function selectToolsForTask(prompt: string, maxTools = 3): Promise<ToolRegistryEntry[]> {
   const registry = await buildToolRegistry();
-  const text = prompt.toLowerCase();
+  const intent = inferTaskIntent(prompt);
 
-  // Route by intent first. The agent should never open the whole toolbox for a small task.
-  const intent =
-    /github|repository|repo|pull request|branch|commit/.test(text) ? "github" :
-    /deploy|ดีพลอย|vercel|netlify|railway|render/.test(text) ? "deploy" :
-    /code|โค้ด|แก้ไฟล์|ไฟล์|bug|error|debug/.test(text) ? "code" :
-    /database|ฐานข้อมูล|sql/.test(text) ? "data" :
-    /test|verify|ตรวจ|เช็ก|build|ci|sandbox|รัน|run|health|http/.test(text) ? "verify" :
-    "general";
+  // chat / pure Q&A → no tools
+  if (intent === "chat") return [];
 
-  const limit = Math.max(1, Math.min(maxTools, intent === "general" ? 2 : 3));
+  // Hard caps by intent (Codex: small focused set)
+  const intentCap =
+    intent === "search" ? 1 :
+    intent === "verify" ? 2 :
+    intent === "code" ? 2 :
+    intent === "github" ? 3 :
+    intent === "deploy" ? 3 :
+    intent === "data" ? 2 :
+    2;
+
+  const limit = Math.max(1, Math.min(maxTools, intentCap));
   const ranked = registry
     .map((tool, index) => ({ tool, score: score(tool, prompt), index }))
     .sort((a, b) => b.score - a.score || a.index - b.index);
@@ -76,17 +111,18 @@ export async function selectToolsForTask(prompt: string, maxTools = 20): Promise
     if (intent === "code") return tool.capability === "code" || tool.capability === "debug" || tool.source === "sandbox" || tool.capability === "verify";
     if (intent === "data") return tool.capability === "data" || tool.capability === "code";
     if (intent === "verify") return tool.capability === "verify" || tool.source === "web" || tool.source === "sandbox";
-    return true;
+    if (intent === "search") return tool.capability === "search" || tool.source === "web";
+    return tool.score !== undefined || true;
   };
 
   const selected: ToolRegistryEntry[] = [];
-  for (const { tool } of ranked) {
+  for (const { tool, score: sc } of ranked) {
     if (selected.length >= limit) break;
+    if (sc <= 0 && intent !== "general") continue;
     if (!matchesIntent(tool)) continue;
     if (!selected.some((item) => item.name === tool.name)) selected.push(tool);
   }
 
-  // Always give the agent at least one useful tool when the registry has one.
-  if (!selected.length && ranked[0]) selected.push(ranked[0].tool);
+  if (!selected.length && ranked[0] && intent !== "chat") selected.push(ranked[0].tool);
   return selected;
 }

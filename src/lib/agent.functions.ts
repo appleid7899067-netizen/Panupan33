@@ -1,10 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { selectToolsForTask } from "@/lib/tool-registry";
+import { selectToolsForTask, inferTaskIntent } from "@/lib/tool-registry";
 import { runGitHubAgent } from "@/lib/github-agent-tools.server";
 import { executeAgentCode, runAgentLoop } from "@/lib/agent-loop";
 
-const loopSchema = z.object({ prompt: z.string().min(1).max(60_000), maxIterations: z.number().int().min(1).max(8).optional(), authToken: z.string().min(20).max(10000).optional(), context: z.string().max(45_000).optional(), model: z.string().min(1).max(200).optional() });
+const loopSchema = z.object({
+  prompt: z.string().min(1).max(60_000),
+  maxIterations: z.number().int().min(1).max(8).optional(),
+  authToken: z.string().min(20).max(10000).optional(),
+  context: z.string().max(45_000).optional(),
+  model: z.string().min(1).max(200).optional(),
+});
 const codeSchema = z.object({ language: z.string().min(1).max(40), code: z.string().max(500_000) });
 
 function prefersAuthenticatedGitHub(prompt: string): boolean {
@@ -15,9 +21,25 @@ export const runAgent = createServerFn({ method: "POST" })
   .validator(loopSchema)
   .handler(async ({ data }) => {
     const taskPrompt = data.context ? `${data.context}\n\nCurrent user request:\n${data.prompt}` : data.prompt;
-    const selected = await selectToolsForTask(taskPrompt, 20);
+    const intent = inferTaskIntent(data.prompt);
+    // Codex-style: only tools for this intent (max 3)
+    const selected = await selectToolsForTask(taskPrompt, 3);
     const selectedNames = selected.slice(0, 8).map((tool) => String(tool.name ?? "")).filter(Boolean);
-    const registryStep = { phase: "plan" as const, detail: `Tool Registry selected ${selectedNames.length} tools: ${selectedNames.join(", ")}` };
+    const registryStep = {
+      phase: "plan" as const,
+      detail: `Intent: ${intent} · tools (${selectedNames.length}): ${selectedNames.join(", ") || "ไม่มี — ตอบตรงเจตนา"}`,
+    };
+
+    // Pure chat intent → no agent loop
+    if (intent === "chat" || selected.length === 0) {
+      return {
+        ok: true,
+        text: "",
+        steps: [registryStep, { phase: "verify" as const, detail: "ไม่เปิด toolbox — ตอบตามเจตนาผู้ใช้" }],
+        verified: true,
+        skipAgent: true as const,
+      };
+    }
 
     const registryHasGitHub = selected.some((tool) => String(tool.name ?? "").toLowerCase().includes("github"));
     if (registryHasGitHub && prefersAuthenticatedGitHub(data.prompt)) {
@@ -50,14 +72,15 @@ export const runAgent = createServerFn({ method: "POST" })
       };
     }
 
-    const result = await runAgentLoop(taskPrompt, selected, data.maxIterations ?? 6, data.authToken, undefined, data.model);
+    // Fewer iterations by default — Codex-like focused loops
+    const iterations = data.maxIterations ?? (intent === "github" || intent === "deploy" ? 5 : 3);
+    const result = await runAgentLoop(taskPrompt, selected, iterations, data.authToken, undefined, data.model);
     return { ...result, steps: [registryStep, ...result.steps] };
   });
 
 export const runAgentSandbox = createServerFn({ method: "POST" })
   .validator(codeSchema)
   .handler(async ({ data }) => executeAgentCode(data.language, data.code));
-
 
 export type AgentStreamEvent =
   | { type: "step"; step: import("@/lib/agent-loop").AgentStep }
@@ -67,10 +90,27 @@ export const runAgentStream = createServerFn({ method: "POST" })
   .validator(loopSchema)
   .handler(async function* ({ data }) {
     const taskPrompt = data.context ? `${data.context}\n\nCurrent user request:\n${data.prompt}` : data.prompt;
-    const selected = await selectToolsForTask(taskPrompt, 20);
+    const intent = inferTaskIntent(data.prompt);
+    const selected = await selectToolsForTask(taskPrompt, 3);
     const selectedNames = selected.slice(0, 8).map((tool) => String(tool.name ?? "")).filter(Boolean);
-    const registryStep = { phase: "plan" as const, detail: `Tool Registry selected ${selectedNames.length} tools: ${selectedNames.join(", ")}` };
+    const registryStep = {
+      phase: "plan" as const,
+      detail: `Intent: ${intent} · tools (${selectedNames.length}): ${selectedNames.join(", ") || "ไม่มี"}`,
+    };
     yield { type: "step", step: registryStep };
+
+    if (intent === "chat" || selected.length === 0) {
+      yield {
+        type: "done",
+        result: {
+          ok: true,
+          text: "",
+          steps: [registryStep],
+          verified: true,
+        },
+      };
+      return;
+    }
 
     const queue: AgentStreamEvent[] = [];
     let wake: (() => void) | null = null;
@@ -83,10 +123,11 @@ export const runAgentStream = createServerFn({ method: "POST" })
       wake = null;
     };
 
+    const iterations = data.maxIterations ?? (intent === "github" || intent === "deploy" ? 5 : 3);
     const runner = runAgentLoop(
       taskPrompt,
       selected,
-      data.maxIterations ?? 6,
+      iterations,
       data.authToken,
       (step) => push({ type: "step", step }),
       data.model,
