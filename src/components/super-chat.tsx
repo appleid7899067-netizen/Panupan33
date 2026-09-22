@@ -15,54 +15,51 @@ import { DEFAULT_PUTER_MODEL, POWER_PUTER_MODEL_IDS } from "@/lib/catalog";
 
 function activityMeta(step: string) {
   const raw = step.replace(/^(?:[a-z_]+):\\s*/i, "").trim();
-  if (/error|fail|ผิดพลาด|ไม่สำเร็จ/i.test(raw)) return { icon: "×", tone: "text-red-300", dot: "bg-red-400" };
-  if (/verify|ตรวจสอบ|ผ่าน|เรียบร้อย|success/i.test(raw)) return { icon: "✓", tone: "text-emerald-300", dot: "bg-emerald-400" };
-  if (/tool|github|web|search|sandbox|อ่าน|เปิด|ค้นหา|กำลัง/i.test(raw)) return { icon: "↗", tone: "text-sky-300", dot: "bg-sky-400" };
-  if (/edit|write|แก้|สร้าง|เขียน|deploy|ดีพลอย/i.test(raw)) return { icon: "✦", tone: "text-violet-300", dot: "bg-violet-400" };
-  return { icon: "·", tone: "text-zinc-400", dot: "bg-zinc-500" };
+  if (/error|fail|ผิดพลาด|ไม่สำเร็จ/i.test(raw)) return { icon: "×", tone: "text-red-300", dot: "bg-red-400", label: "Error" };
+  if (/verify|ตรวจสอบ|ผ่าน|เรียบร้อย|success/i.test(raw)) return { icon: "✓", tone: "text-emerald-300", dot: "bg-emerald-400", label: "Verify" };
+  if (/design|ui|ux|visual|layout|theme|ออกแบบ|หน้าตา/i.test(raw)) return { icon: "✦", tone: "text-fuchsia-300", dot: "bg-fuchsia-400", label: "Design" };
+  if (/tool|github|web|search|sandbox|อ่าน|เปิด|ค้นหา|กำลัง/i.test(raw)) return { icon: "↗", tone: "text-sky-300", dot: "bg-sky-400", label: "Action" };
+  if (/edit|write|แก้|สร้าง|เขียน|deploy|ดีพลอย/i.test(raw)) return { icon: "✎", tone: "text-violet-300", dot: "bg-violet-400", label: "Build" };
+  return { icon: "·", tone: "text-zinc-400", dot: "bg-zinc-500", label: "Boss" };
 }
 
 function BossActivityStream({ steps, active }: { steps: string[]; active: boolean }) {
   const visible = steps.slice(-8);
   if (!visible.length) return null;
+  const currentStep = visible[visible.length - 1] ?? "";
+  const currentMeta = activityMeta(currentStep);
 
   return (
-    <div className="mt-3 w-full pl-0.5" aria-live="polite">
-      {visible.map((step, index) => {
-        const meta = activityMeta(step);
-        const current = active && index === visible.length - 1;
-        const text = step.includes(": ") ? step.slice(step.indexOf(": ") + 2) : step;
-        return (
-          <div
-            key={step + "-" + index}
-            className="relative flex min-h-7 items-start gap-2.5 py-1.5 animate-in fade-in slide-in-from-bottom-1 duration-200"
-          >
-            {index < visible.length - 1 && (
-              <span className="absolute left-[7px] top-6 bottom-[-2px] w-px bg-zinc-800/80" />
-            )}
-            <span className={"relative z-10 mt-0.5 grid size-4 shrink-0 place-items-center text-[10px] " + meta.tone}>
-              {current ? (
-                <span className={"relative size-1.5 rounded-full " + meta.dot}>
-                  <span className={"absolute -inset-1 rounded-full opacity-30 animate-ping " + meta.dot} />
-                </span>
-              ) : meta.icon}
-            </span>
-            <span className={"min-w-0 flex-1 text-[11px] leading-5 " + (current ? "text-zinc-200" : "text-zinc-500")}>
-              {text}
-              {current && <span className="ml-1.5 inline-flex gap-0.5 align-middle">
-                <i className="size-0.5 rounded-full bg-zinc-500 animate-bounce" />
-                <i className="size-0.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:100ms]" />
-                <i className="size-0.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:200ms]" />
-              </span>}
-            </span>
-          </div>
-        );
-      })}
-      {!active && (
-        <div className="mt-1 flex items-center gap-1.5 pl-[26px] text-[10px] text-emerald-400/80">
-          <span>✓</span><span>ตรวจสอบสถานะเสร็จแล้ว</span>
+    <div className="mt-3 w-full" aria-live="polite">
+      <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-black/20 shadow-inner">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.05]">
+          <span className={"grid size-5 place-items-center rounded-md bg-white/[0.05] text-[10px] " + currentMeta.tone}>{currentMeta.icon}</span>
+          <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-500">{active ? "Boss is working" : "Work trace"}</span>
+          {active && <span className="ml-auto flex gap-0.5">
+            <i className="size-1 rounded-full bg-zinc-500 animate-pulse" />
+            <i className="size-1 rounded-full bg-zinc-500 animate-pulse [animation-delay:120ms]" />
+            <i className="size-1 rounded-full bg-zinc-500 animate-pulse [animation-delay:240ms]" />
+          </span>}
         </div>
-      )}
+        <div className="px-3 py-2">
+          {visible.map((step, index) => {
+            const meta = activityMeta(step);
+            const current = active && index === visible.length - 1;
+            const text = step.includes(": ") ? step.slice(step.indexOf(": ") + 2) : step;
+            return (
+              <div key={step + "-" + index} className="relative flex min-h-7 items-start gap-2.5 py-1.5 animate-in fade-in duration-200">
+                {index < visible.length - 1 && <span className="absolute left-[7px] top-6 bottom-[-2px] w-px bg-white/[0.06]" />}
+                <span className={"relative z-10 mt-0.5 grid size-4 shrink-0 place-items-center rounded-full bg-white/[0.04] text-[9px] " + meta.tone}>
+                  {current ? <span className={"size-1.5 rounded-full " + meta.dot} /> : meta.icon}
+                </span>
+                <span className={"min-w-0 flex-1 text-[11px] leading-5 " + (current ? "text-zinc-200" : "text-zinc-500")}>{text}</span>
+                <span className="hidden sm:block pt-0.5 text-[9px] text-zinc-700">{meta.label}</span>
+              </div>
+            );
+          })}
+        </div>
+        {!active && <div className="px-3 pb-2 text-[10px] text-emerald-400/70">✓ trace จบแล้ว</div>}
+      </div>
     </div>
   );
 }
@@ -500,8 +497,8 @@ export function SuperChat() {
   };
 
   return (
-    <div className="relative flex flex-col h-full min-h-0 w-full max-w-5xl mx-auto overflow-hidden">
-      <div className="relative z-50 shrink-0 flex min-h-14 items-center justify-between gap-3 px-4 py-2.5 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-xl">
+    <div className="relative flex flex-col h-full min-h-0 w-full max-w-5xl mx-auto overflow-hidden bg-[radial-gradient(circle_at_top,rgba(139,92,246,0.08),transparent_34%),radial-gradient(circle_at_bottom,rgba(236,72,153,0.05),transparent_30%)]">
+      <div className="relative z-50 shrink-0 flex min-h-14 items-center justify-between gap-3 px-4 py-2.5 border-b border-white/[0.06] bg-zinc-950/90 backdrop-blur-2xl">
         <div className="flex min-w-0 items-center gap-2">
           <button type="button" onClick={() => setHistoryOpen(true)} className="size-9 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 grid place-items-center" aria-label="ประวัติแชท">
             <History className="size-4" />
@@ -594,7 +591,7 @@ export function SuperChat() {
 
       <main
         ref={scrollerRef}
-        className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y px-4 py-6 pb-8 sm:px-6 sm:py-7 [scrollbar-gutter:stable]"
+        className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y px-4 py-6 pb-8 sm:px-6 sm:py-7 [scrollbar-gutter:stable] scroll-smooth"
         style={{ overflowAnchor: "none", WebkitOverflowScrolling: "touch" }}
         onScroll={(e) => {
           const el = e.currentTarget;
@@ -649,8 +646,8 @@ export function SuperChat() {
         )}
       </main>
 
-      <div className="relative z-30 shrink-0 border-t border-zinc-800 bg-zinc-950/95 p-3 backdrop-blur-xl sm:p-4">
-        <div className="relative flex items-end gap-2 rounded-2xl bg-zinc-900 border border-zinc-800 p-2">
+      <div className="relative z-30 shrink-0 border-t border-white/[0.06] bg-zinc-950/90 p-3 backdrop-blur-2xl sm:p-4">
+        <div className="relative flex items-end gap-2 rounded-[22px] bg-white/[0.045] border border-white/[0.08] p-2 shadow-[0_12px_50px_rgba(0,0,0,0.2)] focus-within:border-violet-400/20">
           <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => { handleAttachment(e.target.files?.[0]); e.currentTarget.value = ""; }} />
           <button type="button" onClick={() => fileInputRef.current?.click()} className="size-8 grid place-items-center rounded-full hover:bg-zinc-800 text-zinc-500" aria-label="แนบไฟล์">
             <Paperclip className="size-4" />
