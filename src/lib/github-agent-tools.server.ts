@@ -47,7 +47,7 @@ const TOOLS: ToolDef[] = [
   { type: "function", function: { name: "github_actions", description: "Read recent GitHub Actions workflow runs for a repository.", parameters: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, branch: { type: "string" } }, required: ["owner", "repo"], additionalProperties: false } } },
   { type: "function", function: { name: "github_workflow_diagnostics", description: "Inspect a workflow run and retrieve the tail of failed job logs for diagnosis.", parameters: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, runId: { type: "integer" } }, required: ["owner", "repo", "runId"], additionalProperties: false } } },
   { type: "function", function: { name: "github_dispatch_workflow", description: "Dispatch a GitHub Actions workflow on a branch.", parameters: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, workflow: { type: "string" }, branch: { type: "string" }, inputs: { type: "object", additionalProperties: { type: "string" } } }, required: ["owner", "repo", "workflow"], additionalProperties: false } } },
-  { type: "function", function: { name: "web_check", description: "Check a deployed HTTPS URL and return status, final URL, response time, content type, and body preview. Use after deployment and when diagnosing 500/502/503/timeouts.", parameters: { type: "object", properties: { url: { type: "string", minLength: 8, maxLength: 2048 }, timeoutMs: { type: "integer", minimum: 1000, maximum: 30000 } }, required: ["url"], additionalProperties: false } } },
+  { type: "function", function: { name: "web_check", description: "Check the deployed Boss URL. If url is omitted, automatically use BOSS_VERIFY_URL, Render/Vercel production URL, or the known Boss deployment. Return status, final URL, response time, content type, and body preview. Use after deployment and when diagnosing 500/502/503/timeouts.", parameters: { type: "object", properties: { url: { type: "string", minLength: 8, maxLength: 2048 }, timeoutMs: { type: "integer", minimum: 1000, maximum: 30000 } }, required: [], additionalProperties: false } } },
   { type: "function", function: { name: "github_wait_for_workflow", description: "Wait for a GitHub Actions run to complete and return its actual conclusion. Use after dispatching or after a commit that triggers CI.", parameters: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, runId: { type: "integer" }, timeoutMs: { type: "integer" }, pollMs: { type: "integer" } }, required: ["owner", "repo", "runId"], additionalProperties: false } } },
 ];
 
@@ -84,7 +84,14 @@ function assistantMessage(response: unknown): Record<string, unknown> | null {
 
 async function execute(name: string, args: Record<string, unknown>): Promise<unknown> {
   if (name === "web_check") {
-    const rawUrl = String(args.url ?? "").trim();
+    const configuredUrl = String(
+      args.url ??
+      process.env.BOSS_VERIFY_URL ??
+      process.env.RENDER_EXTERNAL_URL ??
+      process.env.VERCEL_PROJECT_PRODUCTION_URL ??
+      "https://panupanboss.onrender.com/chat"
+    ).trim();
+    const rawUrl = configuredUrl.startsWith("http") ? configuredUrl : `https://${configuredUrl}`;
     if (!/^https:\/\//i.test(rawUrl)) throw new Error("web_check only accepts HTTPS URLs.");
     let target: URL;
     try { target = new URL(rawUrl); } catch { throw new Error("Invalid URL."); }
