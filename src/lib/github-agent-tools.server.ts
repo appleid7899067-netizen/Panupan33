@@ -186,7 +186,11 @@ async function runModel(prompt: string, model: string, authToken?: string): Prom
   let mutationOccurred = false;
   let verified = false;
 
-  for (let round = 0; round < MAX_ROUNDS; round += 1) {
+  const urgent = /ด่วน|เร่งด่วน|ทันที|เดี๋ยวนี้|โดยเร็ว|asap|urgent|immediately|right now|fix now/i.test(prompt);
+  const roundLimit = urgent ? FAST_MAX_ROUNDS : MAX_ROUNDS;
+  if (urgent) messages[0] = { ...(messages[0] as Record<string, unknown>), content: `${String(messages[0].content)}\\nFAST PATH: urgent request, skip unnecessary planning and verify immediately.` };
+
+  for (let round = 0; round < roundLimit; round += 1) {
     const response = await puter.ai.chat(messages, { model, tools: TOOLS, normalize: true, stream: false });
     const calls = extractCalls(response);
     allCalls.push(...calls);
