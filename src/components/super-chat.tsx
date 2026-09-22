@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState, useRef } from "react";
-import { Send, Paperclip, Mic, ChevronDown, Sparkles, Activity, CheckCircle2, Loader2 } from "lucide-react";
+import { Send, Paperclip, Mic, ChevronDown, Sparkles } from "lucide-react";
 import { useFleet } from "@/lib/store";
 import { backgroundLab } from "@/lib/background-sandbox";
 import { freeAI } from "@/lib/autonomous";
@@ -227,22 +227,30 @@ export function SuperChat() {
                 <span className="text-[11px]">B</span>
               </div>
             )}
-            <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-6 ${
-              m.role === "user" 
-                ? "bg-white text-black" 
-                : "bg-zinc-900 border border-zinc-800 text-zinc-100"
+            <div className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 ${
+              m.role === "user"
+                ? "bg-white text-black"
+                : "bg-zinc-900/80 border border-zinc-800 text-zinc-100"
             }`}>
               <div className="whitespace-pre-wrap">{m.content}</div>
-              {m.activity && m.activity.length > 0 && (
-                <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950/70 overflow-hidden">
-                  <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-800/80 text-[10px] uppercase tracking-wider text-zinc-500"><Activity className="size-3" /> Boss activity
-                    {m.id === liveStream.id && liveStream.active && <span className="ml-auto text-emerald-400">● live</span>}
+              {m.role === "assistant" && m.activity && m.activity.length > 0 && m.id === liveStream.id && liveStream.active && (
+                <div className="mt-4 border-t border-zinc-800/80 pt-3 text-[12px]">
+                  <div className="mb-2 flex items-center gap-2 text-zinc-400">
+                    <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>กำลังทำงาน</span>
+                    <span className="ml-auto text-[10px] uppercase tracking-widest text-emerald-400">live</span>
                   </div>
-                  <div className="px-3 py-2 space-y-1.5">
-                    {m.activity.map((a, i) => {
-                      const parts = a.split(": "); const phase = parts[0] ?? ""; const detail = parts.slice(1).join(": ") || a;
-                      const done = i < m.activity!.length - 1 || (m.id === liveStream.id && !liveStream.active);
-                      return <div key={i} className="flex items-start gap-2 text-[11px] text-zinc-400"><span>{done ? <CheckCircle2 className="size-3 text-emerald-400" /> : <Loader2 className="size-3 animate-spin" />}</span><span><span className="text-zinc-500 mr-1">{phase}</span>{detail}</span></div>;
+                  <div className="space-y-1.5 text-zinc-500">
+                    {m.activity.slice(-6).map((a, i, arr) => {
+                      const parts = a.split(": ");
+                      const phase = parts[0] ?? "";
+                      const detail = parts.slice(1).join(": ") || a;
+                      return (
+                        <div key={i} className={`flex gap-2 ${i === arr.length - 1 ? "text-zinc-200" : ""}`}>
+                          <span className="select-none">{i === arr.length - 1 ? "›" : "✓"}</span>
+                          <span><span className="text-zinc-500">{phase}</span>{detail ? ` · ${detail}` : ""}</span>
+                        </div>
+                      );
                     })}
                   </div>
                 </div>
@@ -256,12 +264,7 @@ export function SuperChat() {
           </div>
         ))}
         
-        {liveStream.active && liveStream.steps.length > 0 && (
-          <div className="flex gap-3"><div className="size-7 rounded-full bg-white text-black grid place-items-center shrink-0"><span className="text-[11px] font-semibold">B</span></div>
-            <div className="max-w-[88%] rounded-2xl border border-zinc-800 bg-zinc-900/90 px-4 py-3 shadow-xl">
-              <div className="flex items-center gap-2 text-xs text-zinc-300"><Activity className="size-3.5 text-emerald-400" /><span>Boss กำลังทำงานแบบเรียลไทม์</span><span className="ml-auto text-[10px] text-emerald-400">LIVE</span></div>
-              <div className="mt-3 space-y-2">{liveStream.steps.slice(-5).map((step, i, arr) => <div key={i} className="flex items-start gap-2 text-[11px]"><span>{i === arr.length - 1 ? <Loader2 className="size-3 animate-spin text-emerald-400" /> : <CheckCircle2 className="size-3 text-zinc-500" />}</span><span className={i === arr.length - 1 ? "text-zinc-200" : "text-zinc-500"}>{step}</span></div>)}</div>
-            </div>
+      </div>
           </div>
         )}      </div>
 
