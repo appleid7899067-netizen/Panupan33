@@ -75,7 +75,8 @@
     "zod": "^4.4.0",
     "zustand": "^5.0.0",
     "@heyputer/puter.js": "^2.6.3",
-    "fflate": "^0.8.2"
+    "fflate": "^0.8.2",
+    "@openai/codex": "^0.154.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.20.0",
