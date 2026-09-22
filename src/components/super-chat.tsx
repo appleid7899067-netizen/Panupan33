@@ -15,14 +15,13 @@ import { chatWithPuter, listPuterModels, type PuterModel } from "@/lib/puter";
 import { DEFAULT_PUTER_MODEL, POWER_PUTER_MODEL_IDS } from "@/lib/catalog";
 
 const FREE_FALLBACK: PuterModel[] = [
-  { id: "openrouter:qwen/qwen3-coder", name: "Qwen3 Coder (ฟรี)", provider: "qwen" },
-  { id: "openrouter:deepseek/deepseek-chat-v3-0324", name: "DeepSeek V3 (ฟรี)", provider: "deepseek" },
-  { id: "openrouter:deepseek/deepseek-r1", name: "DeepSeek R1 (ฟรี)", provider: "deepseek" },
-  { id: "openrouter:meta-llama/llama-4-maverick", name: "Llama 4 Maverick (ฟรี)", provider: "meta" },
-  { id: "openrouter:google/gemma-3-27b-it", name: "Gemma 3 27B (ฟรี)", provider: "google" },
-  { id: "openrouter:mistralai/devstral-small", name: "Devstral Small (ฟรี)", provider: "mistral" },
+  { id: "nex-agi/nex-n2.5-pro:free", name: "Nex N2.5 Pro (ฟรี)", provider: "nex-agi" },
+  { id: "dots-studio/dots-3-note-preview:free", name: "Dots 3 Note Preview (ฟรี)", provider: "dots-studio" },
+  { id: "inclusionai/ling-3.0-flash-sante:free", name: "Ling 3.0 Flash Sante (ฟรี)", provider: "inclusionai" },
+  { id: "nex-agi/nex-n2.5-mini:free", name: "Nex N2.5 Mini (ฟรี)", provider: "nex-agi" },
   { id: "upstage/solar-pro-4", name: "Solar Pro 4", provider: "upstage" },
-  { id: "x-ai/grok-4-20-reasoning", name: "Grok 4.20 Reasoning", provider: "xai" },
+  { id: "qwen/qwen3.7-flash", name: "Qwen 3.7 Flash", provider: "qwen" },
+  { id: "deepseek/deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash", provider: "deepseek" },
 ];
 
 export function SuperChat() {
@@ -49,14 +48,24 @@ export function SuperChat() {
     const q = input;
     setInput("");
     setReply("กำลังคิด…");
-    const result = await chatWithPuter({
-      model: selectedModel,
-      messages: [
-        { role: "system", content: "You are Boss (Codex-style). Follow user intent fully. Do not dump tools. Work step by step." },
-        { role: "user", content: q },
-      ],
-    });
-    setReply(result.ok ? result.text : "Error: " + result.error);
+    const candidates = [selectedModel, ...FREE_FALLBACK.map((m) => m.id)];
+    const uniqueCandidates = [...new Set(candidates)];
+    let lastError = "ไม่พบโมเดลที่พร้อมใช้งาน";
+    for (const model of uniqueCandidates) {
+      const result = await chatWithPuter({
+        model,
+        messages: [
+          { role: "system", content: "You are Boss (Codex-style). Follow user intent fully. Do not dump tools. Work step by step." },
+          { role: "user", content: q },
+        ],
+      });
+      if (result.ok) {
+        setReply(result.text);
+        return;
+      }
+      lastError = result.error;
+    }
+    setReply("Error: " + lastError);
   };
 
   return (
