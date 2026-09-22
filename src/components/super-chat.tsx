@@ -312,14 +312,14 @@ export function SuperChat() {
       <div className="relative flex-1 min-h-0">
         <div
           ref={scrollerRef}
-          onWheel={(e) => {
-            if (e.deltaY < 0) {
-              isPinnedRef.current = false;
-              setIsPinnedToBottom(false);
-            }
+          className="h-full min-h-0 overflow-y-scroll overscroll-y-contain touch-pan-y px-4 py-6 sm:px-6 sm:py-7 space-y-6 [scrollbar-gutter:stable]"
+          style={{ overflowAnchor: "none", WebkitOverflowScrolling: "touch" }}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            const pinned = isNearBottom(el);
+            isPinnedRef.current = pinned;
+            setIsPinnedToBottom(pinned);
           }}
-          className="h-full overflow-y-auto overscroll-contain px-4 py-6 sm:px-6 sm:py-7 space-y-6"
-          style={{ overflowAnchor: "none" }}
         >
         {thread?.messages.map((m) => (
           <div key={m.id} className={`flex gap-3 ${m.role === "user" ? "justify-end" : ""}`}>
