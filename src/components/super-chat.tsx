@@ -10,6 +10,7 @@ import { backgroundLab } from "@/lib/background-sandbox";
 import { freeAI } from "@/lib/autonomous";
 import { runAgent, runAgentSandbox, runAgentStream } from "@/lib/agent.functions";
 import { listPuterModels, loadPuter, type PuterModel } from "@/lib/puter";
+import { executeWebSearch } from "@/lib/bossnugrok/skills/web-search";
 
 function displayAgentText(value: unknown): string {
   if (typeof value === "string") return value;
@@ -217,6 +218,39 @@ export function SuperChat() {
       patchVerified(thread.id, assistantId, sandbox.ok);
       setLiveStream((s) => s.id === assistantId ? { ...s, active: false } : s);
       return;
+    }
+
+    // Explicit web-search requests use Yandex as the default engine.
+    const wantsWebSearch = /(?:^|\s)(ค้นหา|หาให้หน่อย|search|ค้นเว็บ|เว็บเกี่ยวกับ|หาข้อมูล)(?:\s|$)/i.test(userText);
+    if (wantsWebSearch) {
+      try {
+        const searchResult = await executeWebSearch(
+          { query: userText, depth: "normal", engine: "yandex" },
+          (chunk) => {
+            const next = [...(liveStream.id === assistantId ? liveStream.steps : []), chunk.trim()].filter(Boolean).slice(-10);
+            setLiveStream({ id: assistantId, steps: next, active: true });
+            patchActivity(thread.id, assistantId, next);
+          },
+        );
+        const response = searchResult.ok && searchResult.data
+          ? searchResult.data.summary + "\n\n" + searchResult.data.results.map((r, i) => (i + 1) + ". " + r.title + "\n" + r.url).join("\n\n")
+          : "ค้นเว็บไม่สำเร็จ: " + (searchResult.error || "ไม่ทราบสาเหตุ");
+        patchMessage(thread.id, assistantId, response);
+        patchVerified(thread.id, assistantId, searchResult.ok === true);
+        patchActivity(thread.id, assistantId, [
+          "search: yandex",
+          "results: " + (searchResult.data?.results.length ?? 0),
+          "duration: " + searchResult.duration + "ms",
+        ]);
+        setLiveStream((s) => s.id === assistantId ? { ...s, active: false } : s);
+        return;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        patchMessage(thread.id, assistantId, "Yandex search failed: " + message);
+        patchVerified(thread.id, assistantId, false);
+        setLiveStream((s) => s.id === assistantId ? { ...s, active: false } : s);
+        return;
+      }
     }
 
     // ปกติ: ส่งข้อความเข้า Boss Agent จริง ไม่ใช้ template ตอบสำเร็จรูป
