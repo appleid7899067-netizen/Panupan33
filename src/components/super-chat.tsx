@@ -308,79 +308,77 @@ export function SuperChat() {
         </div>
       )}
 
-      {/* Messages แบบ GPT */}
-      <div className="relative flex-1 min-h-0">
-        <div
-          ref={scrollerRef}
-          className="absolute inset-0 overflow-y-auto overscroll-y-contain touch-pan-y px-4 py-6 pb-8 sm:px-6 sm:py-7 space-y-6 [scrollbar-gutter:stable]"
-          style={{ overflowAnchor: "none", WebkitOverflowScrolling: "touch" }}
-          onScroll={(e) => {
-            const el = e.currentTarget;
-            const pinned = isNearBottom(el);
-            isPinnedRef.current = pinned;
-            setIsPinnedToBottom(pinned);
-          }}
-        >
-        {thread?.messages.map((m) => (
-          <div key={m.id} className={`flex gap-3 ${m.role === "user" ? "justify-end" : ""}`}>
-            {m.role === "assistant" && (
-              <div className="size-7 rounded-full bg-zinc-800 border border-zinc-700 grid place-items-center shrink-0 mt-0.5">
-                <span className="text-[11px]">B</span>
+      {/* Messages: the only scrolling region. Header and composer remain outside it. */}
+      <main
+        ref={scrollerRef}
+        className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y px-4 py-6 pb-8 sm:px-6 sm:py-7 [scrollbar-gutter:stable]"
+        style={{ overflowAnchor: "none", WebkitOverflowScrolling: "touch" }}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          const pinned = isNearBottom(el);
+          isPinnedRef.current = pinned;
+          setIsPinnedToBottom(pinned);
+        }}
+      >
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+          {thread?.messages.map((m) => (
+            <div key={m.id} className={`flex gap-3 ${m.role === "user" ? "justify-end" : ""}`}>
+              {m.role === "assistant" && (
+                <div className="size-7 rounded-full bg-zinc-800 border border-zinc-700 grid place-items-center shrink-0 mt-0.5">
+                  <span className="text-[11px]">B</span>
+                </div>
+              )}
+              <div className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 ${
+                m.role === "user"
+                  ? "bg-white text-black"
+                  : "bg-zinc-900/80 border border-zinc-800 text-zinc-100"
+              }`}>
+                <div className="whitespace-pre-wrap">{m.content}</div>
+                {m.role === "assistant" && m.activity && m.activity.length > 0 && m.id === liveStream.id && liveStream.active && (
+                  <div className="mt-4 border-t border-zinc-800/80 pt-3 text-[12px]">
+                    <div className="mb-2 flex items-center gap-2 text-zinc-400">
+                      <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span>กำลังทำงาน</span>
+                      <span className="ml-auto text-[10px] uppercase tracking-widest text-emerald-400">live</span>
+                    </div>
+                    <div className="space-y-1.5 text-zinc-500">
+                      {m.activity.slice(-6).map((a, i, arr) => {
+                        const parts = a.split(": ");
+                        const phase = parts[0] ?? "";
+                        const detail = parts.slice(1).join(": ") || a;
+                        return (
+                          <div key={i} className={`flex gap-2 ${i === arr.length - 1 ? "text-zinc-200" : ""}`}>
+                            <span className="select-none">{i === arr.length - 1 ? "›" : "✓"}</span>
+                            <span><span className="text-zinc-500">{phase}</span>{detail ? ` · ${detail}` : ""}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-            <div className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 ${
-              m.role === "user"
-                ? "bg-white text-black"
-                : "bg-zinc-900/80 border border-zinc-800 text-zinc-100"
-            }`}>
-              <div className="whitespace-pre-wrap">{m.content}</div>
-              {m.role === "assistant" && m.activity && m.activity.length > 0 && m.id === liveStream.id && liveStream.active && (
-                <div className="mt-4 border-t border-zinc-800/80 pt-3 text-[12px]">
-                  <div className="mb-2 flex items-center gap-2 text-zinc-400">
-                    <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>กำลังทำงาน</span>
-                    <span className="ml-auto text-[10px] uppercase tracking-widest text-emerald-400">live</span>
-                  </div>
-                  <div className="space-y-1.5 text-zinc-500">
-                    {m.activity.slice(-6).map((a, i, arr) => {
-                      const parts = a.split(": ");
-                      const phase = parts[0] ?? "";
-                      const detail = parts.slice(1).join(": ") || a;
-                      return (
-                        <div key={i} className={`flex gap-2 ${i === arr.length - 1 ? "text-zinc-200" : ""}`}>
-                          <span className="select-none">{i === arr.length - 1 ? "›" : "✓"}</span>
-                          <span><span className="text-zinc-500">{phase}</span>{detail ? ` · ${detail}` : ""}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
+              {m.role === "user" && (
+                <div className="size-7 rounded-full bg-zinc-700 grid place-items-center shrink-0 mt-0.5">
+                  <span className="text-[11px]">U</span>
                 </div>
               )}
             </div>
-            {m.role === "user" && (
-              <div className="size-7 rounded-full bg-zinc-700 grid place-items-center shrink-0 mt-0.5">
-                <span className="text-[11px]">U</span>
-              </div>
-            )}
-          </div>
-        ))}
-        
+          ))}
         </div>
         {!isPinnedToBottom && (
           <button
             type="button"
             onClick={() => pinToBottom("smooth")}
             aria-label="เลื่อนไปข้อความล่าสุด"
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 size-9 rounded-full border border-zinc-700 bg-zinc-900/95 text-zinc-200 shadow-lg grid place-items-center hover:bg-zinc-800 transition"
+            className="sticky bottom-4 z-20 mx-auto mt-4 size-9 -translate-x-1/2 rounded-full border border-zinc-700 bg-zinc-900/95 text-zinc-200 shadow-lg grid place-items-center hover:bg-zinc-800 transition"
           >
             <ChevronDown className="size-4" />
           </button>
         )}
-      </div>
+      </main>
 
-      {/* Input แบบ GPT */}
-      <div className="shrink-0 p-3 sm:p-4 border-t border-zinc-800 bg-zinc-950/95 backdrop-blur-xl">
-        <div className="relative flex items-end gap-2 rounded-2xl bg-zinc-900 border border-zinc-800 p-2">
+      {/* Composer: fixed by flex layout, never part of the message scroll. */}
+      <div className="relative z-30 shrink-0 border-t border-zinc-800 bg-zinc-950/95 p-3 backdrop-blur-xl sm:p-4">        <div className="relative flex items-end gap-2 rounded-2xl bg-zinc-900 border border-zinc-800 p-2">
           <button className="size-8 grid place-items-center rounded-full hover:bg-zinc-800 text-zinc-500">
             <Paperclip className="size-4" />
           </button>
