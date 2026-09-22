@@ -29,7 +29,7 @@ function safeText(value: unknown, fallback = ""): string {
   return String(value);
 }
 
-function failureText(primary: unknown, results: ToolExecutionResult[]): string {
+function failureText(primary: unknown, results: ToolExecutionResult[] = []): string {
   const direct = safeText(primary);
   if (direct) return direct;
   const failed = results.filter((item) => !item.ok).map((item) => {
@@ -139,7 +139,7 @@ Never claim an external action succeeded without evidence.`;
     const result = await callWithFallback(currentPrompt, tools, [model], (activity) => activity.forEach((detail) => emitStep({ phase: "observe", detail })), authToken);
     if (!result.ok) {
       steps.push({ phase: "observe", detail: `เครื่องมือ/โมเดลแจ้งข้อผิดพลาด: ${result.error.slice(0, 300)}` });
-      return { ok: false, text: failureText(result.error, result.toolResults), steps, verified: false };
+      return { ok: false, text: failureText(result.error, "toolResults" in result ? result.toolResults : []), steps, verified: false };
     }
     last = result.text;
     hadToolActivity ||= result.toolCalls.length > 0;
@@ -157,7 +157,7 @@ Never claim an external action succeeded without evidence.`;
       if ((mutationExpected || hadVerificationActivity || looksLikeVerification(prompt)) && !verificationPassedEvidence) {
         steps.push({ phase: "verify", detail: "ยังไม่มีหลักฐานจาก verification tool หลังมีการเปลี่ยนแปลง จึงบังคับให้ Agent ตรวจซ้ำ" });
         if (iteration === Math.min(maxIterations, 8) - 1) {
-          return { ok: false, text: failureText(last, result.toolResults), steps, verified: false };
+          return { ok: false, text: failureText(last, result.toolResults ?? []), steps, verified: false };
         }
         steps.push({ phase: "refine", detail: "ขอให้ Agent เรียกเครื่องมือตรวจสอบจริงก่อนประกาศสำเร็จ" });
         currentPrompt = `${prompt}
