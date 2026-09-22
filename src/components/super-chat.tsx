@@ -183,7 +183,10 @@ export function SuperChat() {
       role: "assistant",
       content: "กำลังทำงาน…",
       model: selectedModel,
-      activity: ["วิเคราะ    const context = compileChatContext({
+      activity: ["วิเคราะห์"],
+    });
+
+    const context = compileChatContext({
       messages: thread.messages,
       memory: useFleet.getState().memory.map((m) => m.text),
       query: userText,
@@ -194,7 +197,7 @@ export function SuperChat() {
 
     // Fast lane: ordinary conversation never starts the Agent/tool loop.
     const wantsAgent = /(?:ทำให้|แก้|สร้าง|เขียน|deploy|ดีพลอย|github|git|repo|repository|โค้ด|code|run|รัน|ทดสอบ|sandbox|api|database|ฐานข้อมูล|ไฟล์|file|ติดตั้ง|เชื่อมต่อ|ตรวจสอบระบบ|แก้บั๊ก|bug|task|งาน|ค้นหา|search|เว็บ|ค้นเว็บ)/i.test(userText);
-    const quickReply = /^(คับ|ครับ|ค่ะ|ใช่|โอเค|ok|ตกลง|ได้|ต่อเลย|ทำเลย|ขอบคุณ|ขอบใจ|รับทราบ|อืม|hello|hi|hey)[!.\s]*$/i.test(userText.trim());
+    const quickReply = /^(คับ|ครับ|ค่ะ|ใช่|โอเค|ok|ตกลง|ได้|ต่อเลย|ทำเลย|ขอบคุณ|ขอบใจ|รับทราบ|อืม|hello|hi|hey)[!.\\s]*$/i.test(userText.trim());
 
     if (!wantsAgent || quickReply) {
       try {
@@ -220,7 +223,7 @@ export function SuperChat() {
         patchActivity(thread.id, assistantId, []);
         return;
       }
-    }).join("\n\n");
+    }
 
     // ประมวลผลแบบ ONE CHAT 100 อย่าง
     // ถ้าข้อความมี code block หรือสั่ง "รันโค้ด" ให้ Boss เรียก Sandbox โดยตรง
