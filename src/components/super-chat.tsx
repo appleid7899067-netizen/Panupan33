@@ -12,6 +12,7 @@ import { runAgent, runAgentSandbox, runAgentStream } from "@/lib/agent.functions
 import { chatWithPuter, listPuterModels, loadPuter, type PuterModel } from "@/lib/puter";
 import { executeWebSearch } from "@/lib/bossnugrok/skills/web-search";
 import { compileChatContext } from "@/lib/context-compiler";
+import { DEFAULT_PUTER_MODEL } from "@/lib/catalog";
 
 function displayAgentText(value: unknown): string {
   if (typeof value === "string") return value;
@@ -44,7 +45,7 @@ export function SuperChat() {
   const [models, setModels] = useState<PuterModel[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
   const [liveStream, setLiveStream] = useState<{ id: string; steps: string[]; active: boolean }>({ id: "", steps: [], active: false });
-  const selectedModel = storedModel || "gpt-5.6-luna";
+  const selectedModel = storedModel || DEFAULT_PUTER_MODEL;
   const selectedModelInfo = models.find((m) => m.id === selectedModel) ?? {
     id: selectedModel,
     name: selectedModel,
@@ -59,14 +60,15 @@ export function SuperChat() {
         if (cancelled) return;
         const chatModels = items.filter((m) => !/image|audio|video|embedding|rerank|moderation/i.test(m.id));
         setModels(chatModels);
-        if (!chatModels.some((m) => m.id === selectedModel) && chatModels.some((m) => m.id === "gpt-5.6-luna")) {
-          setStoreModel("gpt-5.6-luna");
+        if (chatModels.length && !chatModels.some((m) => m.id === selectedModel)) {
+          const preferred = chatModels.find((m) => m.id === DEFAULT_PUTER_MODEL) ?? chatModels[0];
+          setStoreModel(preferred.id);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setModels([
-            { id: "gpt-5.6-luna", name: "GPT-5.6 Luna", provider: "openai" },
+            { id: DEFAULT_PUTER_MODEL, name: "GPT-5 Nano", provider: "openai" },
             { id: "gpt-5-nano", name: "GPT-5 Nano", provider: "openai" },
             { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", provider: "anthropic" },
             { id: "gemini-3.1-flash-lite", name: "Gemini 3.1 Flash Lite", provider: "google" },
