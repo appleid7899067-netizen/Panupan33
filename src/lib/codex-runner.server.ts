@@ -31,13 +31,12 @@ function run(command: string, args: string[], cwd: string, env: NodeJS.ProcessEn
 }
 
 export async function runCodexAgent(prompt: string, githubToken?: string, puterAuthToken?: string, onOutput?: CodexRunEvent): Promise<CodexRunResult> {
-  const apiKey = process.env.CODEX_API_KEY || process.env.OPENAI_API_KEY;
-  if (!apiKey) return { ok: false, verified: false, text: "Codex ยังไม่พร้อม: ต้องตั้ง CODEX_API_KEY หรือ OPENAI_API_KEY ฝั่ง server ก่อน", error: "Missing CODEX_API_KEY/OPENAI_API_KEY" };
+  // Codex CLI authentication is independent from Puter MCP authentication.\n  // Prefer CODEX_ACCESS_TOKEN when available, otherwise use an API key.\n  const codexAccessToken = process.env.CODEX_ACCESS_TOKEN;\n  const apiKey = process.env.CODEX_API_KEY || process.env.OPENAI_API_KEY;\n  if (!codexAccessToken && !apiKey) return { ok: false, verified: false, text: "Codex ยังไม่พร้อม: Render ยังไม่มี CODEX_ACCESS_TOKEN, CODEX_API_KEY หรือ OPENAI_API_KEY ฝั่ง server", error: "Missing Codex authentication" };
 
   const repo = repoFromPrompt(prompt);
   const workspace = await mkdtemp(join(tmpdir(), "bossnu-codex-"));
   const branch = "boss/codex-" + Date.now().toString(36) + "-" + randomUUID().slice(0, 6);
-  const env: NodeJS.ProcessEnv = { ...process.env, CODEX_API_KEY: apiKey, OPENAI_API_KEY: apiKey, GIT_TERMINAL_PROMPT: "0" };
+  const env: NodeJS.ProcessEnv = {\n    ...process.env,\n    ...(apiKey ? { CODEX_API_KEY: apiKey, OPENAI_API_KEY: apiKey } : {}),\n    ...(codexAccessToken ? { CODEX_ACCESS_TOKEN: codexAccessToken } : {}),\n    GIT_TERMINAL_PROMPT: "0",\n  };
 
   try {
     onOutput?.("🧠 Boss → Codex: " + repo);
