@@ -530,8 +530,31 @@ function extractToolCalls(value: unknown): ToolCall[] {
   });
 }
 function safeText(value: unknown, fallback = ""): string {
-  if (typeof value === "string") return value;
-  try { return JSON.stringify(value) ?? fallback; } catch { return fallback; }
+  if (value == null) return fallback;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed && trimmed !== "[object Object]" && trimmed !== "undefined" && trimmed !== "null") return trimmed;
+    return fallback;
+  }
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    const joined = value.map((item) => safeText(item)).filter(Boolean).join("\n");
+    return joined || fallback;
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    for (const key of ["message", "error", "detail", "reason", "content", "text"]) {
+      const nested = safeText(record[key]);
+      if (nested) return nested;
+    }
+    try {
+      const serialized = JSON.stringify(value);
+      return serialized && serialized !== "{}" ? serialized : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+  return String(value);
 }
 function assistantToolMessage(response: unknown): Record<string, unknown> | null {
   const message = (response as Record<string, unknown> | null)?.message;
@@ -722,7 +745,8 @@ export async function callWithFallback(
   authToken?: string,
 ): Promise<{ ok: true; text: string; model: string; toolCalls: ToolCall[]; toolResults: ToolExecutionResult[]; verified: boolean } | { ok: false; error: string }> {
   let lastError = "No model succeeded.";
-  for (const model of models) {
+  const modelQueue = Array.from(new Set([...models, ...DEFAULT_MODELS]));
+  for (const model of modelQueue) {
     try {
       const availableTools = tools.slice(0, TOOL_LIMIT);
       const system = ["You are Bossnu SlieLo Agent. Use available tools when they materially improve the answer. Never claim an external action succeeded unless the tool returned success.", "Available tools:", toolSummary(availableTools)].join("\n");
@@ -814,7 +838,8 @@ export async function callWithFallback(
       }
       return { ok: false, error: `Agent reached the ${MAX_TOOL_ROUNDS}-round tool limit without producing a final answer.` };
     } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
+      lastError = safeText(error, `โมเดล ${model} ล้มเหลวโดยไม่มีรายละเอียดที่อ่านได้`);
+      onActivity?.([`⚠️ โมเดล ${model} ล้มเหลว: ${lastError.slice(0, 300)}`, "🔁 กำลังสลับไปโมเดลสำรองอัตโนมัติ..."]);
     }
   }
   return { ok: false, error: lastError };
