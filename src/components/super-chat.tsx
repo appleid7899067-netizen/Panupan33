@@ -23,29 +23,36 @@ function activityMeta(step: string) {
 }
 
 function BossActivityStream({ steps, active }: { steps: string[]; active: boolean }) {
-  const visible = steps.slice(-8);
+  const visible = steps.slice(-12);
   if (!visible.length) return null;
   return (
-    <div className="mt-3 overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-950/55" aria-live="polite">
-      <div className="flex items-center gap-2 border-b border-zinc-800/70 px-3 py-2">
-        <span className={`size-1.5 rounded-full ${active ? "bg-emerald-400 animate-pulse" : "bg-zinc-600"}`} />
-        <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-500">
-          {active ? "LIVE ACTIVITY" : "ACTIVITY"}
-        </span>
+    <div className="mt-4 w-full overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/70" aria-live="polite">
+      <div className="flex items-center justify-between border-b border-zinc-800/70 px-3.5 py-2.5">
+        <div className="flex items-center gap-2">
+          <span className={"relative grid size-5 place-items-center rounded-full " + (active ? "bg-emerald-500/10" : "bg-zinc-800")}>
+            <span className={"size-1.5 rounded-full " + (active ? "bg-emerald-400 animate-pulse" : "bg-zinc-500")} />
+            {active && <span className="absolute inset-0 rounded-full border border-emerald-400/20 animate-ping" />}
+          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400">{active ? "BOSS · LIVE" : "BOSS · ACTIVITY"}</span>
+        </div>
+        {active && <span className="text-[9px] text-emerald-400/80">กำลังทำงาน</span>}
       </div>
-      <div className="divide-y divide-zinc-900/80">
+      <div className="px-3.5 py-3">
         {visible.map((step, index) => {
           const meta = activityMeta(step);
           const current = active && index === visible.length - 1;
+          const isLast = index === visible.length - 1;
+          const text = step.includes(": ") ? step.slice(step.indexOf(": ") + 2) : step;
           return (
-            <div key={`${step}-${index}`} className={`flex items-center gap-2.5 px-3 py-2 transition-all duration-300 ${current ? "bg-zinc-900/70" : ""}`}>
-              <span className={`grid size-5 shrink-0 place-items-center rounded-full border ${meta.line} bg-zinc-950 text-[10px] ${meta.tone}`}>
-                {meta.icon}
+            <div key={step + "-" + index} className="relative flex gap-3">
+              {!isLast && <span className="absolute left-[9px] top-5 bottom-[-3px] w-px bg-zinc-800" />}
+              <span className={"relative z-10 mt-0.5 grid size-[19px] shrink-0 place-items-center rounded-full border bg-zinc-950 text-[9px] " + meta.line + " " + meta.tone}>
+                {current ? <span className="size-1.5 rounded-full bg-current animate-pulse" /> : meta.icon}
               </span>
-              <span className={`min-w-0 flex-1 truncate text-[11px] ${current ? "text-zinc-100" : "text-zinc-500"}`}>
-                {step.replace(/^[a-z_]+:\\s*/i, "")}
-              </span>
-              {current && <span className="flex shrink-0 gap-0.5"><i className="size-1 rounded-full bg-zinc-500 animate-pulse" /><i className="size-1 rounded-full bg-zinc-500 animate-pulse [animation-delay:120ms]" /><i className="size-1 rounded-full bg-zinc-500 animate-pulse [animation-delay:240ms]" /></span>}
+              <div className={"mb-3 min-w-0 flex-1 rounded-xl px-2.5 py-2 transition-all duration-300 " + (current ? "bg-zinc-900/90 ring-1 ring-zinc-800" : "")}>
+                <div className={"text-[11px] leading-4 " + (current ? "text-zinc-100" : "text-zinc-500")}>{text}</div>
+                {current && <div className="mt-1.5 flex items-center gap-1.5"><span className="text-[9px] text-zinc-600">กำลังทำงาน</span><span className="flex gap-1"><i className="size-1 rounded-full bg-zinc-500 animate-bounce" /><i className="size-1 rounded-full bg-zinc-500 animate-bounce [animation-delay:120ms]" /><i className="size-1 rounded-full bg-zinc-500 animate-bounce [animation-delay:240ms]" /></span></div>}
+              </div>
             </div>
           );
         })}
@@ -53,7 +60,6 @@ function BossActivityStream({ steps, active }: { steps: string[]; active: boolea
     </div>
   );
 }
-
 function BossMarkdown({ content }: { content: string }) {
   const fence = String.fromCharCode(96, 96, 96);
   const parts = content.split(fence);
@@ -359,9 +365,13 @@ export function SuperChat() {
         const searchResult = await executeWebSearch(
           { query: userText, depth: "normal", engine: "yandex" },
           (chunk) => {
-            const next = [...(liveStream.id === assistantId ? liveStream.steps : []), chunk.trim()].filter(Boolean).slice(-10);
-            setLiveStream({ id: assistantId, steps: next, active: true });
-            patchActivity(thread.id, assistantId, next);
+            const clean = chunk.trim();
+            if (!clean) return;
+            setLiveStream((current) => {
+              const next = [...(current.id === assistantId ? current.steps : searchSteps), clean].filter(Boolean).slice(-12);
+              patchActivity(thread.id, assistantId, next);
+              return { id: assistantId, steps: next, active: true };
+            });
           },
         );
         const response = searchResult.ok && searchResult.data
