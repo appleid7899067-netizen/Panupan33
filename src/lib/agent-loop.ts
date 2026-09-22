@@ -141,10 +141,10 @@ Never claim external success without tool evidence.`;
   const mutationExpected = looksLikeMutation(prompt);
 
   for (let iteration = 0; iteration < Math.max(1, Math.min(maxIterations, 6)); iteration += 1) {
-    steps.push({ phase: "act", detail: `รอบที่ ${iteration + 1}: ลงมือทำ (1–2 tool ตามเจตนา)` });
+    emitStep({ phase: "act", detail: `รอบที่ ${iteration + 1}: ลงมือทำ (1–2 tool ตามเจตนา)` });
     const result = await callWithFallback(currentPrompt, tools, [model], (activity) => activity.forEach((detail) => emitStep({ phase: "observe", detail })), authToken);
     if (!result.ok) {
-      steps.push({ phase: "observe", detail: `เครื่องมือ/โมเดลแจ้งข้อผิดพลาด: ${result.error.slice(0, 300)}` });
+      emitStep({ phase: "observe", detail: `เครื่องมือ/โมเดลแจ้งข้อผิดพลาด: ${result.error.slice(0, 300)}` });
       return { ok: false, text: failureText(result.error, "toolResults" in result ? result.toolResults : []), steps, verified: false };
     }
     last = result.text;
@@ -156,22 +156,22 @@ Never claim external success without tool evidence.`;
       const detail = toolResult.ok
         ? `✓ ${toolResult.name}`
         : `✗ ${toolResult.name}: ${String(toolResult.error ?? "tool failed").slice(0, 180)}`;
-      steps.push({ phase: "observe", detail });
+      emitStep({ phase: "observe", detail });
     }
-    steps.push({ phase: "observe", detail: `รอบที่ ${iteration + 1}: ได้ผลลัพธ์และ ${result.toolCalls.length} tool call` });
+    emitStep({ phase: "observe", detail: `รอบที่ ${iteration + 1}: ได้ผลลัพธ์และ ${result.toolCalls.length} tool call` });
     if (!result.toolCalls.length) {
       if ((mutationExpected || hadVerificationActivity || looksLikeVerification(prompt)) && !verificationPassedEvidence) {
-        steps.push({ phase: "verify", detail: "ยังไม่มีหลักฐานจาก verification tool หลังมีการเปลี่ยนแปลง จึงบังคับให้ Agent ตรวจซ้ำ" });
+        emitStep({ phase: "verify", detail: "ยังไม่มีหลักฐานจาก verification tool หลังมีการเปลี่ยนแปลง จึงบังคับให้ Agent ตรวจซ้ำ" });
         if (iteration === Math.min(maxIterations, 6) - 1) {
           return { ok: false, text: failureText(last, result.toolResults ?? []), steps, verified: false };
         }
-        steps.push({ phase: "refine", detail: "ขอให้ Agent เรียกเครื่องมือตรวจสอบจริงก่อนประกาศสำเร็จ" });
+        emitStep({ phase: "refine", detail: "ขอให้ Agent เรียกเครื่องมือตรวจสอบจริงก่อนประกาศสำเร็จ" });
         currentPrompt = `${prompt}
 
 Verification gate: external mutation is expected. You MUST use an actual verification/status/test/build/CI/deploy tool and report its concrete result before finishing. Do not answer with a success claim without that evidence.`;
         continue;
       }
-      steps.push({
+      emitStep({
         phase: "verify",
         detail: (mutationExpected || hadVerificationActivity || looksLikeVerification(prompt))
           ? `Verification gate: ${verificationPassedEvidence || "ยังไม่มีหลักฐาน"}`
@@ -181,17 +181,17 @@ Verification gate: external mutation is expected. You MUST use an actual verific
       return { ok: !verificationRequired || Boolean(verificationPassedEvidence), text: last, steps, verified: !verificationRequired || Boolean(verificationPassedEvidence) };
     }
     if (iteration === Math.min(maxIterations, 6) - 1) {
-      steps.push({ phase: "verify", detail: "หมดรอบซ่อมที่กำหนด จึงยังไม่ประกาศว่าสำเร็จ" });
+      emitStep({ phase: "verify", detail: "หมดรอบซ่อมที่กำหนด จึงยังไม่ประกาศว่าสำเร็จ" });
       return { ok: false, text: failureText(last, result.toolResults), steps, verified: false };
     }
     const failedResults = result.toolResults.filter((item) => !item.ok);
     const verificationResults = result.toolResults.filter((item) => isVerificationToolCall(item.name));
     const verificationFailed = verificationResults.length > 0 && !verification.passed;
     if (verificationResults.length) {
-      steps.push({ phase: "observe", detail: `Verification observations: ${verificationResults.map((item) => `${item.name}=${item.ok ? "passed" : "failed"}`).join(", ")}` });
+      emitStep({ phase: "observe", detail: `Verification observations: ${verificationResults.map((item) => `${item.name}=${item.ok ? "passed" : "failed"}`).join(", ")}` });
     }
     if (verificationResults.some((item) => !item.ok)) {
-      steps.push({ phase: "refine", detail: `Verification ไม่ผ่าน: ${verificationResults.filter((item) => !item.ok).map((item) => `${item.name}: ${String(item.error ?? "ไม่ผ่าน").slice(0, 180)}`).join(" | ")}` });
+      emitStep({ phase: "refine", detail: `Verification ไม่ผ่าน: ${verificationResults.filter((item) => !item.ok).map((item) => `${item.name}: ${String(item.error ?? "ไม่ผ่าน").slice(0, 180)}`).join(" | ")}` });
     }
     const failedTools = failedResults.map((item) => `${item.name} (failures: ${toolFailureCounts.get(item.name) ?? 1}): ${String(item.error ?? "unknown error").slice(0, 800)}`);
     const diagnosisHints = failedResults.map(diagnoseToolFailure);
@@ -210,9 +210,9 @@ Verification gate: external mutation is expected. You MUST use an actual verific
       failedToolStreak = 0;
     }
     if (failedTools.length) {
-      steps.push({ phase: "refine", detail: `พบ Tool ล้มเหลว ${failedTools.length} รายการ: บังคับวิเคราะห์สาเหตุและซ่อมต่อ (streak ${failedToolStreak})` });
+      emitStep({ phase: "refine", detail: `พบ Tool ล้มเหลว ${failedTools.length} รายการ: บังคับวิเคราะห์สาเหตุและซ่อมต่อ (streak ${failedToolStreak})` });
     } else {
-      steps.push({ phase: "refine", detail: "นำผลจริงกลับไปให้ Agent วิเคราะห์และแก้ต่อ" });
+      emitStep({ phase: "refine", detail: "นำผลจริงกลับไปให้ Agent วิเคราะห์และแก้ต่อ" });
     }
     const repeatedFailures = Array.from(toolFailureCounts.entries()).filter(([, count]) => count >= 2).map(([name, count]) => `${name} failed ${count} times`);
     const escalationInstruction = repeatedFailures.length
