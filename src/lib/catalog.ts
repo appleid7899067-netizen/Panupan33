@@ -10,28 +10,18 @@ export const FOOTER_LINE =
 export const PUTER_DOCS = "https://developer.puter.com";
 
 /** Puter's documented default when no model is specified. */
-export const DEFAULT_PUTER_MODEL = "gpt-5.6-sol";
+/** Cost-first curated models: cheap enough for everyday Boss work, with tool/coding capability. */
+export const DEFAULT_PUTER_MODEL = "upstage/solar-pro-4";
 
 export const POWER_PUTER_MODEL_IDS = [
-  "gpt-5.6-sol",
-  "gpt-5.6-sol-pro",
-  "gpt-5.6-terra",
-  "gpt-5.6-terra-pro",
-  "gpt-5.6-luna-pro",
-  "gpt-5.6-luna",
-  "claude-opus-4-8",
-  "claude-opus-4-8-fast",
-  "claude-sonnet-4-6",
-  "gemini-3.8-flash",
-  "gemini-3.1-pro",
-  "grok-4.20-reasoning",
-  "grok-4.20",
-  "qwen3.8-max",
-  "qwen3.8-max-0902",
-  "deepseek-v4-pro",
-  "qwen3-coder-next",
-  "gpt-5.3-codex",
-  "gpt-5.2-codex",
+  "upstage/solar-pro-4",
+  "qwen/qwen3.7-flash",
+  "deepseek/deepseek-v4.1-flash",
+  "deepseek/deepseek-v4-flash",
+  "google/gemini-3.1-flash-lite",
+  "openai/gpt-5.6-luna-pro",
+  "openai/gpt-5.6-luna",
+  "x-ai/grok-4-20-reasoning",
 ] as const;
 
 export type NavItem = { to: string; label: string; icon: LucideIcon };
