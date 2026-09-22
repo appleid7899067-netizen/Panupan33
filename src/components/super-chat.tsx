@@ -6,13 +6,56 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X, Copy, Check, Square } from "lucide-react";
-import { BotStatusMd } from "@/components/bot-status-md";
 import { useFleet } from "@/lib/store";
 import { runAgent, runAgentSandbox, runAgentStream } from "@/lib/agent.functions";
 import { chatWithPuter, listPuterModels, loadPuter, type PuterModel } from "@/lib/puter";
 import { executeWebSearch } from "@/lib/bossnugrok/skills/web-search";
 import { compileChatContext } from "@/lib/context-compiler";
 import { DEFAULT_PUTER_MODEL, POWER_PUTER_MODEL_IDS } from "@/lib/catalog";
+
+function BossMarkdown({ content }: { content: string }) {
+  const fence = String.fromCharCode(96, 96, 96);
+  const parts = content.split(fence);
+  return (
+    <div className="space-y-3 break-words">
+      {parts.map((part, i) => {
+        if (i % 2 === 1) {
+          const lines = part.split("\n");
+          const language = lines[0]?.trim() || "";
+          const code = lines.slice(1).join("\n");
+          return (
+            <div key={i} className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/90">
+              {language && <div className="border-b border-zinc-800 px-3 py-1.5 text-[10px] uppercase tracking-wider text-zinc-500">{language}</div>}
+              <pre className="overflow-x-auto p-3 text-[12px] leading-5 text-zinc-200"><code>{code}</code></pre>
+            </div>
+          );
+        }
+        return (
+          <div key={i} className="space-y-1.5">
+            {part.split("\n").map((line, j) => {
+              const trimmed = line.trim();
+              if (!trimmed) return <div key={j} className="h-1" />;
+              if (/^#{1,6}\s/.test(trimmed)) return <div key={j} className="font-semibold text-zinc-100">{formatInline(trimmed.replace(/^#{1,6}\s+/, ""))}</div>;
+              if (/^[-*]\s+/.test(trimmed)) return <div key={j} className="pl-3">{formatInline("• " + trimmed.replace(/^[-*]\s+/, ""))}</div>;
+              if (/^\d+\.\s+/.test(trimmed)) return <div key={j}>{formatInline(trimmed)}</div>;
+              if (/^>\s?/.test(trimmed)) return <div key={j} className="border-l-2 border-zinc-700 pl-3 text-zinc-400">{formatInline(trimmed.replace(/^>\s?/, ""))}</div>;
+              return <div key={j}>{formatInline(line)}</div>;
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function formatInline(text: string) {
+  const tokens = text.split(/(\*\*[^*]+\*\*|<br\s*\/?\s*>)/gi);
+  return tokens.map((token, i) => {
+    if (/^\*\*[^*]+\*\*$/.test(token)) return <strong key={i}>{token.slice(2, -2)}</strong>;
+    if (/^<br\s*\/?\s*>$/i.test(token)) return <br key={i} />;
+    return <span key={i}>{token}</span>;
+  });
+}
 
 function displayAgentText(value: unknown): string {
   if (typeof value === "string") return value;
@@ -411,7 +454,7 @@ export function SuperChat() {
                   ? "bg-white text-black"
                   : "bg-zinc-900/80 border border-zinc-800 text-zinc-100"
               }`}>
-                <div className="whitespace-pre-wrap">{m.content}</div>
+                <BossMarkdown content={m.content} />
                 {m.role === "assistant" && m.activity && m.activity.length > 0 && (
                   <div className="mt-1 min-h-5 text-xs text-zinc-500">
                     <span className={m.id === liveStream.id && liveStream.active ? "animate-pulse" : ""}>
