@@ -583,7 +583,24 @@ export async function callWithFallback(
         { role: "user", content: prompt },
       ];
       for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
-        const result = await chatModel(messages, availableTools, model, authToken);
+        let result: Awaited<ReturnType<typeof chatModel>>;
+        try {
+          result = await chatModel(messages, availableTools, model, authToken);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : safeText(error, "ไม่ทราบรายละเอียด");
+          if (/server function info not found|function info not found/i.test(message)) {
+            const nativeOnly = availableTools.filter((tool) => Boolean(tool.sandboxSource || tool.webSource || tool.githubSource));
+            if (nativeOnly.length && nativeOnly.length < availableTools.length) {
+              onActivity?.(["พบเครื่องมือภายนอกที่หมดอายุ กำลังสลับไปใช้เครื่องมือภายในที่เรียกได้จริง"]);
+              availableTools.splice(0, availableTools.length, ...nativeOnly);
+              result = await chatModel(messages, availableTools, model, authToken);
+            } else {
+              throw new Error("Puter ไม่พบข้อมูล server function ของเครื่องมือที่เรียก จึงหยุดการเรียกเครื่องมือนั้น");
+            }
+          } else {
+            throw error;
+          }
+        }
         if (!result.toolCalls.length) {
           const mutationNames = new Set(["github_write_file", "github_create_branch", "github_create_pull_request", "github_create_issue", "github_dispatch_workflow"]);
           const mutationOccurred = toolResults.some((item) => mutationNames.has(item.name));
