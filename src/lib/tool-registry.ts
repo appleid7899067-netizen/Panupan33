@@ -122,7 +122,8 @@ export async function selectToolsForTask(prompt: string, maxTools = 3): Promise<
     intent === "data" ? 2 :
     2;
 
-  const urgency = getUrgencyProfile(prompt, intent);\n  const limit = Math.max(1, Math.min(maxTools, intentCap, urgency.maxTools));
+  const urgency = getUrgencyProfile(prompt, intent);
+  const limit = Math.max(1, Math.min(maxTools, intentCap, urgency.maxTools));
   const ranked = registry
     .map((tool, index) => ({ tool, score: score(tool, prompt), index }))
     .sort((a, b) => b.score - a.score || a.index - b.index);
@@ -137,7 +138,13 @@ export async function selectToolsForTask(prompt: string, maxTools = 3): Promise<
     return tool.score !== undefined || true;
   };
 
-  const selected: ToolRegistryEntry[] = [];\n\n  // Urgent path: prefer the single highest-scoring actionable tool and avoid speculative tools.\n  if (urgency.urgent) {\n    const urgentCandidate = ranked.find(({ tool, score: sc }) => sc > 0 && matchesIntent(tool));\n    if (urgentCandidate) return [urgentCandidate.tool];\n  }
+  const selected: ToolRegistryEntry[] = [];
+
+  // Urgent path: prefer the single highest-scoring actionable tool and avoid speculative tools.
+  if (urgency.urgent) {
+    const urgentCandidate = ranked.find(({ tool, score: sc }) => sc > 0 && matchesIntent(tool));
+    if (urgentCandidate) return [urgentCandidate.tool];
+  }
   // Sandbox is a first-class execution tool for code/test/debug intents.
   // Keep it explicitly available so the model can actually invoke it.
   if (intent === "code" || intent === "verify") {
