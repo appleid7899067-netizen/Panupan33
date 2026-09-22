@@ -99,10 +99,10 @@ async function execute(name: string, args: Record<string, unknown>): Promise<unk
     const html = await response.text();
     const results: Array<{ title: string; url: string }> = [];
     const seen = new Set<string>();
-    const pattern = /<a[^>]+href="(https?:\\/\\/[^"]+)"[^>]*>([\\s\\S]*?)<\\/a>/gi;
+    const pattern = /<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
     for (const match of html.matchAll(pattern)) {
       const rawUrl = match[1];
-      const title = match[2].replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\\s+/g, " ").trim();
+      const title = match[2].replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, " ").trim();
       if (!title || !rawUrl || /google\\./i.test(new URL(rawUrl).hostname)) continue;
       if (seen.has(rawUrl)) continue;
       seen.add(rawUrl);
