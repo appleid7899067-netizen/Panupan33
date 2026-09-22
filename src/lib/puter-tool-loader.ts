@@ -507,6 +507,41 @@ async function executeTool(tool: CodingFleetTool, args: Record<string, unknown>)
   }
 }
 
+function normalizeAgentProviderMessages(messages: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  let systemPrefix = "";
+  const normalized: Array<Record<string, unknown>> = [];
+  for (const message of messages) {
+    const role = String(message.role ?? "");
+    const content = typeof message.content === "string" ? message.content : JSON.stringify(message.content ?? "");
+    if (role === "system") {
+      systemPrefix = [systemPrefix, content].filter(Boolean).join("\n\n");
+      continue;
+    }
+    if (role === "tool") {
+      const toolName = String(message.name ?? message.tool_name ?? message.tool_call_id ?? "tool");
+      normalized.push({
+        role: "user",
+        content: `[Tool result: ${toolName}]\n${content}`,
+      });
+      continue;
+    }
+    if (role === "user" && systemPrefix) {
+      normalized.push({
+        ...message,
+        role: "user",
+        content: `${systemPrefix}\n\n--- User request ---\n${content}`,
+      });
+      systemPrefix = "";
+      continue;
+    }
+    if (role === "assistant" || role === "user") {
+      normalized.push({ ...message, role });
+    }
+  }
+  if (systemPrefix) normalized.unshift({ role: "user", content: systemPrefix });
+  return normalized;
+}
+
 async function chatModel(messages: Array<Record<string, unknown>>, tools: CodingFleetTool[], model: string, authToken?: string): Promise<{ text: string; response: unknown; toolCalls: ToolCall[] }> {
   let puter: any;
   if (authToken || process.env.PUTER_AUTH_TOKEN) {
@@ -517,7 +552,7 @@ async function chatModel(messages: Array<Record<string, unknown>>, tools: Coding
     puter = await ensurePuter();
     if (!puter.auth.isSignedIn()) await puter.auth.signIn();
   }
-  const response = await puter.ai.chat(messages, { model, tools: toPuterTools(tools), normalize: true, stream: false });
+  const providerMessages = normalizeAgentProviderMessages(messages);\n  const response = await puter.ai.chat(providerMessages, { model, tools: toPuterTools(tools), normalize: true, stream: false });
   return { text: extractText(response), response, toolCalls: extractToolCalls(response) };
 }
 
