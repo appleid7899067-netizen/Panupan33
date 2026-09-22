@@ -13,6 +13,21 @@ import { executeWebSearch } from "@/lib/bossnugrok/skills/web-search";
 import { compileChatContext } from "@/lib/context-compiler";
 import { DEFAULT_PUTER_MODEL, POWER_PUTER_MODEL_IDS } from "@/lib/catalog";
 
+function BossThinking({ text }: { text: string }) {
+  return (
+    <div className="text-xs text-zinc-500" aria-live="polite">
+      <span className="inline-flex items-center gap-1">
+        <span>{text}</span>
+        <span className="inline-flex gap-0.5" aria-hidden="true">
+          <span className="animate-bounce [animation-delay:-0.3s]">·</span>
+          <span className="animate-bounce [animation-delay:-0.15s]">·</span>
+          <span className="animate-bounce">·</span>
+        </span>
+      </span>
+    </div>
+  );
+}
+
 function BossMarkdown({ content }: { content: string }) {
   const fence = String.fromCharCode(96, 96, 96);
   const parts = content.split(fence);
@@ -456,10 +471,8 @@ export function SuperChat() {
               }`}>
                 <BossMarkdown content={m.content} />
                 {m.role === "assistant" && m.activity && m.activity.length > 0 && (
-                  <div className="mt-1 min-h-5 text-xs text-zinc-500">
-                    <span className={m.id === liveStream.id && liveStream.active ? "animate-pulse" : ""}>
-                      {(m.id === liveStream.id ? liveStream.steps : m.activity).slice(-1)[0]?.replace(/^[^:]+:\s*/, "") || "กำลังทำงาน…"}
-                    </span>
+                  <div className="mt-1 min-h-5">
+                    <BossThinking text={(m.id === liveStream.id ? liveStream.steps : m.activity).slice(-1)[0]?.replace(/^[^:]+:\s*/, "") || "กำลังคิด"} />
                   </div>
                 )}
                 {m.role === "assistant" && m.content && (
