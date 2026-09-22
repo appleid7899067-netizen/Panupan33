@@ -3,6 +3,7 @@ import { z } from "zod";
 import { selectToolsForTask, inferTaskIntent } from "@/lib/tool-registry";
 import { runGitHubAgent } from "@/lib/github-agent-tools.server";
 import { executeAgentCode, runAgentLoop } from "@/lib/agent-loop";
+import { runCodexAgent } from "@/lib/codex-runner.server";
 
 const loopSchema = z.object({
   prompt: z.string().min(1).max(60_000),
@@ -40,6 +41,22 @@ export const runAgent = createServerFn({ method: "POST" })
         verified: true,
         skipAgent: true as const,
       };
+    }
+
+    const prefersCodex = /แก้|เขียน|สร้าง|fix|bug|debug|repair|refactor|typescript|runtime|error|code|โค้ด|taskContext|deploy/i.test(data.prompt);
+    if (prefersCodex) {
+      const result = await runCodexAgent(taskPrompt, data.githubToken, (detail) => undefined);
+      if (result.ok) {
+        return {
+          ok: true,
+          text: result.text,
+          steps: [registryStep, { phase: "act" as const, detail: "🤖 Codex เป็น coding agent หลักและลงมือใน workspace จริง" }, { phase: "verify" as const, detail: result.evidence || "Codex verification ผ่าน" }],
+          verified: result.verified,
+        };
+      }
+      if (/Missing CODEX_API_KEY|OPENAI_API_KEY/.test(result.error || "")) {
+        return { ok: false, text: result.text, steps: [registryStep, { phase: "verify" as const, detail: "Codex ยังไม่มี server API key จึงหยุดโดยไม่แอบอ้างว่าสำเร็จ" }], verified: false };
+      }
     }
 
     const registryHasGitHub = selected.some((tool) => String(tool.name ?? "").toLowerCase().includes("github"));
@@ -110,6 +127,21 @@ export const runAgentStream = createServerFn({ method: "POST" })
           verified: true,
         },
       };
+      return;
+    }
+
+    const prefersCodex = /แก้|เขียน|สร้าง|fix|bug|debug|repair|refactor|typescript|runtime|error|code|โค้ด|taskContext|deploy/i.test(data.prompt);
+    if (prefersCodex) {
+      yield { type: "step", step: { phase: "act", detail: "🤖 Codex กำลังเข้าประจำการเป็น coding agent หลัก..." } };
+      const result = await runCodexAgent(taskPrompt, data.githubToken, (detail) => {
+        // The runner emits concrete subprocess activity; the stream remains intentionally concise.
+      });
+      if (result.ok) {
+        yield { type: "step", step: { phase: "verify", detail: result.evidence || "✓ Codex verification ผ่าน" } };
+      } else {
+        yield { type: "step", step: { phase: "observe", detail: "⚠️ Codex: " + result.text.slice(0, 500) } };
+      }
+      yield { type: "done", result: { ok: result.ok, text: result.text, steps: [registryStep, { phase: "act", detail: "🤖 Codex coding agent" }, { phase: result.ok ? "verify" : "observe", detail: result.evidence || result.error || "Codex จบการทำงาน" }], verified: result.verified } };
       return;
     }
 
