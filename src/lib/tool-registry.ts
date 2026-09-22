@@ -54,35 +54,39 @@ export async function buildToolRegistry(forceRefresh = false): Promise<ToolRegis
 
 export async function selectToolsForTask(prompt: string, maxTools = 20): Promise<ToolRegistryEntry[]> {
   const registry = await buildToolRegistry();
-  const limit = Math.max(1, Math.min(maxTools, 20));
+  const text = prompt.toLowerCase();
+
+  // Route by intent first. The agent should never open the whole toolbox for a small task.
+  const intent =
+    /github|repository|repo|pull request|branch|commit/.test(text) ? "github" :
+    /deploy|ดีพลอย|vercel|netlify|railway|render/.test(text) ? "deploy" :
+    /code|โค้ด|แก้ไฟล์|ไฟล์|bug|error|debug/.test(text) ? "code" :
+    /database|ฐานข้อมูล|sql/.test(text) ? "data" :
+    /test|verify|ตรวจ|เช็ก|build|ci|sandbox|รัน|run|health|http/.test(text) ? "verify" :
+    "general";
+
+  const limit = Math.max(1, Math.min(maxTools, intent === "general" ? 2 : 3));
   const ranked = registry
     .map((tool, index) => ({ tool, score: score(tool, prompt), index }))
     .sort((a, b) => b.score - a.score || a.index - b.index);
 
-  const text = prompt.toLowerCase();
-  const needsCodeExecution = /code|โค้ด|รัน|run|test|verify|bug|error|debug|แก้/.test(text);
-  const needsWebVerification = /เว็บ|website|url|http|502|500|503|timeout|deploy|ดีพลอย|ตรวจ|เช็ก/.test(text);
-  const reservedNames = [
-    ...(needsCodeExecution ? ["sandbox_run"] : []),
-    ...(needsWebVerification ? ["web_check"] : []),
-  ];
+  const matchesIntent = (tool: ToolRegistryEntry) => {
+    if (intent === "github") return tool.capability === "code-repository" || tool.source === "github" || tool.source === "github-search" || tool.capability === "verify";
+    if (intent === "deploy") return tool.capability === "deploy" || tool.capability === "verify" || tool.source === "web";
+    if (intent === "code") return tool.capability === "code" || tool.capability === "debug" || tool.source === "sandbox" || tool.capability === "verify";
+    if (intent === "data") return tool.capability === "data" || tool.capability === "code";
+    if (intent === "verify") return tool.capability === "verify" || tool.source === "web" || tool.source === "sandbox";
+    return true;
+  };
 
   const selected: ToolRegistryEntry[] = [];
-  // Keep the registry genuinely multi-source when those sources are available.
-  // This prevents the first native tools from crowding out CodingFleet, plugins, or MCP.
-  const preferredSources: ToolSource[] = ["sandbox", "web", "github-search", "github", "codingfleet", "plugin", "mcp"];
-  for (const source of preferredSources) {
-    if (selected.length >= limit) break;
-    const match = ranked.find(({ tool }) => tool.source === source && !selected.some((item) => item.name === tool.name));
-    if (match) selected.push(match.tool);
-  }
-  for (const name of reservedNames) {
-    const match = ranked.find(({ tool }) => tool.name === name);
-    if (match && selected.length < limit) selected.push(match.tool);
-  }
   for (const { tool } of ranked) {
     if (selected.length >= limit) break;
+    if (!matchesIntent(tool)) continue;
     if (!selected.some((item) => item.name === tool.name)) selected.push(tool);
   }
+
+  // Always give the agent at least one useful tool when the registry has one.
+  if (!selected.length && ranked[0]) selected.push(ranked[0].tool);
   return selected;
 }
