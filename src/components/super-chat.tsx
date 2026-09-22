@@ -11,6 +11,7 @@ import { freeAI } from "@/lib/autonomous";
 import { runAgent, runAgentSandbox, runAgentStream } from "@/lib/agent.functions";
 import { listPuterModels, loadPuter, type PuterModel } from "@/lib/puter";
 import { executeWebSearch } from "@/lib/bossnugrok/skills/web-search";
+import { compileChatContext } from "@/lib/context-compiler";
 
 function displayAgentText(value: unknown): string {
   if (typeof value === "string") return value;
@@ -263,7 +264,7 @@ export function SuperChat() {
       for await (const event of await runAgentStream({
         data: {
           prompt: userText,
-          maxIterations: 6,
+          maxIterations: 3,
           context,
           ...(authToken ? { authToken } : {}),
           model: selectedModel,
