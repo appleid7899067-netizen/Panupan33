@@ -33,8 +33,14 @@ export async function searchWeb(query: string, options: SearchOptions = {}): Pro
   if (engine === "duckduckgo") return searchDuckDuckGo(query, maxResults);
   if (engine === "brave") return searchBrave(query, maxResults);
 
-  const data = await searchYandex(query, { maxResults });
-  return { engine: "yandex", query, results: data.results };
+  try {
+    const data = await searchYandex(query, { maxResults });
+    return { engine: "yandex", query, results: data.results };
+  } catch (yandexError) {
+    // Keep search usable even when Yandex XML/CORS is unavailable.
+    console.warn("[Search] Yandex failed, falling back to DuckDuckGo", yandexError);
+    return searchDuckDuckGo(query, maxResults);
+  }
 }
 
 async function searchDuckDuckGo(query: string, maxResults: number): Promise<SearchResult> {
