@@ -102,11 +102,13 @@ function Header() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const path = useRouterState({ select: (s) => s.location.pathname });
+  const isChat = path === "/chat";
   return (
-    <div className="flex min-h-dvh flex-col bg-bg text-fg">
+    <div className="flex min-h-dvh flex-col overflow-hidden bg-bg text-fg">
       <Header />
-      <div className="flex-1">{children}</div>
-      <SiteFooter />
+      <div className={isChat ? "min-h-0 flex-1 overflow-hidden" : "flex-1 min-h-0 overflow-auto"}>{children}</div>
+      {!isChat && <SiteFooter />}
     </div>
   );
 }
