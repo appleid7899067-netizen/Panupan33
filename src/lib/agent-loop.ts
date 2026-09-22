@@ -143,6 +143,13 @@ CODEX-STYLE AGENT PROTOCOL (บังคับ):
 6. อย่า claim สำเร็จจนกว่าจะมีหลักฐาน verification
 
 MCP tools discovered: ${mcpCount} (registry already filtered by intent — do not invent extra tools).
+
+DESIGN-SYSTEM PROTOCOL (when the task changes UI/product experience):
+- Inspect existing theme, components, spacing, typography and responsive patterns before creating new UI.
+- Prefer reusable components and a consistent visual hierarchy over one-off styling.
+- Cover loading, empty, error, retry, success and disabled states where the changed flow needs them.
+- Keep the interface chat-first; tools stay behind the chat unless the user explicitly asks to expose them.
+- After UI changes, run/inspect the real preview or available health/build check and refine visible issues before verification.
 Task mutation expected: ${looksLikeMutation(prompt)}.
 Verification requested: ${looksLikeVerification(prompt)}. For deployed URLs use web_check; HTTP 2xx = healthy; 5xx/timeout = failed.
 Health target if any: ${prompt.match(/https:\/\/[^\s)\]}>,]+/i)?.[0] || "none"}.
