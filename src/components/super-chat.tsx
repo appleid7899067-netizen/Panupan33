@@ -7,25 +7,12 @@
 import { useEffect, useState, useRef } from "react";
 import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X, Copy, Check, Square } from "lucide-react";
 import { BotStatusMd } from "@/components/bot-status-md";
-import { BossLiveActivity } from "@/components/boss-live-activity";
-import { McpUiBlock, type McpUiPayload } from "@/components/mcp-ui-block";
 import { useFleet } from "@/lib/store";
 import { runAgent, runAgentSandbox, runAgentStream } from "@/lib/agent.functions";
 import { chatWithPuter, listPuterModels, loadPuter, type PuterModel } from "@/lib/puter";
 import { executeWebSearch } from "@/lib/bossnugrok/skills/web-search";
 import { compileChatContext } from "@/lib/context-compiler";
 import { DEFAULT_PUTER_MODEL, POWER_PUTER_MODEL_IDS } from "@/lib/catalog";
-
-function extractMcpUi(steps: string[]): McpUiPayload | null {
-  const marker = steps.find((step) => step.startsWith("MCP_UI:"));
-  if (!marker) return null;
-  try {
-    const parsed = JSON.parse(marker.slice("MCP_UI:".length).trim());
-    return parsed && typeof parsed === "object" ? parsed as McpUiPayload : null;
-  } catch {
-    return null;
-  }
-}
 
 function displayAgentText(value: unknown): string {
   if (typeof value === "string") return value;
@@ -426,27 +413,11 @@ export function SuperChat() {
               }`}>
                 <div className="whitespace-pre-wrap">{m.content}</div>
                 {m.role === "assistant" && m.activity && m.activity.length > 0 && (
-                  <>
-                    <BossLiveActivity
-                      steps={m.id === liveStream.id ? liveStream.steps : (m.activity ?? [])}
-                      active={m.id === liveStream.id && liveStream.active}
-                      verified={m.verified === true}
-                    />
-                    {extractMcpUi(m.id === liveStream.id ? liveStream.steps : (m.activity ?? [])) && (
-                      <div className="mt-2">
-                        <McpUiBlock payload={extractMcpUi(m.id === liveStream.id ? liveStream.steps : (m.activity ?? []))!} />
-                      </div>
-                    )}
-                    <div className="mt-1">
-                      <BotStatusMd
-                        steps={m.id === liveStream.id ? liveStream.steps : (m.activity ?? [])}
-                        active={m.id === liveStream.id && liveStream.active}
-                        verified={m.verified === true}
-                        open={traceOpen}
-                        onToggle={() => setTraceOpen((v) => !v)}
-                      />
-                    </div>
-                  </>
+                  <div className="mt-1 min-h-5 text-xs text-zinc-500">
+                    <span className={m.id === liveStream.id && liveStream.active ? "animate-pulse" : ""}>
+                      {(m.id === liveStream.id ? liveStream.steps : m.activity).slice(-1)[0]?.replace(/^[^:]+:\s*/, "") || "กำลังทำงาน…"}
+                    </span>
+                  </div>
                 )}
                 {m.role === "assistant" && m.content && (
                   <div className="mt-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
