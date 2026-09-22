@@ -169,7 +169,7 @@ Never claim external success without tool evidence.`;
     const result = await callWithFallback(currentPrompt, tools, [model], (activity) => activity.forEach((detail) => emitStep({ phase: "observe", detail })), authToken);
     if (!result.ok) {
       emitStep({ phase: "observe", detail: `เครื่องมือ/โมเดลแจ้งข้อผิดพลาด: ${safeText(result.error, "ไม่ทราบรายละเอียด").slice(0, 300)}` });
-      return { ok: false, text: failureText(result.error, "toolResults" in result ? result.toolResults : []), steps, verified: false };
+      return { ok: false, text: failureText(result.error, []), steps, verified: false };
     }
     last = result.text;
     checkpoint = `OBJECTIVE: ${prompt.slice(0, 1200)}\nLAST RESULT: ${last.slice(-2400)}\nEVIDENCE: ${result.toolResults.slice(-4).map((x) => `${x.name}=${x.ok ? "ok" : "failed"}`).join(", ")}`;
