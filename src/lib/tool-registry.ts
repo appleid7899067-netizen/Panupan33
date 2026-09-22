@@ -116,6 +116,12 @@ export async function selectToolsForTask(prompt: string, maxTools = 3): Promise<
   };
 
   const selected: ToolRegistryEntry[] = [];
+  // Sandbox is a first-class execution tool for code/test/debug intents.
+  // Keep it explicitly available so the model can actually invoke it.
+  if (intent === "code" || intent === "verify") {
+    const sandbox = ranked.find(({ tool }) => tool.name === "sandbox_run")?.tool;
+    if (sandbox) selected.push(sandbox);
+  }
   for (const { tool, score: sc } of ranked) {
     if (selected.length >= limit) break;
     if (sc <= 0 && intent !== "general") continue;
