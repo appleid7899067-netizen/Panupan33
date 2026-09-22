@@ -58,7 +58,7 @@ export async function runCodexAgent(prompt: string, githubToken?: string, puterA
 
     if (githubToken) {
       const askpass = join(workspace, ".git-askpass");
-      await writeFile(askpass, "#!/bin/sh\ncase "$1" in *Username*) printf '%s\\n' "x-access-token" ;; *) printf '%s\\n' "$CODEX_GITHUB_TOKEN" ;; esac\n", { mode: 0o700 });
+      await writeFile(askpass, '#!/bin/sh\ncase "$1" in *Username*) printf "%s\\n" "x-access-token" ;; *) printf "%s\\n" "$CODEX_GITHUB_TOKEN" ;; esac\n', { mode: 0o700 });
       env.CODEX_GITHUB_TOKEN = githubToken;
       env.GIT_ASKPASS = askpass;
     }
