@@ -95,7 +95,10 @@ function Home() {
               </div>
             </div>
 
-            <div className="mt-8 flex flex-wrap items-center gap-3 text-xs text-subtle">              <span className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5">ใครจะรู้... ถ้าไม่ลองสั่ง Boss</span>\n              <span className="rounded-full border border-border bg-surface/60 px-3 py-1.5">30,000+ Identity Space</span>\n              <span className="rounded-full border border-border bg-surface/60 px-3 py-1.5">Goal → Build → Verify → Live</span>\n            </div>
+            <div className="mt-8 flex flex-wrap items-center gap-3 text-xs text-subtle">              <span className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5">ใครจะรู้... ถ้าไม่ลองสั่ง Boss</span>
+              <span className="rounded-full border border-border bg-surface/60 px-3 py-1.5">30,000+ Identity Space</span>
+              <span className="rounded-full border border-border bg-surface/60 px-3 py-1.5">Goal → Build → Verify → Live</span>
+            </div>
 
             <div className="mt-14 overflow-hidden rounded-2xl border border-border bg-surface/70 shadow-[var(--shadow-border)]">
               <div className="grid divide-y divide-border md:grid-cols-6 md:divide-x md:divide-y-0">
