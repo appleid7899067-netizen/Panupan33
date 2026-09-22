@@ -116,7 +116,7 @@ test("platform chrome overwrites share-card metas and always sets og:title", () 
 });
 
 test("does not duplicate twitter:card or og:title", () => {
-  const once = injectGrokPwaHead("<html><head><title>Hello World</title></head></html>");
+  const once = injectGrokPwaHead("<html><head><title>Hello World</title></head></html>", { site: {}, cwd: mkdtempSync(join(tmpdir(), "grok-og-test-")) });
   const twice = injectGrokPwaHead(once);
   assert.equal(once, twice);
   assert.equal(twice.split('name="twitter:card"').length - 1, 1);
@@ -347,9 +347,7 @@ test("placeholder og:image appends site.color when it is 6-digit hex", () => {
 });
 
 test("document title entities are not double-escaped on og:title", () => {
-  const out = injectGrokPwaHead(
-    "<html><head><title>Cats &amp; Dogs</title></head></html>",
-  );
+  const out = injectGrokPwaHead("<html><head><title>Cats &amp; Dogs</title></head></html>", { site: {}, cwd: mkdtempSync(join(tmpdir(), "grok-og-test-")) })
   assert.match(out, /property="og:title" content="Cats &amp; Dogs"/);
   assert.doesNotMatch(out, /Cats &amp;amp; Dogs/);
 });
@@ -389,7 +387,7 @@ test("does not duplicate the extensions script", () => {
 });
 
 test("is idempotent", () => {
-  const once = injectGrokPwaHead("<html><head></head></html>");
+  const once = injectGrokPwaHead("<html><head></head></html>", { site: {}, cwd: mkdtempSync(join(tmpdir(), "grok-og-test-")) });
   const twice = injectGrokPwaHead(once);
   assert.equal(once, twice);
 });
@@ -400,7 +398,7 @@ test("uses the app name in the injected title tag", () => {
 });
 
 test("streaming injector handles </head> split across chunks", () => {
-  const injector = createHeadInjector({ appName: "Wild Race" });
+  const injector = createHeadInjector({ appName: "Wild Race", site: {}, cwd: mkdtempSync(join(tmpdir(), "grok-og-test-")) });
   const chunks = [
     ...injector.push("<html><head><title>x</title></he"),
     ...injector.push("ad><body>hello</body></html>"),
