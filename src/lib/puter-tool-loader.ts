@@ -38,7 +38,7 @@ const PUBLIC_MCP_SERVERS = ["https://api.keenable.ai/mcp"] as const;
 const TOOL_LIMIT = 20;
 const REGISTRY_CACHE_LIMIT = 80;
 const MAX_TOOL_ROUNDS = 12;
-const DEFAULT_MODELS = ["gpt-5-nano", "gpt-5.6-luna", "claude-sonnet-4-6"] as const;
+const DEFAULT_MODELS = ["gpt-5-nano", "gpt-5.6-luna", "deepseek/deepseek-chat"] as const;
 const CODINGFLEET_BASE = "https://www.codingfleet.com/api";
 const AUTH_GITHUB = [
   "github_write_file",
