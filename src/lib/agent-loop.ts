@@ -157,6 +157,10 @@ Never claim external success without tool evidence.`;
     const verification = verificationPassed(result.toolResults);
     if (verification.passed) verificationPassedEvidence = verification.evidence;
     for (const toolResult of result.toolResults) {
+      if (toolResult.ok && toolResult.result && typeof toolResult.result === "object") {
+        const ui = (toolResult.result as Record<string, unknown>).ui;
+        if (ui && typeof ui === "object") emitStep({ phase: "observe", detail: `MCP_UI:${JSON.stringify(ui).slice(0, 6000)}` });
+      }
       const detail = toolResult.ok
         ? `✓ ${toolResult.name}`
         : `✗ ${toolResult.name}: ${String(toolResult.error ?? "tool failed").slice(0, 180)}`;
