@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Bot, Paperclip, ShieldCheck, Terminal } from "lucide-react";
+import { ArrowRight, Bot, Paperclip, ShieldCheck, Terminal, Brain, GitBranch, Search, Wrench, CheckCircle2, Users, Workflow, LockKeyhole } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { APP_NAME, MOTTO_EN, MOTTO_TH } from "@/lib/catalog";
@@ -7,74 +7,203 @@ import { APP_NAME, MOTTO_EN, MOTTO_TH } from "@/lib/catalog";
 export const Route = createFileRoute("/")({ component: Home });
 
 function Home() {
+  const capabilities = [
+    {
+      icon: Users,
+      title: "6-Agent orchestration",
+      body: "Planner, Researcher, Builder, Operator, Reviewer และ Verifier ทำงานตามบทบาท แทนการโยนทุกอย่างให้โมเดลตัวเดียว",
+    },
+    {
+      icon: Brain,
+      title: "Goal-first intelligence",
+      body: "Boss เริ่มจากผลลัพธ์ที่ผู้ใช้ต้องการ แล้วแตกเป็น context, plan, route และ execution โดยไม่บังคับให้ผู้ใช้เลือกเครื่องมือเอง",
+    },
+    {
+      icon: Wrench,
+      title: "Skill + Tool Registry",
+      body: "Agent เลือกทักษะและเครื่องมือที่ตรงกับงาน เช่น GitHub, Sandbox, Web และ deployment providers ผ่านชั้นกลางเดียว",
+    },
+    {
+      icon: Workflow,
+      title: "Live execution trace",
+      body: "ทุกขั้นตอนสำคัญมีสถานะและร่องรอยให้เห็น ตั้งแต่คิด วางแผน ลงมือ แก้ปัญหา จนถึงตรวจผล",
+    },
+    {
+      icon: CheckCircle2,
+      title: "Verify before done",
+      body: "การทำงานเสร็จไม่เท่ากับงานสำเร็จ Boss ต้องตรวจหลักฐานจากระบบจริงก่อนประกาศผลลัพธ์",
+    },
+    {
+      icon: LockKeyhole,
+      title: "Permission-aware",
+      body: "ออกแบบการเรียก Tool โดยคำนึงถึงสิทธิ์และ least privilege เพื่อให้ความสามารถที่เพิ่มขึ้นยังควบคุมได้",
+    },
+  ];
+
   return (
     <AppShell>
-      <main>
-        <section className="mx-auto max-w-5xl px-5 py-16 sm:px-8 sm:py-24">
-          <p className="text-xs font-medium uppercase tracking-[0.22em] text-subtle">AI coding agent</p>
-          <h1 className="mt-4 max-w-3xl text-4xl font-medium tracking-tight text-fg sm:text-6xl">
-            {APP_NAME}
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg text-muted">{MOTTO_TH}</p>
-          <p className="mt-2 max-w-2xl text-sm text-subtle">{MOTTO_EN}</p>
-          <p className="mt-6 max-w-2xl text-sm leading-7 text-muted">
-            คุยกับ Boss อย่างเดียว ไม่ต้องกด Skill. Boss เลือกเครื่องมือ วิเคราะห์ ลงมือ ดูผล ซ่อม แล้วตรวจซ้ำ
-            — จะไม่บอกว่าสำเร็จจนกว่าจะมีหลักฐานจากเครื่องมือจริง
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button size="lg" asChild>
-              <Link to="/chat">
-                เริ่มแชทกับ Boss
-                <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="secondary" asChild>
-              <Link to="/sandbox">Sandbox preview</Link>
-            </Button>
+      <main className="min-h-full">
+        <section className="relative overflow-hidden border-b border-border">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(120,90,255,.14),transparent_35%),radial-gradient(circle_at_85%_20%,rgba(40,170,255,.10),transparent_32%)]" />
+          <div className="relative mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-24">
+            <div className="max-w-4xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/70 px-3 py-1.5 text-xs font-medium tracking-[0.18em] text-subtle">
+                <span className="size-1.5 rounded-full bg-primary" />
+                BOSSNU UNIFIED · AI AGENT WORKSPACE
+              </div>
+              <h1 className="mt-6 text-5xl font-semibold tracking-[-0.04em] text-fg sm:text-7xl">
+                คุณบอกเป้าหมาย
+                <br />
+                <span className="text-primary">Boss หาวิธีทำเอง</span>
+              </h1>
+              <p className="mt-6 max-w-3xl text-xl leading-8 text-muted sm:text-2xl">
+                ไม่ใช่แค่ AI ที่ตอบข้อความ แต่เป็นชั้นควบคุมที่เชื่อม
+                <span className="text-fg"> ความเข้าใจ → การวางแผน → การลงมือทำ → การตรวจสอบ </span>
+                ให้กลายเป็น workflow เดียว
+              </p>
+              <p className="mt-5 max-w-3xl text-sm leading-7 text-subtle">
+                ผู้ใช้ไม่จำเป็นต้องรู้ว่า Agent ไหนเหมาะกับงาน Tool ตัวไหนต้องเรียก หรือควรทำกี่ขั้นตอน
+                Boss รับ Goal แล้วจัดเส้นทางให้เอง พร้อมเก็บ Execution Trace และไม่ประกาศว่าสำเร็จจนกว่าจะมีหลักฐานจากระบบจริง
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Button size="lg" asChild>
+                  <Link to="/chat">
+                    เริ่มแชทกับ Boss
+                    <ArrowRight className="size-4" />
+                  </Link>
+                </Button>
+                <Button size="lg" variant="secondary" asChild>
+                  <Link to="/sandbox">เปิด Sandbox</Link>
+                </Button>
+              </div>
+            </div>
+
+            <div className="mt-14 overflow-hidden rounded-2xl border border-border bg-surface/70 shadow-[var(--shadow-border)]">
+              <div className="grid divide-y divide-border md:grid-cols-6 md:divide-x md:divide-y-0">
+                {[
+                  ["06", "Agents"],
+                  ["05", "Skills"],
+                  ["11", "Tools"],
+                  ["∞", "Model routes"],
+                  ["LIVE", "Trace"],
+                  ["✓", "Verify"],
+                ].map(([value, label]) => (
+                  <div key={label} className="px-5 py-5">
+                    <div className="text-2xl font-semibold tracking-tight">{value}</div>
+                    <div className="mt-1 text-xs uppercase tracking-[0.16em] text-subtle">{label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
 
-        <section className="border-t border-border">
-          <div className="mx-auto grid max-w-5xl gap-4 px-5 py-12 sm:grid-cols-3 sm:px-8">
-            {[
-              {
-                icon: Bot,
-                title: "Boss loop",
-                body: "วิเคราะห์ → เลือก tool → ลงมือ → ดูผล → ซ่อม → ตรวจซ้ำ รวม GitHub CI, sandbox และ web check",
-              },
-              {
-                icon: Paperclip,
-                title: "ไฟล์และ ZIP",
-                body: "แนบหลายไฟล์ รูป หรือ ZIP แล้ว Boss อ่านโค้ดออกมาวิเคราะห์ก่อนตอบ",
-              },
-              {
-                icon: ShieldCheck,
-                title: "Always Ask",
-                body: "ปลั๊กอินขออนุญาตก่อนเรียก endpoint — ไม่มีปุ่มหลอก และไม่เดาโมเดลที่ยังไม่ยืนยัน",
-              },
-            ].map((item) => (
-              <article key={item.title} className="rounded-xl bg-surface p-5 shadow-[var(--shadow-border)]">
-                <item.icon className="size-5 text-primary" />
-                <h2 className="mt-4 text-base font-medium">{item.title}</h2>
-                <p className="mt-2 text-sm leading-6 text-muted">{item.body}</p>
-              </article>
-            ))}
+        <section className="border-b border-border">
+          <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-20">
+            <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:items-start">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">How Boss thinks</p>
+                <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">จากประโยคเดียวสู่ผลลัพธ์จริง</h2>
+                <p className="mt-4 max-w-xl text-sm leading-7 text-muted">
+                  Chat คือ Control Plane ของระบบ ผู้ใช้คุยกับ Boss เพียงห้องเดียว แต่เบื้องหลังสามารถแตกงานและประสานหลายชั้นได้
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  ["01", "GOAL", "เข้าใจสิ่งที่ต้องการให้เกิดขึ้น"],
+                  ["02", "CONTEXT", "รวมบทสนทนา memory และสถานะงาน"],
+                  ["03", "PLAN", "แตกเป้าหมายเป็นขั้นตอนที่ทำได้จริง"],
+                  ["04", "ROUTE", "เลือก Agent, Skill, Tool และ Model"],
+                  ["05", "EXECUTE", "ลงมือกับระบบจริงและเก็บ trace"],
+                  ["06", "VERIFY", "ตรวจหลักฐานก่อนส่งผลลัพธ์"],
+                ].map(([n, title, body]) => (
+                  <article key={n} className="rounded-xl border border-border bg-surface p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-subtle">{n}</span>
+                      <GitBranch className="size-4 text-primary" />
+                    </div>
+                    <h3 className="mt-4 text-sm font-semibold tracking-[0.12em]">{title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-muted">{body}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
 
-        <section className="border-t border-border">
-          <div className="mx-auto flex max-w-5xl flex-col gap-4 px-5 py-12 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+        <section className="border-b border-border">
+          <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-20">
+            <div className="max-w-2xl">
+              <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">System capability</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">ความสามารถที่อยู่ใต้ห้องแชทเดียว</h2>
+            </div>
+            <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {capabilities.map((item) => (
+                <article key={item.title} className="rounded-2xl border border-border bg-surface p-5 transition-transform duration-200 hover:-translate-y-0.5">
+                  <item.icon className="size-5 text-primary" />
+                  <h3 className="mt-5 text-base font-semibold">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted">{item.body}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="border-b border-border">
+          <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-20">
+            <div className="rounded-3xl border border-border bg-[radial-gradient(circle_at_20%_20%,rgba(255,190,70,.10),transparent_32%),radial-gradient(circle_at_80%_20%,rgba(70,170,255,.10),transparent_32%)] p-6 sm:p-10">
+              <div className="text-center">
+                <p className="text-xs font-medium uppercase tracking-[0.24em] text-subtle">Leadership signature</p>
+                <h2 className="mt-3 text-3xl font-semibold tracking-tight">ผู้สร้างวิสัยทัศน์ · ผู้ขับเคลื่อนระบบ</h2>
+                <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-muted">
+                  Bossnu ถูกวางแนวคิดให้เป็นระบบที่พา AI จากการเข้าใจเป้าหมายไปสู่การทำงานที่ตรวจสอบได้
+                </p>
+              </div>
+
+              <div className="mt-10 grid gap-6 md:grid-cols-2">
+                <article className="rounded-2xl border border-amber-400/20 bg-black/20 p-7 text-center">
+                  <div className="font-serif text-5xl italic tracking-tight text-amber-300 sm:text-6xl">Panupan</div>
+                  <div className="mx-auto mt-2 h-px w-40 bg-amber-300/40" />
+                  <h3 className="mt-5 text-xl font-semibold">ภาณุพันธ์</h3>
+                  <p className="mt-1 text-xs font-medium uppercase tracking-[0.2em] text-amber-300">Chief Executive Officer · CEO</p>
+                  <p className="mx-auto mt-6 max-w-sm text-sm leading-7 text-muted">
+                    “คิดให้ไกล ทำให้จริง สร้างอนาคตไปด้วยกัน”
+                  </p>
+                </article>
+
+                <article className="rounded-2xl border border-sky-400/20 bg-black/20 p-7 text-center">
+                  <div className="font-serif text-5xl italic tracking-tight text-sky-300 sm:text-6xl">Sliola</div>
+                  <div className="mx-auto mt-2 h-px w-40 bg-sky-300/40" />
+                  <h3 className="mt-5 text-xl font-semibold">สลี่ออลา</h3>
+                  <p className="mt-1 text-xs font-medium uppercase tracking-[0.2em] text-sky-300">Chief Technology Officer · CTO</p>
+                  <p className="mx-auto mt-6 max-w-sm text-sm leading-7 text-muted">
+                    “เทคโนโลยีคือเครื่องมือ ศักยภาพคือพลังของทุกคน”
+                  </p>
+                </article>
+              </div>
+
+              <div className="mt-8 text-center">
+                <div className="text-lg font-semibold tracking-[0.3em]">BOSSNU</div>
+                <div className="mt-1 text-xs tracking-[0.55em] text-subtle">UNIFIED</div>
+                <div className="mt-4 text-[10px] uppercase tracking-[0.35em] text-subtle">One system · Endless possibilities</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-12 sm:flex-row sm:items-center sm:justify-between sm:px-8">
             <div>
-              <p className="text-sm font-medium">โมเดล</p>
+              <p className="text-sm font-medium">พร้อมให้ Boss ลงมือ</p>
               <p className="mt-1 max-w-xl text-sm leading-6 text-muted">
-                Puter คือเส้นทางหลักหลัง Sign in. OpenRouter ใช้ได้เมื่อใส่ key จริง แล้วดึงโมเดลจาก OpenRouter
-                — ไม่ใช่โมเดลของ Puter และยังไม่ประกาศว่าเส้นนั้นเสร็จถ้า catalog ไม่ตอบ
+                บอกเป้าหมายมา แล้วดูระบบแตกงาน วางแผน เรียกเครื่องมือ ลงมือ และตรวจสอบผลแบบเรียลไทม์
               </p>
             </div>
-            <Button variant="secondary" asChild>
-              <Link to="/plugins">
-                <Terminal className="size-4" />
-                Plugins และ keys
+            <Button size="lg" asChild>
+              <Link to="/chat">
+                เปิด Boss Chat
+                <ArrowRight className="size-4" />
               </Link>
             </Button>
           </div>
