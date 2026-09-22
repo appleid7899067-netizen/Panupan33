@@ -269,7 +269,7 @@ async function executeWebOpen(args: Record<string, unknown>): Promise<unknown> {
       seen.add(href.toString());
       links.push({ text: hrefText, url: href.toString() });
       if (links.length >= 30) break;
-    } catch {}
+    } catch { /* intentionally ignored */ }
   }
   const scripts = Array.from(body.matchAll(/<script[^>]+src=["']([^"']+)["']/gi)).slice(0, 20).map((m) => {
     try { return new URL(m[1], response.url).toString(); } catch { return m[1]; }
@@ -283,7 +283,7 @@ async function executeWebFetch(args: Record<string, unknown>): Promise<unknown> 
   let data: unknown = body.slice(0, 30000);
   const contentType = response.headers.get("content-type") ?? "";
   if (/json/i.test(contentType)) {
-    try { data = JSON.parse(body); } catch {}
+    try { data = JSON.parse(body); } catch { /* intentionally ignored */ }
   }
   return { ok: response.ok, status: response.status, statusText: response.statusText, finalUrl: response.url, responseTimeMs, contentType, headers: Object.fromEntries(response.headers.entries()), data };
 }
