@@ -73,7 +73,7 @@ function score(tool: ToolRegistryEntry, prompt: string): number {
   if (capability === "code" && /code|โค้ด|แก้ไฟล์|ไฟล์/.test(text)) value += 5;
   if (capability === "search" && /ค้นหา|search|หาข้อมูล|เว็บ/.test(text)) value += 9;
   if (tool.name === "sandbox_run" && /code|โค้ด|รัน|run|error|bug|debug|แก้|test|verify/.test(text)) value += 10;
-  if (tool.name === "web_open" && /เปิดลิงก์|เปิดเว็บ|อ่านเว็บ|อ่านหน้า|เว็บไซต์|url|https?:\\/\\//.test(text)) value += 16;
+  if (tool.name === "web_open" && /เปิดลิงก์|เปิดเว็บ|อ่านเว็บ|อ่านหน้า|เว็บไซต์|url|https?:\/\//.test(text)) value += 16;
   if (tool.name === "web_fetch" && /api|json|fetch|endpoint|ดึงข้อมูล|เรียก url/.test(text)) value += 15;
   if (tool.name === "web_trace" && /redirect|รีไดเรกต์|เส้นทาง|redirects/.test(text)) value += 15;
   if (tool.name === "web_check" && /เว็บ|website|url|http|502|500|503|timeout|deploy|ดีพลอย|ตรวจ|เช็ก|สถานะ/.test(text)) value += 12;
