@@ -85,7 +85,14 @@ function formatInline(text: string) {
 }
 
 function displayAgentText(value: unknown): string {
-  if (typeof value === "string") return value;
+  if (typeof value === "string") {
+    return value
+      .replace(/<tool_call>[\\s\\S]*?<\\/tool_call>/gi, "")
+      .replace(/<arg_key>[\\s\\S]*?<\\/arg_key>/gi, "")
+      .replace(/<arg_value>[\\s\\S]*?<\\/arg_value>/gi, "")
+      .replace(/^\\s*ตอบทันที\\s*[·•.]*(?:\\s*ไม่เปิด Agent)?\\s*$/gim, "")
+      .trim();
+  }
   if (value == null) return "";
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (Array.isArray(value)) return value.map(displayAgentText).filter(Boolean).join("\n");
@@ -264,9 +271,9 @@ export function SuperChat() {
     appendMessage(thread.id, { role: "user", content: userText });
     const assistantId = appendMessage(thread.id, {
       role: "assistant",
-      content: "กำลังทำงาน…",
+      content: "กำลังเริ่มงาน…",
       model: selectedModel,
-      activity: ["วิเคราะห์"],
+      activity: ["🧠 กำลังเริ่มงาน..."],
     });
     const context = compileChatContext({
       messages: thread.messages,
