@@ -116,8 +116,9 @@ test("platform chrome overwrites share-card metas and always sets og:title", () 
 });
 
 test("does not duplicate twitter:card or og:title", () => {
-  const once = injectGrokPwaHead("<html><head><title>Hello World</title></head></html>", { site: {}, cwd: mkdtempSync(join(tmpdir(), "grok-og-test-")) });
-  const twice = injectGrokPwaHead(once);
+  const ctx = { site: {}, cwd: mkdtempSync(join(tmpdir(), "grok-og-test-")) };
+  const once = injectGrokPwaHead("<html><head><title>Hello World</title></head></html>", ctx);
+  const twice = injectGrokPwaHead(once, ctx);
   assert.equal(once, twice);
   assert.equal(twice.split('name="twitter:card"').length - 1, 1);
   assert.equal(twice.split('property="og:title"').length - 1, 1);
@@ -246,6 +247,8 @@ test("site title Grok App is a real name, not a sentinel", () => {
 test("published grok.me slug is still a title fallback", () => {
   const out = injectGrokPwaHead("<html><head></head></html>", {
     host: "wild-race.grok.me",
+    site: {},
+    cwd: mkdtempSync(join(tmpdir(), "grok-og-test-")),
   });
   assert.match(out, /property="og:title" content="Wild Race"/);
 });
@@ -307,6 +310,7 @@ test("emits og:image for a public host and prefers a custom card", () => {
     appName: "Wild Race",
     host: "wild-race.grok.me",
     site: { title: "Wild Race" },
+    cwd: mkdtempSync(join(tmpdir(), "grok-og-test-")),
   });
   assert.match(
     placeholder,
@@ -318,6 +322,7 @@ test("emits og:image for a public host and prefers a custom card", () => {
     appName: "Wild Race",
     host: "wild-race.grok.me",
     site: { title: "Wild Race", card: "custom", type: "x:game" },
+    cwd: mkdtempSync(join(tmpdir(), "grok-og-test-")),
   });
   assert.match(custom, /property="og:image" content="https:\/\/wild-race\.grok\.me\/og\.jpg"/);
   assert.match(custom, /property="og:type" content="x:game"/);
@@ -327,6 +332,7 @@ test("placeholder og:image appends site.color when it is 6-digit hex", () => {
   const themed = injectGrokPwaHead("<html><head></head></html>", {
     host: "wild-race.grok.me",
     site: { title: "Wild Race", color: "#FF4D2E" },
+    cwd: mkdtempSync(join(tmpdir(), "grok-og-test-")),
   });
   assert.match(
     themed,
@@ -336,12 +342,14 @@ test("placeholder og:image appends site.color when it is 6-digit hex", () => {
   const invalid = injectGrokPwaHead("<html><head></head></html>", {
     host: "wild-race.grok.me",
     site: { title: "Wild Race", color: "red" },
+    cwd: mkdtempSync(join(tmpdir(), "grok-og-test-")),
   });
   assert.doesNotMatch(invalid, /color=/);
 
   const custom = injectGrokPwaHead("<html><head></head></html>", {
     host: "wild-race.grok.me",
     site: { title: "Wild Race", card: "custom", color: "FF4D2E" },
+    cwd: mkdtempSync(join(tmpdir(), "grok-og-test-")),
   });
   assert.doesNotMatch(custom, /color=/);
 });
@@ -387,8 +395,9 @@ test("does not duplicate the extensions script", () => {
 });
 
 test("is idempotent", () => {
-  const once = injectGrokPwaHead("<html><head></head></html>", { site: {}, cwd: mkdtempSync(join(tmpdir(), "grok-og-test-")) });
-  const twice = injectGrokPwaHead(once);
+  const ctx = { site: {}, cwd: mkdtempSync(join(tmpdir(), "grok-og-test-")) };
+  const once = injectGrokPwaHead("<html><head></head></html>", ctx);
+  const twice = injectGrokPwaHead(once, ctx);
   assert.equal(once, twice);
 });
 
