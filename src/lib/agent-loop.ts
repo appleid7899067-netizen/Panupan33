@@ -176,7 +176,7 @@ Verification gate: external mutation is expected. You MUST use an actual verific
     }
     if (iteration === Math.min(maxIterations, 8) - 1) {
       steps.push({ phase: "verify", detail: "หมดรอบซ่อมที่กำหนด จึงยังไม่ประกาศว่าสำเร็จ" });
-      return { ok: false, text: last, steps, verified: false };
+      return { ok: false, text: failureText(last, result.toolResults), steps, verified: false };
     }
     const failedResults = result.toolResults.filter((item) => !item.ok);
     const verificationResults = result.toolResults.filter((item) => isVerificationToolCall(item.name));
@@ -233,7 +233,7 @@ ${escalationInstruction}
 
 Continue from the actual observations above. For every failed tool, diagnose the concrete error, make the smallest safe repair when appropriate, then rerun the relevant tool. If verification fails, diagnose and repair the root cause. Do not stop merely because a file was changed. Do not claim success until verification evidence exists.`;
   }
-  return { ok: false, text: last, steps, verified: false };
+  return { ok: false, text: failureText(last, []), steps, verified: false };
 }
 
 export async function executeAgentCode(language: string, code: string) {
