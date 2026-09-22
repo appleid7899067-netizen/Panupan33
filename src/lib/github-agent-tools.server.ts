@@ -175,7 +175,9 @@ async function runModel(prompt: string, model: string, authToken?: string, githu
   if (authToken || process.env.PUTER_AUTH_TOKEN) {
     const require = (await import("node:module")).createRequire(import.meta.url);
     const { init } = require("@heyputer/puter.js/src/init.cjs") as { init: (token: string) => any };
-    puter = init(authToken || process.env.PUTER_AUTH_TOKEN);
+    const token = authToken || process.env.PUTER_AUTH_TOKEN;
+    if (!token) throw new Error("Puter auth token is missing.");
+    puter = init(token);
   } else {
     puter = await ensurePuter();
     if (!puter.auth.isSignedIn()) await puter.auth.signIn();
