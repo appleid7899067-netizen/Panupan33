@@ -630,6 +630,7 @@ export async function callWithFallback(
         { role: "user", content: prompt },
       ];
       for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
+        onActivity?.([round === 0 ? "🧠 กำลังวิเคราะห์งาน..." : `🔄 กำลังทำขั้นตอนถัดไป... (รอบ ${round + 1})`]);
         let result: Awaited<ReturnType<typeof chatModel>>;
         try {
           result = await chatModel(messages, availableTools, model, authToken);
@@ -668,6 +669,7 @@ export async function callWithFallback(
         if (assistantMessage) messages.push(assistantMessage);
         for (const call of result.toolCalls) {
           const tool = availableTools.find((candidate) => toolName(candidate) === call.name);
+          onActivity?.([tool ? `⚡ กำลังเรียก ${call.name}...` : `⚠️ ไม่พบเครื่องมือ ${call.name}`]);
           if (!tool) {
             const errorMessage = `Unknown tool: ${call.name}`;
             toolResults.push({ name: call.name, ok: false, error: errorMessage });
@@ -678,12 +680,12 @@ export async function callWithFallback(
           try {
             const output = await executeTool(tool, call.arguments);
             toolResults.push({ name: call.name, ok: true, result: output });
-            onActivity?.([`ใช้เครื่องมือ: ${call.name}`, `Observe: ${toolResults.filter((item) => item.ok).length}/${toolResults.length} ผ่าน`]);
+            onActivity?.([`✓ ${call.name} เสร็จแล้ว`, `📡 กำลังอ่านผลลัพธ์และตรวจหลักฐาน...`]);
             messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify({ ok: true, result: output }) });
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             toolResults.push({ name: call.name, ok: false, error: errorMessage });
-            onActivity?.([`ใช้เครื่องมือ: ${call.name}`, `Tool error: ${errorMessage.slice(0, 180)}`]);
+            onActivity?.([`✗ ${call.name} ล้มเหลว`, `🔧 กำลังวิเคราะห์ข้อผิดพลาด...`]);
             messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify({ ok: false, error: errorMessage }) });
           }
         }
