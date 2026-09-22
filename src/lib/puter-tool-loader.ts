@@ -719,7 +719,9 @@ async function chatModel(messages: Array<Record<string, unknown>>, tools: Coding
   if (authToken || process.env.PUTER_AUTH_TOKEN) {
     const require = createRequire(import.meta.url);
     const { init } = require("@heyputer/puter.js/src/init.cjs") as { init: (token: string) => any };
-    const token = authToken || process.env.PUTER_AUTH_TOKEN;\n    if (!token) throw new Error("Puter auth token is missing.");\n    puter = init(token);
+    const token = authToken || process.env.PUTER_AUTH_TOKEN;
+    if (!token) throw new Error("Puter auth token is missing.");
+    puter = init(token);
   } else {
     puter = await ensurePuter();
     if (!puter.auth.isSignedIn()) await puter.auth.signIn();
