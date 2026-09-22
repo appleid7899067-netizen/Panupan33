@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState, useRef } from "react";
-import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X } from "lucide-react";
+import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X, CheckCircle2, Circle, Activity, Copy } from "lucide-react";
 import { useFleet } from "@/lib/store";
 import { backgroundLab } from "@/lib/background-sandbox";
 import { freeAI } from "@/lib/autonomous";
@@ -35,6 +35,7 @@ export function SuperChat() {
   const setStoreModel = useFleet((s) => s.setModel);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [traceOpen, setTraceOpen] = useState(true);
   const [models, setModels] = useState<PuterModel[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
   const [liveStream, setLiveStream] = useState<{ id: string; steps: string[]; active: boolean }>({ id: "", steps: [], active: false });
@@ -336,24 +337,64 @@ export function SuperChat() {
                 <div className="whitespace-pre-wrap">{m.content}</div>
                 {m.role === "assistant" && m.activity && m.activity.length > 0 && m.id === liveStream.id && liveStream.active && (
                   <div className="mt-4 border-t border-zinc-800/80 pt-3 text-[12px]">
-                    <div className="mb-2 flex items-center gap-2 text-zinc-400">
-                      <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      <span>กำลังทำงาน</span>
-                      <span className="ml-auto text-[10px] uppercase tracking-widest text-emerald-400">live</span>
-                    </div>
-                    <div className="space-y-1.5 text-zinc-500">
-                      {m.activity.slice(-6).map((a, i, arr) => {
-                        const parts = a.split(": ");
-                        const phase = parts[0] ?? "";
-                        const detail = parts.slice(1).join(": ") || a;
-                        return (
-                          <div key={i} className={`flex gap-2 ${i === arr.length - 1 ? "text-zinc-200" : ""}`}>
-                            <span className="select-none">{i === arr.length - 1 ? "›" : "✓"}</span>
-                            <span><span className="text-zinc-500">{phase}</span>{detail ? ` · ${detail}` : ""}</span>
+                    <button
+                      type="button"
+                      onClick={() => setTraceOpen((v) => !v)}
+                      className="mb-3 flex w-full items-center gap-2 text-left text-zinc-300"
+                    >
+                      <span className="relative grid size-5 place-items-center rounded-md bg-emerald-500/10 text-emerald-400">
+                        <Activity className="size-3.5" />
+                        <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      </span>
+                      <span className="font-medium">Boss Live</span>
+                      <span className="text-[10px] uppercase tracking-widest text-emerald-400">streaming</span>
+                      <ChevronDown className={`ml-auto size-3.5 text-zinc-500 transition-transform ${traceOpen ? "" : "-rotate-90"}`} />
+                    </button>
+
+                    {traceOpen && (
+                      <div className="space-y-3">
+                        <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
+                          <div className="mb-2 text-[10px] uppercase tracking-widest text-zinc-500">Task plan</div>
+                          <div className="grid gap-1.5 sm:grid-cols-2">
+                            {["วิเคราะห์", "เลือกเครื่องมือ", "ลงมือทำ", "ตรวจสอบ"].map((phase, index) => {
+                              const current = liveStream.steps.some((s) => s.toLowerCase().includes(phase.toLowerCase()));
+                              const passed = index < Math.max(0, liveStream.steps.length - 1);
+                              return (
+                                <div key={phase} className={`flex items-center gap-2 rounded-lg px-2 py-1.5 ${current ? "bg-emerald-500/10 text-zinc-100" : "text-zinc-500"}`}>
+                                  {current || passed ? <CheckCircle2 className="size-3.5 text-emerald-400" /> : <Circle className="size-3.5" />}
+                                  <span>{phase}</span>
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+
+                        <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
+                          <div className="mb-2 flex items-center justify-between">
+                            <span className="text-[10px] uppercase tracking-widest text-zinc-500">Execution trace</span>
+                            <span className="text-[10px] text-zinc-600">{liveStream.steps.length} events</span>
+                          </div>
+                          <div className="space-y-1.5">
+                            {m.activity.slice(-8).map((a, i, arr) => {
+                              const parts = a.split(": ");
+                              const phase = parts[0] ?? "";
+                              const detail = parts.slice(1).join(": ") || a;
+                              return (
+                                <div key={i} className={`flex gap-2 rounded-md px-1.5 py-1 ${i === arr.length - 1 ? "bg-zinc-900 text-zinc-100" : "text-zinc-500"}`}>
+                                  <span className="mt-0.5 select-none">{i === arr.length - 1 ? "›" : "✓"}</span>
+                                  <span className="min-w-0 break-words"><span className="text-zinc-500">{phase}</span>{detail ? ` · ${detail}` : ""}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-[10px] text-zinc-600">
+                          <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span>ติดตามการทำงานแบบเรียลไทม์ · ไม่เลื่อนหน้าจอผู้ใช้เอง</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
