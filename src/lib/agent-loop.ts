@@ -6,6 +6,44 @@ export type AgentPhase = "plan" | "select" | "act" | "observe" | "refine" | "ver
 export type AgentStep = { phase: AgentPhase; detail: string };
 export type AgentRunResult = { ok: boolean; text: string; steps: AgentStep[]; sandbox?: SandboxResult; verified?: boolean };
 
+function safeText(value: unknown, fallback = ""): string {
+  if (value == null) return fallback;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed && trimmed !== "[object Object]") return trimmed;
+    return fallback;
+  }
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    const joined = value.map((item) => safeText(item)).filter(Boolean).join("\n");
+    return joined || fallback;
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    for (const key of ["text", "content", "message", "error", "detail", "reason"]) {
+      const nested = safeText(record[key]);
+      if (nested) return nested;
+    }
+    try { return JSON.stringify(value, null, 2); } catch { return fallback; }
+  }
+  return String(value);
+}
+
+function failureText(primary: unknown, results: ToolExecutionResult[]): string {
+  const direct = safeText(primary);
+  if (direct) return direct;
+  const failed = results.filter((item) => !item.ok).map((item) => {
+    const detail = safeText(item.error ?? item.result, "ไม่ทราบรายละเอียด");
+    return `${item.name}: ${detail.slice(0, 1200)}`;
+  });
+  if (failed.length) return `Agent/tool ทำงานไม่สำเร็จ:\n${failed.join("\n")}`;
+  const observed = results.slice(-3).map((item) => {
+    const detail = safeText(item.result, "");
+    return detail ? `${item.name}: ${detail.slice(0, 1000)}` : "";
+  }).filter(Boolean);
+  return observed.length ? `Agent ยังไม่ผ่าน verification. ผลที่ตรวจพบ:\n${observed.join("\n")}` : "Agent ยังไม่ส่งผลลัพธ์ที่อ่านได้";
+}
+
 function summarizeToolNames(tools: CodingFleetTool[]): string {
   return tools.slice(0, 8).map((tool) => String(tool.name ?? tool.slug ?? tool.id ?? "")).filter(Boolean).join(", ");
 }
@@ -101,7 +139,7 @@ Never claim an external action succeeded without evidence.`;
     const result = await callWithFallback(currentPrompt, tools, [model], (activity) => activity.forEach((detail) => emitStep({ phase: "observe", detail })), authToken);
     if (!result.ok) {
       steps.push({ phase: "observe", detail: `เครื่องมือ/โมเดลแจ้งข้อผิดพลาด: ${result.error.slice(0, 300)}` });
-      return { ok: false, text: result.error, steps, verified: false };
+      return { ok: false, text: failureText(result.error, result.toolResults), steps, verified: false };
     }
     last = result.text;
     hadToolActivity ||= result.toolCalls.length > 0;
@@ -119,7 +157,7 @@ Never claim an external action succeeded without evidence.`;
       if ((mutationExpected || hadVerificationActivity || looksLikeVerification(prompt)) && !verificationPassedEvidence) {
         steps.push({ phase: "verify", detail: "ยังไม่มีหลักฐานจาก verification tool หลังมีการเปลี่ยนแปลง จึงบังคับให้ Agent ตรวจซ้ำ" });
         if (iteration === Math.min(maxIterations, 8) - 1) {
-          return { ok: false, text: last, steps, verified: false };
+          return { ok: false, text: failureText(last, result.toolResults), steps, verified: false };
         }
         steps.push({ phase: "refine", detail: "ขอให้ Agent เรียกเครื่องมือตรวจสอบจริงก่อนประกาศสำเร็จ" });
         currentPrompt = `${prompt}
