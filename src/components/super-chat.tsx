@@ -227,30 +227,6 @@ export function SuperChat() {
       }
     }
 
-    // ประมวลผลแบบ ONE CHAT 100 อย่าง
-    // ถ้าข้อความมี code block หรือสั่ง "รันโค้ด" ให้ Boss เรียก Sandbox โดยตรง
-    const sandboxMatch = userText.match(/```([\\w-]+)?\n([\s\S]*?)```/);
-    const wantsSandbox = Boolean(sandboxMatch) || /(?:รันโค้ด|รัน code|run code|ทดสอบโค้ด|test code|sandbox)/i.test(userText);
-    if (wantsSandbox) {
-      const language = sandboxMatch?.[1] || "javascript";
-      const code = sandboxMatch?.[2] || userText
-        .replace(/^.*?(?:รันโค้ด|รัน code|run code|ทดสอบโค้ด|test code|sandbox)[:\s]*/i, "")
-        .trim();
-      const sandbox = await runAgentSandbox({ language, code });
-      const status = sandbox.ok ? "ผ่าน" : "ไม่ผ่าน";
-      const output = [
-        `🧪 Sandbox: ${status}`,
-        sandbox.stdout ? `stdout:\n${sandbox.stdout}` : "",
-        sandbox.stderr ? `stderr:\n${sandbox.stderr}` : "",
-        `runtime: ${sandbox.runtime ?? "unknown"} | ${sandbox.durationMs ?? 0}ms`,
-      ].filter(Boolean).join("\n\n");
-      patchActivity(thread.id, assistantId, []);
-      patchMessage(thread.id, assistantId, output);
-      patchVerified(thread.id, assistantId, sandbox.ok);
-      setLiveStream((s) => s.id === assistantId ? { ...s, active: false } : s);
-      return;
-    }
-
     // Explicit web-search requests use Yandex as the default engine.
     const wantsWebSearch = /(?:^|\s)(ค้นหา|หาให้หน่อย|search|ค้นเว็บ|เว็บเกี่ยวกับ|หาข้อมูล)(?:\s|$)/i.test(userText);
     if (wantsWebSearch) {
@@ -286,6 +262,31 @@ export function SuperChat() {
         setLiveStream((s) => s.id === assistantId ? { ...s, active: false } : s);
         return;
       }
+    }
+
+
+    // ประมวลผลแบบ ONE CHAT 100 อย่าง
+    // ถ้าข้อความมี code block หรือสั่ง "รันโค้ด" ให้ Boss เรียก Sandbox โดยตรง
+    const sandboxMatch = userText.match(/```([\\w-]+)?\n([\s\S]*?)```/);
+    const wantsSandbox = Boolean(sandboxMatch) || /(?:รันโค้ด|รัน code|run code|ทดสอบโค้ด|test code|sandbox)/i.test(userText);
+    if (wantsSandbox) {
+      const language = sandboxMatch?.[1] || "javascript";
+      const code = sandboxMatch?.[2] || userText
+        .replace(/^.*?(?:รันโค้ด|รัน code|run code|ทดสอบโค้ด|test code|sandbox)[:\s]*/i, "")
+        .trim();
+      const sandbox = await runAgentSandbox({ language, code });
+      const status = sandbox.ok ? "ผ่าน" : "ไม่ผ่าน";
+      const output = [
+        `🧪 Sandbox: ${status}`,
+        sandbox.stdout ? `stdout:\n${sandbox.stdout}` : "",
+        sandbox.stderr ? `stderr:\n${sandbox.stderr}` : "",
+        `runtime: ${sandbox.runtime ?? "unknown"} | ${sandbox.durationMs ?? 0}ms`,
+      ].filter(Boolean).join("\n\n");
+      patchActivity(thread.id, assistantId, []);
+      patchMessage(thread.id, assistantId, output);
+      patchVerified(thread.id, assistantId, sandbox.ok);
+      setLiveStream((s) => s.id === assistantId ? { ...s, active: false } : s);
+      return;
     }
 
     // ปกติ: ส่งข้อความเข้า Boss Agent จริง ไม่ใช้ template ตอบสำเร็จรูป
