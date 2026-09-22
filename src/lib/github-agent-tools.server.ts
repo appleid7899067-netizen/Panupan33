@@ -35,7 +35,8 @@ type ToolDef = {
 };
 
 const MODELS = ["gpt-5.6-luna", "claude-sonnet-4-6", "gemini-3.1-flash-lite"] as const;
-const MAX_ROUNDS = 12;\nconst FAST_MAX_ROUNDS = 4;
+const MAX_ROUNDS = 12;
+const FAST_MAX_ROUNDS = 4;
 
 const TOOLS: ToolDef[] = [
   { type: "function", function: { name: "github_get_repo", description: "Read GitHub repository status and metadata using the installed GitHub App.", parameters: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" } }, required: ["owner", "repo"], additionalProperties: false } } },
