@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { APP_NAV } from "@/lib/catalog";
 import { usePuter } from "@/lib/puter-context";
+import { getBrowserIdentity } from "@/lib/user-identity";
 
 function PuterChip() {
   const { ready, signedIn, user, signIn, signOut } = usePuter();
@@ -51,6 +52,16 @@ function PuterChip() {
   );
 }
 
+function IdentityChip() {
+  const identity = getBrowserIdentity();
+  return (
+    <span className="hidden lg:inline-flex h-9 items-center gap-2 rounded-full bg-elevated px-3 text-[10px] text-muted shadow-[var(--shadow-border)]" title="รหัสผู้ใช้ของเบราว์เซอร์นี้">
+      <span className="size-1.5 rounded-full bg-primary" />
+      USER {identity.shortId}
+    </span>
+  );
+}
+
 function Header() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   return (
@@ -89,6 +100,7 @@ function Header() {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
+          <IdentityChip />
           <PuterChip />
           <Button size="icon" className="size-11 shrink-0" asChild>
             <Link to="/chat" aria-label="เปิดแชท">
