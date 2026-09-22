@@ -306,8 +306,6 @@ export function SuperChat() {
           </div>
         ))}
         
-      </div>
-
         </div>
         {!isPinnedToBottom && (
           <button
