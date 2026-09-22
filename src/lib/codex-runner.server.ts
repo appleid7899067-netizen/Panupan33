@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -30,7 +30,7 @@ function run(command: string, args: string[], cwd: string, env: NodeJS.ProcessEn
   });
 }
 
-export async function runCodexAgent(prompt: string, githubToken?: string, onOutput?: CodexRunEvent): Promise<CodexRunResult> {
+export async function runCodexAgent(prompt: string, githubToken?: string, puterAuthToken?: string, onOutput?: CodexRunEvent): Promise<CodexRunResult> {
   const apiKey = process.env.CODEX_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey) return { ok: false, verified: false, text: "Codex ยังไม่พร้อม: ต้องตั้ง CODEX_API_KEY หรือ OPENAI_API_KEY ฝั่ง server ก่อน", error: "Missing CODEX_API_KEY/OPENAI_API_KEY" };
 
@@ -40,22 +40,36 @@ export async function runCodexAgent(prompt: string, githubToken?: string, onOutp
   const env: NodeJS.ProcessEnv = { ...process.env, CODEX_API_KEY: apiKey, OPENAI_API_KEY: apiKey, GIT_TERMINAL_PROMPT: "0" };
 
   try {
-    onOutput?.("🧠 Codex รับงาน: " + repo);
-    const clone = await run("git", ["clone", "--depth", "1", "https://github.com/" + repo + ".git", workspace], tmpdir(), env, (line) => onOutput?.("📥 " + line));
-    if (clone.code !== 0) return { ok: false, verified: false, text: "Codex clone ไม่สำเร็จ:\n" + clone.output.slice(-1800), error: clone.output.slice(-1800) };
+    onOutput?.("🧠 Boss → Codex: " + repo);
+    const repoDir = join(workspace, "repo");
+    const codexHome = join(workspace, ".codex");
+    await mkdir(codexHome, { recursive: true });
+
+    if (puterAuthToken) {
+      env.PUTER_AUTH_TOKEN = puterAuthToken;
+      env.CODEX_HOME = codexHome;
+      await writeFile(
+        join(codexHome, "config.toml"),
+        '[mcp_servers.puter]\nurl = "https://mcp.puter.com/"\nenabled = true\nbearer_token_env_var = "PUTER_AUTH_TOKEN"\n',
+        { mode: 0o600 },
+      );
+      onOutput?.("🔗 Codex → Puter MCP พร้อมใช้งาน");
+    }
 
     if (githubToken) {
       const askpass = join(workspace, ".git-askpass");
-      await writeFile(askpass, "#!/bin/sh\nprintf '%s\\n' \"$CODEX_GITHUB_TOKEN\"\\n", { mode: 0o700 });
+      await writeFile(askpass, "#!/bin/sh\ncase "$1" in *Username*) printf '%s\\n' "x-access-token" ;; *) printf '%s\\n' "$CODEX_GITHUB_TOKEN" ;; esac\n", { mode: 0o700 });
       env.CODEX_GITHUB_TOKEN = githubToken;
-      await run("git", ["config", "credential.helper", "!" + askpass], repoDir, env);
+      env.GIT_ASKPASS = askpass;
     }
 
-    const repoDir = join(workspace, "repo");
+    const clone = await run("git", ["clone", "--depth", "1", "https://github.com/" + repo + ".git", repoDir], tmpdir(), env, (line) => onOutput?.("📥 " + line));
+    if (clone.code !== 0) return { ok: false, verified: false, text: "Codex clone ไม่สำเร็จ:\n" + clone.output.slice(-1800), error: clone.output.slice(-1800) };
+
     await run("git", ["checkout", "-b", branch], repoDir, env, (line) => onOutput?.("🌿 " + line));
     onOutput?.("✏️ Codex กำลังอ่านและแก้ไฟล์จริง");
 
-    const codexPrompt = prompt + "\n\nYou are the primary coding agent for Bossnu. Work directly inside the current repository. Inspect existing code before changing anything. Fix the root cause. Make the requested changes now, do not merely explain. Run the most relevant typecheck, tests, and build checks. If a check fails, inspect the concrete output, repair it, and rerun it. Do not commit or push; leave changes in the working tree for Bossnu to publish. Do not claim success without concrete verification evidence.";
+    const codexPrompt = prompt + "\n\nYou are the coding executor controlled by Bossnu. Boss/Puter is the orchestrator. Use the connected Puter MCP server when useful. Work directly inside the current repository. Inspect existing code before changing anything. Fix the root cause. Make the requested changes now, do not merely explain. Run the most relevant typecheck, tests, and build checks. If a check fails, inspect the concrete output, repair it, and rerun it. Do not commit or push; leave changes in the working tree for Bossnu to publish. Do not claim success without concrete verification evidence.";
     const codex = await run("codex", ["exec", "--sandbox", "workspace-write", "--ask-for-approval", "never", codexPrompt], repoDir, env, (line) => onOutput?.("🤖 " + line));
     if (codex.code !== 0) return { ok: false, verified: false, text: "Codex ทำงานไม่สำเร็จ:\n" + codex.output.slice(-3000), error: codex.output.slice(-3000) };
 
