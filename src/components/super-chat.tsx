@@ -285,10 +285,20 @@ export function SuperChat() {
       maxMemory: 6,
       maxChars: 12000,
     });
-    const wantsAgent = /(?:ทำให้|แก้|สร้าง|เขียน|deploy|ดีพลอย|github|git|repo|repository|โค้ด|code|run|รัน|ทดสอบ|sandbox|api|database|ฐานข้อมูล|ไฟล์|file|ติดตั้ง|เชื่อมต่อ|ตรวจสอบระบบ|แก้บั๊ก|bug|task|งาน|ค้นหา|search|เว็บ|ค้นเว็บ)/i.test(userText);
+    const lastAssistant = [...thread.messages].reverse().find((message) => message.role === "assistant");
+    const lastUser = [...thread.messages].reverse().find((message) => message.role === "user");
     const quickReply = /^(คับ|ครับ|ค่ะ|ใช่|โอเค|ok|ตกลง|ได้|ต่อเลย|ทำเลย|ขอบคุณ|ขอบใจ|รับทราบ|อืม|hello|hi|hey)[!.\s]*$/i.test(userText.trim());
+    const lastAssistantState = [lastAssistant?.content || "", ...(lastAssistant?.activity || [])].join(" ");
+    const hasActiveTask = Boolean(
+      lastAssistant &&
+      /กำลัง|ดำเนิน|ตรวจ|สแกน|ค้นหา|ค้นเว็บ|แก้|สร้าง|ทำงาน|รัน|ทดสอบ|deploy|ดีพลอย|เช็ค|เช็ก/i.test(lastAssistantState) &&
+      lastUser &&
+      lastUser.content.trim().length > 2,
+    );
+    const continueTask = quickReply && hasActiveTask;
+    const wantsAgent = /(?:ทำให้|แก้|สร้าง|เขียน|deploy|ดีพลอย|github|git|repo|repository|โค้ด|code|run|รัน|ทดสอบ|sandbox|api|database|ฐานข้อมูล|ไฟล์|file|ติดตั้ง|เชื่อมต่อ|ตรวจสอบระบบ|แก้บั๊ก|bug|task|งาน|ค้นหา|search|เว็บ|ค้นเว็บ)/i.test(userText) || continueTask;
 
-    if (!wantsAgent || quickReply) {
+    if (!wantsAgent) {
       try {
         patchActivity(thread.id, assistantId, ["ตอบทันที"]);
         const result = await chatWithPuter({
@@ -370,14 +380,17 @@ export function SuperChat() {
     }
 
     try {
-      patchActivity(thread.id, assistantId, ["🧠 กำลังเริ่มตรวจงาน..."]);
+      patchActivity(thread.id, assistantId, [continueTask ? "🔄 กำลังทำงานต่อจากงานล่าสุด..." : "🧠 กำลังเริ่มตรวจงาน..."]);
+      setLiveStream({ id: assistantId, steps: [continueTask ? "🔄 กำลังทำงานต่อจากงานล่าสุด..." : "🧠 กำลังเริ่มตรวจงาน..."], active: true });
       const puter = await loadPuter();
       const authToken = (puter as unknown as { authToken?: string }).authToken;
       let result: Awaited<ReturnType<typeof runAgent>> | null = null;
       const liveSteps: string[] = [];
       for await (const event of await runAgentStream({
         data: {
-          prompt: userText,
+          prompt: continueTask
+            ? `ทำงานต่อจากคำสั่งล่าสุดของผู้ใช้ทันที โดยไม่ต้องตอบรับสั้น ๆ และไม่ต้องถามยืนยันอีกครั้ง คำสั่งล่าสุดคือ: ${lastUser?.content || ""}`
+            : userText,
           maxIterations: 3,
           context,
           ...(authToken ? { authToken } : {}),
@@ -388,180 +401,3 @@ export function SuperChat() {
           liveSteps.push(`${event.step.phase}: ${event.step.detail}`);
           const visibleSteps = liveSteps.slice(-10);
           patchActivity(thread.id, assistantId, visibleSteps);
-          setLiveStream({ id: assistantId, steps: visibleSteps, active: true });
-        } else if (event.type === "done") {
-          result = event.result;
-        }
-      }
-      if (!result) throw new Error("Agent stream ended without a final result.");
-      const resultText = displayAgentText(result.text);
-      const response = result.ok
-        ? (resultText || "Boss ทำงานเสร็จแล้ว แต่ Agent ไม่ได้ส่งข้อความกลับมา")
-        : `ยังทำงานนี้ไม่สำเร็จ: ${resultText || "Agent ไม่มีผลลัพธ์"}`;
-      patchVerified(thread.id, assistantId, result.verified === true);
-      patchMessage(thread.id, assistantId, response);
-      patchActivity(thread.id, assistantId, liveSteps.slice(-10));
-      setLiveStream({ id: assistantId, steps: liveSteps.slice(-10), active: false });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      patchActivity(thread.id, assistantId, []);
-      patchVerified(thread.id, assistantId, false);
-      patchMessage(thread.id, assistantId, `Boss เรียก Agent ไม่สำเร็จ: ${message.slice(0, 700)}`);
-      setLiveStream((s) => s.id === assistantId ? { ...s, active: false } : s);
-    }
-  };
-
-  return (
-    <div className="relative flex flex-col h-full min-h-0 w-full max-w-5xl mx-auto overflow-hidden">
-      <div className="relative z-50 shrink-0 flex min-h-14 items-center justify-between gap-3 px-4 py-2.5 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-xl">
-        <div className="flex min-w-0 items-center gap-2">
-          <button type="button" onClick={() => setHistoryOpen(true)} className="size-9 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 grid place-items-center" aria-label="ประวัติแชท">
-            <History className="size-4" />
-          </button>
-          <button type="button" onClick={startNewChat} className="size-9 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 grid place-items-center" aria-label="เริ่มแชทใหม่">
-            <Plus className="size-4" />
-          </button>
-          <div className="ml-1 flex items-center min-w-0">
-            <div className="size-8 rounded-full bg-white text-black grid place-items-center font-medium text-sm shrink-0">B</div>
-            <div className="ml-2 min-w-0">
-              <div className="text-sm font-medium text-zinc-100">Boss</div>
-              <div className="text-[11px] text-zinc-500 truncate max-w-[120px]">{thread?.title || "New chat"}</div>
-            </div>
-          </div>
-        </div>
-        <button type="button" onClick={() => setModelMenuOpen((open) => !open)} className="flex items-center gap-2 max-w-[58%] rounded-xl border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-left hover:bg-zinc-800" aria-label="เลือกโมเดล">
-          <Sparkles className="size-3.5 text-zinc-300 shrink-0" />
-          <span className="truncate text-xs text-zinc-200">{modelsLoading ? "กำลังโหลดโมเดล..." : selectedModelInfo.name}</span>
-          <ChevronDown className="size-3.5 text-zinc-500 shrink-0" />
-        </button>
-        {modelMenuOpen && (
-          <div className="absolute right-4 top-[58px] z-[60] w-72 max-h-[min(70vh,520px)] overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-950 p-1.5 shadow-2xl">
-            <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-zinc-500">เลือกโมเดลสำหรับ Boss</div>
-            {models.map((model) => (
-              <button key={model.id} type="button" onClick={() => { setStoreModel(model.id); setModelMenuOpen(false); }} className={"flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left hover:bg-zinc-800 " + (model.id === selectedModel ? "bg-zinc-800" : "")}>
-                <span className="min-w-0">
-                  <span className="block truncate text-xs text-zinc-100">{model.name}</span>
-                  <span className="block text-[10px] text-zinc-500">{model.provider ?? "Puter"}{model.context ? ` · ${Math.round(model.context / 1000)}k context` : ""}</span>
-                </span>
-                {model.id === selectedModel && <span className="ml-2 text-[10px] text-emerald-400">✓</span>}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {historyOpen && (
-        <div className="absolute inset-0 z-40 bg-black/55" onClick={() => setHistoryOpen(false)}>
-          <aside className="absolute inset-y-0 left-0 w-[min(88vw,360px)] border-r border-zinc-800 bg-zinc-950 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-              <div><div className="text-sm font-semibold text-zinc-100">ประวัติแชท</div><div className="text-[11px] text-zinc-500">{threads.length} ห้องแชท</div></div>
-              <button type="button" onClick={() => setHistoryOpen(false)} className="size-9 rounded-xl hover:bg-zinc-800 grid place-items-center text-zinc-400" aria-label="ปิดประวัติ"><X className="size-4" /></button>
-            </div>
-            <div className="p-3">
-              <button type="button" onClick={startNewChat} className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-3 py-2.5 text-sm font-medium text-black hover:bg-zinc-200"><Plus className="size-4" /> เริ่มแชทใหม่</button>
-              <div className="max-h-[calc(100dvh-150px)] overflow-y-auto space-y-1 pr-1">
-                {threads.map((item) => (
-                  <div key={item.id} className={"group flex items-center gap-1 rounded-xl border px-2 py-1.5 " + (item.id === activeThreadId ? "border-zinc-600 bg-zinc-800" : "border-transparent hover:bg-zinc-900")}>
-                    <button type="button" onClick={() => openThread(item.id)} className="min-w-0 flex-1 px-2 py-2 text-left">
-                      <div className="truncate text-sm text-zinc-100">{item.title || "New chat"}</div>
-                      <div className="mt-0.5 text-[10px] text-zinc-500">{item.messages.length} ข้อความ · {new Date(item.updatedAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}</div>
-                    </button>
-                    <button type="button" onClick={() => removeThread(item.id)} className="size-8 shrink-0 rounded-lg text-zinc-600 hover:bg-red-950/60 hover:text-red-300 grid place-items-center" aria-label={"ลบแชท " + (item.title || "New chat")}><Trash2 className="size-3.5" /></button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </aside>
-        </div>
-      )}
-
-      <main
-        ref={scrollerRef}
-        className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y px-4 py-6 pb-8 sm:px-6 sm:py-7 [scrollbar-gutter:stable]"
-        style={{ overflowAnchor: "none", WebkitOverflowScrolling: "touch" }}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          const pinned = isNearBottom(el);
-          isPinnedRef.current = pinned;
-          setIsPinnedToBottom(pinned);
-        }}
-      >
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-          {thread?.messages.map((m) => (
-            <div key={m.id} className={`group flex gap-3 ${m.role === "user" ? "justify-end" : ""}`}>
-              {m.role === "assistant" && (
-                <div className="size-7 rounded-full bg-zinc-800 border border-zinc-700 grid place-items-center shrink-0 mt-0.5">
-                  <span className="text-[11px]">B</span>
-                </div>
-              )}
-              <div className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 ${
-                m.role === "user"
-                  ? "bg-white text-black"
-                  : "bg-zinc-900/80 border border-zinc-800 text-zinc-100"
-              }`}>
-                <BossMarkdown content={m.content} />
-                {m.role === "assistant" && m.activity && m.activity.length > 0 && (
-                  <div className="mt-1 min-h-5">
-                    <BossThinking text={(m.id === liveStream.id ? liveStream.steps : m.activity).slice(-1)[0]?.replace(/^[^:]+:\s*/, "") || "กำลังคิด"} />
-                  </div>
-                )}
-                {m.role === "assistant" && m.content && (
-                  <div className="mt-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <button type="button" onClick={() => copyMessage(m.id, m.content)} className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" aria-label="คัดลอกคำตอบ">{copiedMessage === m.id ? <Check className="size-3.5 text-emerald-400" /> : <Copy className="size-3.5" />}</button>
-                  </div>
-                )}
-              </div>
-              {m.role === "user" && (
-                <div className="size-7 rounded-full bg-zinc-700 grid place-items-center shrink-0 mt-0.5">
-                  <span className="text-[11px]">U</span>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-        {!isPinnedToBottom && (
-          <button
-            type="button"
-            onClick={() => pinToBottom("smooth")}
-            aria-label="เลื่อนไปข้อความล่าสุด"
-            className="sticky bottom-4 z-20 mx-auto mt-4 size-9 -translate-x-1/2 rounded-full border border-zinc-700 bg-zinc-900/95 text-zinc-200 shadow-lg grid place-items-center hover:bg-zinc-800 transition"
-          >
-            <ChevronDown className="size-4" />
-          </button>
-        )}
-      </main>
-
-      <div className="relative z-30 shrink-0 border-t border-zinc-800 bg-zinc-950/95 p-3 backdrop-blur-xl sm:p-4">
-        <div className="relative flex items-end gap-2 rounded-2xl bg-zinc-900 border border-zinc-800 p-2">
-          <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => { handleAttachment(e.target.files?.[0]); e.currentTarget.value = ""; }} />
-          <button type="button" onClick={() => fileInputRef.current?.click()} className="size-8 grid place-items-center rounded-full hover:bg-zinc-800 text-zinc-500" aria-label="แนบไฟล์">
-            <Paperclip className="size-4" />
-          </button>
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            placeholder="พิมพ์ข้อความถึง Boss..."
-            className="flex-1 bg-transparent text-sm text-zinc-100 placeholder:text-zinc-600 resize-none outline-none max-h-32 min-h-[24px] py-1.5"
-            rows={1}
-          />
-          <button type="button" onClick={toggleVoice} className={`size-8 grid place-items-center rounded-full hover:bg-zinc-800 ${isListening ? "text-emerald-400 bg-emerald-500/10" : "text-zinc-500"}`} aria-label="พูดกับ Boss">
-            {isListening ? <Square className="size-3" /> : <Mic className="size-4" />}
-          </button>
-          <button
-            onClick={handleSend}
-            disabled={!input.trim()}
-            className="size-8 grid place-items-center rounded-full bg-white text-black disabled:opacity-30 disabled:bg-zinc-700"
-          >
-            <Send className="size-4" />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
