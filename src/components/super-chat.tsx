@@ -9,7 +9,7 @@ import { useFleet } from "@/lib/store";
 import { backgroundLab } from "@/lib/background-sandbox";
 import { freeAI } from "@/lib/autonomous";
 import { runAgent, runAgentSandbox, runAgentStream } from "@/lib/agent.functions";
-import { listPuterModels, loadPuter, type PuterModel } from "@/lib/puter";
+import { chatWithPuter, listPuterModels, loadPuter, type PuterModel } from "@/lib/puter";
 import { executeWebSearch } from "@/lib/bossnugrok/skills/web-search";
 import { compileChatContext } from "@/lib/context-compiler";
 
@@ -183,19 +183,44 @@ export function SuperChat() {
       role: "assistant",
       content: "กำลังทำงาน…",
       model: selectedModel,
-      activity: ["วิเคราะห์"],
+      activity: ["วิเคราะ    const context = compileChatContext({
+      messages: thread.messages,
+      memory: useFleet.getState().memory.map((m) => m.text),
+      query: userText,
+      maxMessages: 8,
+      maxMemory: 6,
+      maxChars: 12000,
     });
 
-    const history = [
-      ...thread.messages.slice(-24).map((m) => `${m.role.toUpperCase()}: ${m.content}`),
-      `USER: ${userText}`,
-    ].join("\n\n");
-    const memory = useFleet.getState().memory.slice(0, 24).map((m) => m.text).join("\n- ");
-    const context = [
-      "Conversation context: remember and use the recent conversation. Do not make the user repeat information already present.",
-      history ? `Recent conversation:\n${history}` : "",
-      memory ? `Saved memory:\n- ${memory}` : "",
-    ].filter(Boolean).join("\n\n");
+    // Fast lane: ordinary conversation never starts the Agent/tool loop.
+    const wantsAgent = /(?:ทำให้|แก้|สร้าง|เขียน|deploy|ดีพลอย|github|git|repo|repository|โค้ด|code|run|รัน|ทดสอบ|sandbox|api|database|ฐานข้อมูล|ไฟล์|file|ติดตั้ง|เชื่อมต่อ|ตรวจสอบระบบ|แก้บั๊ก|bug|task|งาน|ค้นหา|search|เว็บ|ค้นเว็บ)/i.test(userText);
+    const quickReply = /^(คับ|ครับ|ค่ะ|ใช่|โอเค|ok|ตกลง|ได้|ต่อเลย|ทำเลย|ขอบคุณ|ขอบใจ|รับทราบ|อืม|hello|hi|hey)[!.\s]*$/i.test(userText.trim());
+
+    if (!wantsAgent || quickReply) {
+      try {
+        patchActivity(thread.id, assistantId, ["ตอบทันที"]);
+        const result = await chatWithPuter({
+          model: selectedModel,
+          messages: [
+            { role: "system", content: "You are Boss. Reply naturally and briefly. Do not invoke tools, plan work, or re-process unrelated history unless the user explicitly asks for a task." },
+            ...(context ? [{ role: "system" as const, content: context }] : []),
+            { role: "user", content: userText },
+          ],
+        });
+        if (!result.ok) throw new Error(result.error);
+        patchMessage(thread.id, assistantId, result.text);
+        patchVerified(thread.id, assistantId, false);
+        patchActivity(thread.id, assistantId, ["ตอบทันที · ไม่เปิด Agent"]);
+        setLiveStream({ id: assistantId, steps: ["ตอบทันที · ไม่เปิด Agent"], active: false });
+        return;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        patchMessage(thread.id, assistantId, "Boss ตอบไม่ได้ตอนนี้: " + message.slice(0, 500));
+        patchVerified(thread.id, assistantId, false);
+        patchActivity(thread.id, assistantId, []);
+        return;
+      }
+    }).join("\n\n");
 
     // ประมวลผลแบบ ONE CHAT 100 อย่าง
     // ถ้าข้อความมี code block หรือสั่ง "รันโค้ด" ให้ Boss เรียก Sandbox โดยตรง
