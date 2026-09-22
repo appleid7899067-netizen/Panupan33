@@ -469,7 +469,11 @@ function extractToolCalls(value: unknown): ToolCall[] {
     return name ? [{ id: typeof call.id === "string" ? call.id : undefined, name, arguments: parseArguments(fn?.arguments ?? call.arguments ?? call.input) }] : [];
   });
 }
-function safeText(value: unknown, fallback = ""): string {\n  if (typeof value === "string") return value;\n  try { return JSON.stringify(value) ?? fallback; } catch { return fallback; }\n}\nfunction assistantToolMessage(response: unknown): Record<string, unknown> | null {
+function safeText(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  try { return JSON.stringify(value) ?? fallback; } catch { return fallback; }
+}
+function assistantToolMessage(response: unknown): Record<string, unknown> | null {
   const message = (response as Record<string, unknown> | null)?.message;
   return message && typeof message === "object" ? (message as Record<string, unknown>) : null;
 }
