@@ -43,7 +43,7 @@ export const runAgent = createServerFn({ method: "POST" })
     }
 
     const registryHasGitHub = selected.some((tool) => String(tool.name ?? "").toLowerCase().includes("github"));
-    if (registryHasGitHub && prefersAuthenticatedGitHub(data.prompt)) {
+    if ((data.githubToken && intent === "github") || (registryHasGitHub && prefersAuthenticatedGitHub(data.prompt))) {
       const result = await runGitHubAgent(taskPrompt, data.authToken, data.model, data.githubToken);
       if (!result.ok) {
         return {
@@ -122,7 +122,7 @@ export const runAgentStream = createServerFn({ method: "POST" })
         type: "step",
         step: { phase: "act", detail: "🔐 กำลังเปิด GitHub Agent ที่เชื่อม repo จริง..." },
       };
-      const result = await runGitHubAgent(taskPrompt, data.authToken, data.model);
+      const result = await runGitHubAgent(taskPrompt, data.authToken, data.model, data.githubToken);
       if (!result.ok) {
         yield {
           type: "step",
