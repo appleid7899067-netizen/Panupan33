@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useState, useRef } from "react";
+import { unzipSync, strFromU8 } from "fflate";
 import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X, Copy, Check, Square, Github, KeyRound } from "lucide-react";
 import { useFleet } from "@/lib/store";
 import { runAgent, runAgentSandbox, runAgentStream } from "@/lib/agent.functions";
@@ -166,6 +167,7 @@ export function SuperChat() {
   const [models, setModels] = useState<PuterModel[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
   const [liveStream, setLiveStream] = useState<{ id: string; steps: string[]; active: boolean }>({ id: "", steps: [], active: false });
+  const [attachmentContext, setAttachmentContext] = useState("");
   const selectedModel = storedModel || DEFAULT_PUTER_MODEL;
 
   useEffect(() => {
@@ -326,10 +328,41 @@ export function SuperChat() {
     requestAnimationFrame(() => { if (scrollerRef.current) scrollerRef.current.scrollTop = 0; });
   };
 
-  const handleAttachment = (file?: File) => {
+  const handleAttachment = async (file?: File) => {
     if (!file || !thread) return;
     const note = `แนบไฟล์: ${file.name} (${Math.ceil(file.size / 1024)} KB)`;
     appendMessage(thread.id, { role: "user", content: note, attachments: [{ name: file.name, size: file.size, type: file.type }] });
+
+    // ZIP is unpacked locally in the browser so Boss can inspect the raw project
+    // without uploading the archive itself. Keep only useful text/source files.
+    if (/\\.zip$/i.test(file.name) || file.type === "application/zip") {
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const entries = unzipSync(bytes);
+        const textExt = /\\.(tsx?|jsx?|mjs|cjs|json|md|mdx|css|scss|html|htm|yaml|yml|toml|xml|txt|env|gitignore|dockerfile|sh|py|go|rs|java|kt|sql|graphql|gql)$/i;
+        const chunks: string[] = [];
+        let count = 0;
+        let totalChars = 0;
+        for (const [path, data] of Object.entries(entries)) {
+          if (count >= 80 || totalChars >= 90000) break;
+          if (!path || path.endsWith("/") || /(^|\\/)(node_modules|.git|dist|build|coverage)(\\/|$)/i.test(path)) continue;
+          if (!textExt.test(path) && !/(^|\\/)(Dockerfile|Makefile|README|LICENSE|\.env(?:\\..*)?)$/i.test(path)) continue;
+          try {
+            const text = strFromU8(data).replace(/\\u0000/g, "").slice(0, 12000);
+            if (!text.trim()) continue;
+            chunks.push(`===== ${path} =====\\n${text}`);
+            totalChars += text.length;
+            count++;
+          } catch {}
+        }
+        const extracted = `ZIP RAW EXTRACT: ${file.name}\\nไฟล์ข้อความที่อ่านได้: ${count}\\n\\n${chunks.join("\\n\\n")}`.slice(0, 100000);
+        setAttachmentContext(extracted);
+        const status = [`📦 แตก ZIP สำเร็จ: ${file.name}`, `📄 อ่านไฟล์ดิบแล้ว ${count} ไฟล์`];
+        patchActivity(thread.id, thread.messages.length ? thread.messages[thread.messages.length - 1]?.id || "" : "", status);
+      } catch (error) {
+        setAttachmentContext(`ZIP RAW EXTRACT FAILED: ${file.name}\\n${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
   };
 
   const handleSend = async () => {
@@ -466,7 +499,7 @@ export function SuperChat() {
             ? `ทำงานต่อจากคำสั่งล่าสุดของผู้ใช้ทันที โดยไม่ต้องตอบรับสั้น ๆ และไม่ต้องถามยืนยันอีกครั้ง คำสั่งล่าสุดคือ: ${lastUser?.content || ""}`
             : userText,
           maxIterations: 3,
-          context,
+          context: taskContext,
           ...(authToken ? { authToken } : {}),
           ...(githubToken ? { githubToken } : {}),
           model: selectedModel,
