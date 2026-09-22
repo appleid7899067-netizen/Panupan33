@@ -236,7 +236,7 @@ export function SuperChat() {
   };
 
   return (
-    <div className="relative flex flex-col h-full min-h-0 w-full max-w-3xl mx-auto overflow-hidden">
+    <div className="relative flex flex-col h-full min-h-0 w-full max-w-5xl mx-auto overflow-hidden">
       <style>{`
         @keyframes boss-swoosh {
           0% { transform: translateX(-2px); opacity: .35; }
@@ -246,9 +246,9 @@ export function SuperChat() {
       `}</style>
 
       {/* Boss + chat controls */}
-      <div className="relative z-50 flex items-center justify-between px-4 py-3 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-xl">
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setHistoryOpen(true)} className="size-9 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 grid place-items-center" aria-label="ประวัติแชท">
+      <div className="relative z-50 shrink-0 flex min-h-14 items-center justify-between gap-3 px-4 py-2.5 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-xl">
+        <div className="flex min-w-0 items-center gap-2">
+          <button type="button" onClick={() => setHistoryOpen(true) className="size-9 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 grid place-items-center" aria-label="ประวัติแชท">
             <History className="size-4" />
           </button>
           <button type="button" onClick={startNewChat} className="size-9 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 grid place-items-center" aria-label="เริ่มแชทใหม่">
@@ -262,20 +262,13 @@ export function SuperChat() {
             </div>
           </div>
         </div>
-        <div className="flex items-center min-w-0">
-          <div className="size-8 rounded-full bg-white text-black grid place-items-center font-medium text-sm shrink-0">B</div>
-          <div className="ml-2 min-w-0">
-            <div className="text-sm font-medium text-zinc-100">Boss</div>
-            <div className="text-[11px] text-zinc-500">พร้อมช่วยทำงาน</div>
-          </div>
-        </div>
         <button type="button" onClick={() => setModelMenuOpen((open) => !open)} className="flex items-center gap-2 max-w-[58%] rounded-xl border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-left hover:bg-zinc-800" aria-label="เลือกโมเดล">
           <Sparkles className="size-3.5 text-zinc-300 shrink-0" />
           <span className="truncate text-xs text-zinc-200">{modelsLoading ? "กำลังโหลดโมเดล..." : selectedModelInfo.name}</span>
           <ChevronDown className="size-3.5 text-zinc-500 shrink-0" />
         </button>
         {modelMenuOpen && (
-          <div className="absolute right-4 top-[58px] z-50 w-64 rounded-2xl border border-zinc-700 bg-zinc-950 p-1.5 shadow-2xl">
+          <div className="absolute right-4 top-[58px] z-[60] w-72 max-h-[min(70vh,520px)] overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-950 p-1.5 shadow-2xl">
             <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-zinc-500">เลือกโมเดลสำหรับ Boss</div>
             {models.map((model) => (
               <button key={model.id} type="button" onClick={() => { setStoreModel(model.id); setModelMenuOpen(false); }} className={"flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left hover:bg-zinc-800 " + (model.id === selectedModel ? "bg-zinc-800" : "")}>
@@ -325,7 +318,7 @@ export function SuperChat() {
               setIsPinnedToBottom(false);
             }
           }}
-          className="h-full overflow-y-auto overscroll-contain px-4 py-6 space-y-6"
+          className="h-full overflow-y-auto overscroll-contain px-4 py-6 sm:px-6 sm:py-7 space-y-6"
           style={{ overflowAnchor: "none" }}
         >
         {thread?.messages.map((m) => (
@@ -386,7 +379,7 @@ export function SuperChat() {
       </div>
 
       {/* Input แบบ GPT */}
-      <div className="p-4 border-t border-zinc-800">
+      <div className="shrink-0 p-3 sm:p-4 border-t border-zinc-800 bg-zinc-950/95 backdrop-blur-xl">
         <div className="relative flex items-end gap-2 rounded-2xl bg-zinc-900 border border-zinc-800 p-2">
           <button className="size-8 grid place-items-center rounded-full hover:bg-zinc-800 text-zinc-500">
             <Paperclip className="size-4" />
