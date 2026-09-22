@@ -63,10 +63,6 @@ export const runAgent = createServerFn({ method: "POST" })
       }
     }
 
-    if (prefersCodex && !hasServerCodexCredential()) {
-      yield { type: "step", step: { phase: "act", detail: "🧠 ไม่มี Codex API credential บน Render → ใช้ Puter + โมเดลที่เลือกเป็น Agent driver แทน" } };
-    }
-
     const registryHasGitHub = selected.some((tool) => String(tool.name ?? "").toLowerCase().includes("github"));
     if ((data.githubToken && intent === "github") || (registryHasGitHub && prefersAuthenticatedGitHub(data.prompt))) {
       const result = await runGitHubAgent(taskPrompt, data.authToken, data.model, data.githubToken);
@@ -154,6 +150,10 @@ export const runAgentStream = createServerFn({ method: "POST" })
     }
 
     // IMPORTANT: streamed chat must use the same authenticated GitHub path as runAgent.
+    if (prefersCodex && !hasServerCodexCredential()) {
+      yield { type: "step", step: { phase: "act", detail: "🧠 ไม่มี Codex API credential บน Render → ใช้ Puter + โมเดลที่เลือกเป็น Agent driver แทน" } };
+    }
+
     // Otherwise requests such as "เปิด repo แบบ Codex" fall back to the generic Puter
     // tool loop, which may expose tools but cannot actually open the user's repository.
     const registryHasGitHub = selected.some((tool) => String(tool.name ?? "").toLowerCase().includes("github"));
