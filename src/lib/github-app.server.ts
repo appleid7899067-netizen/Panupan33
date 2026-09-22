@@ -214,6 +214,7 @@ export async function githubCreateIssue(input: {
   repo: string;
   title: string;
   body?: string;
+  githubToken?: string;
 }) {
   const token = await getInstallationToken(input.owner, input.repo, input.githubToken);
   const result = await github<{ number: number; html_url: string; title: string; state: string }>(
