@@ -45,7 +45,7 @@ export const runAgent = createServerFn({ method: "POST" })
 
     const prefersCodex = /แก้|เขียน|สร้าง|fix|bug|debug|repair|refactor|typescript|runtime|error|code|โค้ด|taskContext|deploy/i.test(data.prompt);
     if (prefersCodex) {
-      const result = await runCodexAgent(taskPrompt, data.githubToken, (detail) => undefined);
+      const result = await runCodexAgent(taskPrompt, data.githubToken, data.authToken, (detail) => undefined);
       if (result.ok) {
         return {
           ok: true,
