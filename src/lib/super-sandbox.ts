@@ -238,7 +238,7 @@ export class SuperSandbox {
       send("error", e.stack || e.message);
       send("done", { ok: false });
     }
-  <\/script>
+  </script>
 </body>
 </html>`;
   }
