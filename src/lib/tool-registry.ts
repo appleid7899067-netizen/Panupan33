@@ -158,6 +158,6 @@ export async function selectToolsForTask(prompt: string, maxTools = 3): Promise<
     if (!selected.some((item) => item.name === tool.name)) selected.push(tool);
   }
 
-  if (!selected.length && ranked[0] && intent !== "chat") selected.push(ranked[0].tool);
+  if (!selected.length && ranked[0]) selected.push(ranked[0].tool);
   return selected;
 }
