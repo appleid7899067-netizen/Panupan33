@@ -8,6 +8,7 @@ const loopSchema = z.object({
   prompt: z.string().min(1).max(60_000),
   maxIterations: z.number().int().min(1).max(8).optional(),
   authToken: z.string().min(20).max(10000).optional(),
+  githubToken: z.string().min(20).max(10000).optional(),
   context: z.string().max(45_000).optional(),
   model: z.string().min(1).max(200).optional(),
 });
@@ -43,7 +44,7 @@ export const runAgent = createServerFn({ method: "POST" })
 
     const registryHasGitHub = selected.some((tool) => String(tool.name ?? "").toLowerCase().includes("github"));
     if (registryHasGitHub && prefersAuthenticatedGitHub(data.prompt)) {
-      const result = await runGitHubAgent(taskPrompt, data.authToken, data.model);
+      const result = await runGitHubAgent(taskPrompt, data.authToken, data.model, data.githubToken);
       if (!result.ok) {
         return {
           ok: false,
