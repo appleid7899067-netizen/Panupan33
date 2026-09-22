@@ -13,17 +13,43 @@ import { executeWebSearch } from "@/lib/bossnugrok/skills/web-search";
 import { compileChatContext } from "@/lib/context-compiler";
 import { DEFAULT_PUTER_MODEL, POWER_PUTER_MODEL_IDS } from "@/lib/catalog";
 
-function BossThinking({ text }: { text: string }) {
+function activityMeta(step: string) {
+  const raw = step.replace(/^(?:[a-z_]+):\\s*/i, "").trim();
+  if (/error|fail|ผิดพลาด|ไม่สำเร็จ/i.test(raw)) return { icon: "⚠️", tone: "text-red-300", dot: "bg-red-400", line: "border-red-500/20" };
+  if (/verify|ตรวจสอบ|ผ่าน|เรียบร้อย|success/i.test(raw)) return { icon: "✓", tone: "text-emerald-300", dot: "bg-emerald-400", line: "border-emerald-500/20" };
+  if (/tool|github|web|search|sandbox|อ่าน|เปิด|ค้นหา|กำลัง/i.test(raw)) return { icon: "◆", tone: "text-sky-300", dot: "bg-sky-400", line: "border-sky-500/20" };
+  if (/edit|write|แก้|สร้าง|เขียน|deploy|ดีพลอย/i.test(raw)) return { icon: "✦", tone: "text-violet-300", dot: "bg-violet-400", line: "border-violet-500/20" };
+  return { icon: "·", tone: "text-zinc-300", dot: "bg-zinc-500", line: "border-zinc-800" };
+}
+
+function BossActivityStream({ steps, active }: { steps: string[]; active: boolean }) {
+  const visible = steps.slice(-8);
+  if (!visible.length) return null;
   return (
-    <div className="text-xs text-zinc-500" aria-live="polite">
-      <span className="inline-flex items-center gap-1">
-        <span>{text}</span>
-        <span className="inline-flex gap-0.5" aria-hidden="true">
-          <span className="animate-bounce [animation-delay:-0.3s]">·</span>
-          <span className="animate-bounce [animation-delay:-0.15s]">·</span>
-          <span className="animate-bounce">·</span>
+    <div className="mt-3 overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-950/55" aria-live="polite">
+      <div className="flex items-center gap-2 border-b border-zinc-800/70 px-3 py-2">
+        <span className={`size-1.5 rounded-full ${active ? "bg-emerald-400 animate-pulse" : "bg-zinc-600"}`} />
+        <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-500">
+          {active ? "LIVE ACTIVITY" : "ACTIVITY"}
         </span>
-      </span>
+      </div>
+      <div className="divide-y divide-zinc-900/80">
+        {visible.map((step, index) => {
+          const meta = activityMeta(step);
+          const current = active && index === visible.length - 1;
+          return (
+            <div key={`${step}-${index}`} className={`flex items-center gap-2.5 px-3 py-2 transition-all duration-300 ${current ? "bg-zinc-900/70" : ""}`}>
+              <span className={`grid size-5 shrink-0 place-items-center rounded-full border ${meta.line} bg-zinc-950 text-[10px] ${meta.tone}`}>
+                {meta.icon}
+              </span>
+              <span className={`min-w-0 flex-1 truncate text-[11px] ${current ? "text-zinc-100" : "text-zinc-500"}`}>
+                {step.replace(/^[a-z_]+:\\s*/i, "")}
+              </span>
+              {current && <span className="flex shrink-0 gap-0.5"><i className="size-1 rounded-full bg-zinc-500 animate-pulse" /><i className="size-1 rounded-full bg-zinc-500 animate-pulse [animation-delay:120ms]" /><i className="size-1 rounded-full bg-zinc-500 animate-pulse [animation-delay:240ms]" /></span>}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -515,9 +541,10 @@ export function SuperChat() {
               }`}>
                 <BossMarkdown content={m.content} />
                 {m.role === "assistant" && m.activity && m.activity.length > 0 && (
-                  <div className="mt-1 min-h-5">
-                    <BossThinking text={(m.id === liveStream.id ? liveStream.steps : m.activity).slice(-1)[0]?.replace(/^[^:]+:\s*/, "") || "กำลังคิด"} />
-                  </div>
+                  <BossActivityStream
+                    steps={m.id === liveStream.id ? liveStream.steps : m.activity}
+                    active={m.id === liveStream.id && liveStream.active}
+                  />
                 )}
                 {m.role === "assistant" && m.content && (
                   <div className="mt-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
