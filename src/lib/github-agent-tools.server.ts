@@ -85,7 +85,7 @@ function assistantMessage(response: unknown): Record<string, unknown> | null {
   return message && typeof message === "object" ? message as Record<string, unknown> : null;
 }
 
-async function execute(name: string, args: Record<string, unknown>): Promise<unknown> {
+async function execute(name: string, args: Record<string, unknown>, githubToken?: string): Promise<unknown> {
   if (name === "google_search") {
     const query = String(args.query ?? "").trim();
     if (!query) throw new Error("google_search requires a query.");
@@ -155,22 +155,22 @@ async function execute(name: string, args: Record<string, unknown>): Promise<unk
   if (!owner || !repo) throw new Error("owner and repo are required");
 
   switch (name) {
-    case "github_get_repo": return githubStatus(owner, repo);
-    case "github_get_file": return githubGetFile({ owner, repo, path: String(args.path ?? ""), ref: args.ref ? String(args.ref) : undefined });
-    case "github_list_dir": return githubListDir({ owner, repo, path: args.path ? String(args.path) : undefined, ref: args.ref ? String(args.ref) : undefined });
-    case "github_write_file": return githubWriteFile({ owner, repo, path: String(args.path ?? ""), content: String(args.content ?? ""), message: String(args.message ?? "Agent update"), sha: args.sha ? String(args.sha) : undefined, branch: args.branch ? String(args.branch) : undefined });
-    case "github_create_branch": return githubCreateBranch({ owner, repo, branch: String(args.branch ?? ""), from: args.from ? String(args.from) : undefined });
-    case "github_create_pull_request": return githubCreatePullRequest({ owner, repo, head: String(args.head ?? ""), base: args.base ? String(args.base) : undefined, title: String(args.title ?? ""), body: args.body ? String(args.body) : undefined });
-    case "github_create_issue": return githubCreateIssue({ owner, repo, title: String(args.title ?? ""), body: args.body ? String(args.body) : undefined });
-    case "github_actions": return githubActions({ owner, repo, branch: args.branch ? String(args.branch) : undefined });
-    case "github_workflow_diagnostics": return githubWorkflowDiagnostics({ owner, repo, runId: Number(args.runId) });
-    case "github_wait_for_workflow": return githubWaitForWorkflow({ owner, repo, runId: Number(args.runId), timeoutMs: args.timeoutMs ? Number(args.timeoutMs) : undefined, pollMs: args.pollMs ? Number(args.pollMs) : undefined });
-    case "github_dispatch_workflow": return githubDispatchWorkflow({ owner, repo, workflow: String(args.workflow ?? ""), branch: args.branch ? String(args.branch) : undefined, inputs: args.inputs && typeof args.inputs === "object" ? args.inputs as Record<string, string> : undefined });
+    case "github_get_repo": return githubStatus(owner, repo, githubToken ? { githubToken } : undefined);
+    case "github_get_file": return githubGetFile({ owner, repo, path: String(args.path ?? ""), ref: args.ref ? String(args.ref) : undefined }, githubToken ? { githubToken } : undefined);
+    case "github_list_dir": return githubListDir({ owner, repo, path: args.path ? String(args.path) : undefined, ref: args.ref ? String(args.ref) : undefined }, githubToken ? { githubToken } : undefined);
+    case "github_write_file": return githubWriteFile({ owner, repo, path: String(args.path ?? ""), content: String(args.content ?? ""), message: String(args.message ?? "Agent update"), sha: args.sha ? String(args.sha) : undefined, branch: args.branch ? String(args.branch) : undefined }, githubToken ? { githubToken } : undefined);
+    case "github_create_branch": return githubCreateBranch({ owner, repo, branch: String(args.branch ?? ""), from: args.from ? String(args.from) : undefined }, githubToken ? { githubToken } : undefined);
+    case "github_create_pull_request": return githubCreatePullRequest({ owner, repo, head: String(args.head ?? ""), base: args.base ? String(args.base) : undefined, title: String(args.title ?? ""), body: args.body ? String(args.body) : undefined }, githubToken ? { githubToken } : undefined);
+    case "github_create_issue": return githubCreateIssue({ owner, repo, title: String(args.title ?? ""), body: args.body ? String(args.body) : undefined }, githubToken ? { githubToken } : undefined);
+    case "github_actions": return githubActions({ owner, repo, branch: args.branch ? String(args.branch) : undefined }, githubToken ? { githubToken } : undefined);
+    case "github_workflow_diagnostics": return githubWorkflowDiagnostics({ owner, repo, runId: Number(args.runId) }, githubToken ? { githubToken } : undefined);
+    case "github_wait_for_workflow": return githubWaitForWorkflow({ owner, repo, runId: Number(args.runId), timeoutMs: args.timeoutMs ? Number(args.timeoutMs) : undefined, pollMs: args.pollMs ? Number(args.pollMs) : undefined }, githubToken ? { githubToken } : undefined);
+    case "github_dispatch_workflow": return githubDispatchWorkflow({ owner, repo, workflow: String(args.workflow ?? ""), branch: args.branch ? String(args.branch) : undefined, inputs: args.inputs && typeof args.inputs === "object" ? args.inputs as Record<string, string> : undefined }, githubToken ? { githubToken } : undefined);
     default: throw new Error(`Unknown GitHub tool: ${name}`);
   }
 }
 
-async function runModel(prompt: string, model: string, authToken?: string): Promise<AgentResult> {
+async function runModel(prompt: string, model: string, authToken?: string, githubToken?: string): Promise<AgentResult> {
   let puter: any;
   if (authToken || process.env.PUTER_AUTH_TOKEN) {
     const require = (await import("node:module")).createRequire(import.meta.url);
@@ -210,7 +210,7 @@ async function runModel(prompt: string, model: string, authToken?: string): Prom
     for (const call of calls) {
       if (["github_write_file", "github_create_branch", "github_create_pull_request", "github_create_issue", "github_dispatch_workflow"].includes(call.name)) mutationOccurred = true;
       try {
-        const result = await execute(call.name, call.arguments);
+        const result = await execute(call.name, call.arguments, githubToken);
         if (call.name === "github_wait_for_workflow") {
           verified = Boolean(result && typeof result === "object" && (result as { verified?: unknown }).verified === true);
         } else if (call.name === "web_check" && result && typeof result === "object") {
@@ -228,10 +228,10 @@ async function runModel(prompt: string, model: string, authToken?: string): Prom
   return { ok: false, error: `GitHub agent exceeded ${roundLimit} tool rounds.`, verified: false };
 }
 
-export async function runGitHubAgent(prompt: string, authToken?: string, selectedModel?: string): Promise<AgentResult> {
+export async function runGitHubAgent(prompt: string, authToken?: string, selectedModel?: string, githubToken?: string): Promise<AgentResult> {
   let lastError = "No model succeeded.";
   for (const model of selectedModel ? [selectedModel] : MODELS) {
-    try { return await runModel(prompt, model, authToken); } catch (error) { lastError = error instanceof Error ? error.message : String(error); }
+    try { return await runModel(prompt, model, authToken, githubToken); } catch (error) { lastError = error instanceof Error ? error.message : String(error); }
   }
   return { ok: false, error: lastError, verified: false };
 }
