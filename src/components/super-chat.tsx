@@ -254,6 +254,10 @@ export function SuperChat() {
     // Explicit web-search requests use Yandex as the default engine.
     const wantsWebSearch = /(?:^|\s)(ค้นหา|หาให้หน่อย|search|ค้นเว็บ|เว็บเกี่ยวกับ|หาข้อมูล)(?:\s|$)/i.test(userText);
     if (wantsWebSearch) {
+      // Never leave the user staring at an empty assistant bubble while search is running.
+      const searchSteps = ["🔎 กำลังค้นหา...", "🌐 Yandex"];
+      patchActivity(thread.id, assistantId, searchSteps);
+      setLiveStream({ id: assistantId, steps: searchSteps, active: true });
       try {
         const searchResult = await executeWebSearch(
           { query: userText, depth: "normal", engine: "yandex" },
