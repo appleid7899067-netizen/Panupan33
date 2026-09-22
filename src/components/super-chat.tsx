@@ -248,7 +248,7 @@ export function SuperChat() {
       {/* Boss + chat controls */}
       <div className="relative z-50 shrink-0 flex min-h-14 items-center justify-between gap-3 px-4 py-2.5 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-xl">
         <div className="flex min-w-0 items-center gap-2">
-          <button type="button" onClick={() => setHistoryOpen(true) className="size-9 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 grid place-items-center" aria-label="ประวัติแชท">
+          <button type="button" onClick={() => setHistoryOpen(true)} className="size-9 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 grid place-items-center" aria-label="ประวัติแชท">
             <History className="size-4" />
           </button>
           <button type="button" onClick={startNewChat} className="size-9 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 grid place-items-center" aria-label="เริ่มแชทใหม่">
