@@ -42,19 +42,6 @@ export async function runCodexAgent(prompt: string, githubToken?: string, puterA
   try {
     onOutput?.("🧠 Boss → Codex: " + repo);
     const repoDir = join(workspace, "repo");
-    const codexHome = join(workspace, "repo", ".codex");
-    await mkdir(codexHome, { recursive: true });
-
-    if (puterAuthToken) {
-      env.PUTER_AUTH_TOKEN = puterAuthToken;
-      env.CODEX_HOME = codexHome;
-      await writeFile(
-        join(codexHome, "config.toml"),
-        '[mcp_servers.puter]\nurl = "https://mcp.puter.com/"\nenabled = true\nbearer_token_env_var = "PUTER_AUTH_TOKEN"\n',
-        { mode: 0o600 },
-      );
-      onOutput?.("🔗 Codex → Puter MCP พร้อมใช้งาน");
-    }
 
     if (githubToken) {
       const askpass = join(workspace, ".git-askpass");
@@ -65,6 +52,19 @@ export async function runCodexAgent(prompt: string, githubToken?: string, puterA
 
     const clone = await run("git", ["clone", "--depth", "1", "https://github.com/" + repo + ".git", repoDir], tmpdir(), env, (line) => onOutput?.("📥 " + line));
     if (clone.code !== 0) return { ok: false, verified: false, text: "Codex clone ไม่สำเร็จ:\n" + clone.output.slice(-1800), error: clone.output.slice(-1800) };
+
+    const codexHome = join(workspace, ".codex");
+    await mkdir(codexHome, { recursive: true });
+    if (puterAuthToken) {
+      env.PUTER_AUTH_TOKEN = puterAuthToken;
+      env.CODEX_HOME = codexHome;
+      await writeFile(
+        join(codexHome, "config.toml"),
+        '[mcp_servers.puter]\nurl = "https://mcp.puter.com/"\nenabled = true\nbearer_token_env_var = "PUTER_AUTH_TOKEN"\n',
+        { mode: 0o600 },
+      );
+      onOutput?.("🔗 Codex → Puter MCP พร้อมใช้งาน");
+    }
 
     await run("git", ["checkout", "-b", branch], repoDir, env, (line) => onOutput?.("🌿 " + line));
     onOutput?.("✏️ Codex กำลังอ่านและแก้ไฟล์จริง");
