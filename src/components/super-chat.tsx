@@ -352,7 +352,7 @@ export function SuperChat() {
           if (!path || path.endsWith("/") || /(^|\/)(node_modules|\.git|dist|build|coverage)(\/|$)/i.test(path)) continue;
           if (!textExt.test(path) && !/(^|\/)(Dockerfile|Makefile|README|LICENSE|\.env(?:\..*)?)$/i.test(path)) continue;
           try {
-            const text = strFromU8(data).replace(/\u0000/g, "").slice(0, 12000);
+            const text = strFromU8(data).replaceAll(String.fromCharCode(0), "").slice(0, 12000);
             if (!text.trim()) continue;
             chunks.push(`===== ${path} =====\n${text}`);
             totalChars += text.length;
