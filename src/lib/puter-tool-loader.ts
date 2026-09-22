@@ -189,9 +189,9 @@ async function executeWebCheck(args: Record<string, unknown>): Promise<unknown> 
 
 function decodeHtmlText(html: string): string {
   return html
-    .replace(/<script[\\s\\S]*?<\\/script>/gi, " ")
-    .replace(/<style[\\s\\S]*?<\\/style>/gi, " ")
-    .replace(/<noscript[\\s\\S]*?<\\/noscript>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&").replace(/&quot;/gi, '"').replace(/&#39;/gi, "'")
@@ -201,10 +201,10 @@ function decodeHtmlText(html: string): string {
 async function executeWebOpen(args: Record<string, unknown>): Promise<unknown> {
   const rawUrl = String(args.url ?? "").trim();
   const { response, body, responseTimeMs } = await fetchExternal(rawUrl, Number(args.timeoutMs ?? 15000));
-  const title = body.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i)?.[1]?.replace(/<[^>]+>/g, " ").replace(/\\s+/g, " ").trim() ?? "";
+  const title = body.match(/<title[^>]*>([\s\S]*?)<\\/title>/i)?.[1]?.replace(/<[^>]+>/g, " ").replace(/\\s+/g, " ").trim() ?? "";
   const links: Array<{ text: string; url: string }> = [];
   const seen = new Set<string>();
-  const linkPattern = /<a\\b[^>]*href=["']([^"']+)["'][^>]*>([\\s\\S]*?)<\\/a>/gi;
+  const linkPattern = /<a\\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\\/a>/gi;
   for (const match of body.matchAll(linkPattern)) {
     try {
       const href = new URL(match[1], response.url);
