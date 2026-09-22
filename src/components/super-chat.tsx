@@ -12,7 +12,7 @@ import { runAgent, runAgentSandbox, runAgentStream } from "@/lib/agent.functions
 import { chatWithPuter, listPuterModels, loadPuter, type PuterModel } from "@/lib/puter";
 import { executeWebSearch } from "@/lib/bossnugrok/skills/web-search";
 import { compileChatContext } from "@/lib/context-compiler";
-import { DEFAULT_PUTER_MODEL } from "@/lib/catalog";
+import { DEFAULT_PUTER_MODEL, POWER_PUTER_MODEL_IDS } from "@/lib/catalog";
 
 function displayAgentText(value: unknown): string {
   if (typeof value === "string") return value;
@@ -58,7 +58,9 @@ export function SuperChat() {
     void listPuterModels()
       .then((items) => {
         if (cancelled) return;
-        const chatModels = items.filter((m) => !/image|audio|video|embedding|rerank|moderation/i.test(m.id));
+        const chatModels = items
+          .filter((m) => !/image|audio|video|embedding|rerank|moderation/i.test(m.id))
+          .filter((m) => POWER_PUTER_MODEL_IDS.includes(m.id as (typeof POWER_PUTER_MODEL_IDS)[number]));
         setModels(chatModels);
         if (chatModels.length && !chatModels.some((m) => m.id === selectedModel)) {
           const preferred = chatModels.find((m) => m.id === DEFAULT_PUTER_MODEL) ?? chatModels[0];
@@ -68,10 +70,16 @@ export function SuperChat() {
       .catch(() => {
         if (!cancelled) {
           setModels([
-            { id: DEFAULT_PUTER_MODEL, name: "GPT-5 Nano", provider: "openai" },
-            { id: "gpt-5-nano", name: "GPT-5 Nano", provider: "openai" },
+            { id: "gpt-5.6-sol", name: "GPT-5.6 Sol", provider: "openai" },
+            { id: "gpt-5.6-sol-pro", name: "GPT-5.6 Sol Pro", provider: "openai" },
+            { id: "claude-opus-4-8", name: "Claude Opus 4.8", provider: "anthropic" },
             { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", provider: "anthropic" },
-            { id: "gemini-3.1-flash-lite", name: "Gemini 3.1 Flash Lite", provider: "google" },
+            { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash", provider: "google" },
+            { id: "grok-4.20-reasoning", name: "Grok 4.20 Reasoning", provider: "xai" },
+            { id: "qwen3.8-max", name: "Qwen3.8 Max", provider: "qwen" },
+            { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", provider: "deepseek" },
+            { id: "qwen3-coder-next", name: "Qwen3 Coder Next", provider: "qwen" },
+            { id: "gpt-5.3-codex", name: "GPT-5.3 Codex", provider: "openai" },
           ]);
         }
       })
