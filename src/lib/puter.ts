@@ -135,7 +135,7 @@ function friendlyError(err: unknown): string {
       try {
         const json = JSON.stringify(value);
         if (json && json !== "{}") return json;
-      } catch {}
+      } catch { /* intentionally ignored */ }
     }
     return String(value);
   };
@@ -260,7 +260,7 @@ export async function chatWithPuter(opts: { messages: ChatTurn[]; model: string;
         const fallbackText = await puter.ai.chat(payload, { model: "gpt-5-nano", stream: false });
         const normalized = extractText(fallbackText);
         if (normalized.trim()) return { ok: true, text: normalized, model: "gpt-5-nano", verified: false };
-      } catch {}
+      } catch { /* intentionally ignored */ }
     }
     try {
       const text = await run(false);
