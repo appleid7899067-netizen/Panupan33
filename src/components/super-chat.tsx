@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState, useRef } from "react";
-import { Send, Paperclip, Mic, ChevronDown, Sparkles } from "lucide-react";
+import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X } from "lucide-react";
 import { useFleet } from "@/lib/store";
 import { backgroundLab } from "@/lib/background-sandbox";
 import { freeAI } from "@/lib/autonomous";
@@ -34,6 +34,7 @@ export function SuperChat() {
   const storedModel = useFleet((s) => s.modelId);
   const setStoreModel = useFleet((s) => s.setModel);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [models, setModels] = useState<PuterModel[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
   const [liveStream, setLiveStream] = useState<{ id: string; steps: string[]; active: boolean }>({ id: "", steps: [], active: false });
@@ -75,6 +76,9 @@ export function SuperChat() {
   const patchMessage = useFleet((s) => s.patchMessage);
   const patchActivity = useFleet((s) => s.patchActivity);
   const patchVerified = useFleet((s) => s.patchVerified);
+  const newThread = useFleet((s) => s.newThread);
+  const setActiveThread = useFleet((s) => s.setActiveThread);
+  const deleteThread = useFleet((s) => s.deleteThread);
   const thread = threads.find(t => t.id === activeThreadId) ?? threads[0];
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [isPinnedToBottom, setIsPinnedToBottom] = useState(true);
@@ -108,6 +112,28 @@ export function SuperChat() {
     isPinnedRef.current = true;
     setIsPinnedToBottom(true);
     el.scrollTo({ top: el.scrollHeight, behavior });
+  };
+  const startNewChat = () => {
+    newThread();
+    setHistoryOpen(false);
+    setModelMenuOpen(false);
+    isPinnedRef.current = true;
+    setIsPinnedToBottom(true);
+    requestAnimationFrame(() => { if (scrollerRef.current) scrollerRef.current.scrollTop = 0; });
+  };
+
+  const openThread = (id: string) => {
+    setActiveThread(id);
+    setHistoryOpen(false);
+    setModelMenuOpen(false);
+    isPinnedRef.current = true;
+    setIsPinnedToBottom(true);
+    requestAnimationFrame(() => { if (scrollerRef.current) scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight; });
+  };
+
+  const removeThread = (id: string) => {
+    deleteThread(id);
+    requestAnimationFrame(() => { if (scrollerRef.current) scrollerRef.current.scrollTop = 0; });
   };
 
   const handleSend = async () => {
@@ -210,7 +236,7 @@ export function SuperChat() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-8rem)] w-full max-w-3xl mx-auto overflow-hidden">
+    <div className="relative flex flex-col h-full min-h-0 w-full max-w-3xl mx-auto overflow-hidden">
       <style>{`
         @keyframes boss-swoosh {
           0% { transform: translateX(-2px); opacity: .35; }
@@ -219,8 +245,23 @@ export function SuperChat() {
         }
       `}</style>
 
-      {/* Boss + real model selector */}
-      <div className="relative flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+      {/* Boss + chat controls */}
+      <div className="relative z-50 flex items-center justify-between px-4 py-3 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-xl">
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setHistoryOpen(true)} className="size-9 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 grid place-items-center" aria-label="ประวัติแชท">
+            <History className="size-4" />
+          </button>
+          <button type="button" onClick={startNewChat} className="size-9 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 grid place-items-center" aria-label="เริ่มแชทใหม่">
+            <Plus className="size-4" />
+          </button>
+          <div className="ml-1 flex items-center min-w-0">
+            <div className="size-8 rounded-full bg-white text-black grid place-items-center font-medium text-sm shrink-0">B</div>
+            <div className="ml-2 min-w-0">
+              <div className="text-sm font-medium text-zinc-100">Boss</div>
+              <div className="text-[11px] text-zinc-500 truncate max-w-[120px]">{thread?.title || "New chat"}</div>
+            </div>
+          </div>
+        </div>
         <div className="flex items-center min-w-0">
           <div className="size-8 rounded-full bg-white text-black grid place-items-center font-medium text-sm shrink-0">B</div>
           <div className="ml-2 min-w-0">
@@ -248,6 +289,31 @@ export function SuperChat() {
           </div>
         )}
       </div>
+
+      {historyOpen && (
+        <div className="absolute inset-0 z-40 bg-black/55" onClick={() => setHistoryOpen(false)}>
+          <aside className="absolute inset-y-0 left-0 w-[min(88vw,360px)] border-r border-zinc-800 bg-zinc-950 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+              <div><div className="text-sm font-semibold text-zinc-100">ประวัติแชท</div><div className="text-[11px] text-zinc-500">{threads.length} ห้องแชท</div></div>
+              <button type="button" onClick={() => setHistoryOpen(false)} className="size-9 rounded-xl hover:bg-zinc-800 grid place-items-center text-zinc-400" aria-label="ปิดประวัติ"><X className="size-4" /></button>
+            </div>
+            <div className="p-3">
+              <button type="button" onClick={startNewChat} className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-3 py-2.5 text-sm font-medium text-black hover:bg-zinc-200"><Plus className="size-4" /> เริ่มแชทใหม่</button>
+              <div className="max-h-[calc(100dvh-150px)] overflow-y-auto space-y-1 pr-1">
+                {threads.map((item) => (
+                  <div key={item.id} className={"group flex items-center gap-1 rounded-xl border px-2 py-1.5 " + (item.id === activeThreadId ? "border-zinc-600 bg-zinc-800" : "border-transparent hover:bg-zinc-900")}>
+                    <button type="button" onClick={() => openThread(item.id)} className="min-w-0 flex-1 px-2 py-2 text-left">
+                      <div className="truncate text-sm text-zinc-100">{item.title || "New chat"}</div>
+                      <div className="mt-0.5 text-[10px] text-zinc-500">{item.messages.length} ข้อความ · {new Date(item.updatedAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}</div>
+                    </button>
+                    <button type="button" onClick={() => removeThread(item.id)} className="size-8 shrink-0 rounded-lg text-zinc-600 hover:bg-red-950/60 hover:text-red-300 grid place-items-center" aria-label={"ลบแชท " + (item.title || "New chat")}><Trash2 className="size-3.5" /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
 
       {/* Messages แบบ GPT */}
       <div className="relative flex-1 min-h-0">
