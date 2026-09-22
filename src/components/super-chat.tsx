@@ -499,7 +499,7 @@ export function SuperChat() {
             ? `ทำงานต่อจากคำสั่งล่าสุดของผู้ใช้ทันที โดยไม่ต้องตอบรับสั้น ๆ และไม่ต้องถามยืนยันอีกครั้ง คำสั่งล่าสุดคือ: ${lastUser?.content || ""}`
             : userText,
           maxIterations: 3,
-          context: taskContext,
+          context: attachmentContext ? `${context}\n\n${attachmentContext}` : context,
           ...(authToken ? { authToken } : {}),
           ...(githubToken ? { githubToken } : {}),
           model: selectedModel,
