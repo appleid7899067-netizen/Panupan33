@@ -15,51 +15,58 @@ import { DEFAULT_PUTER_MODEL, POWER_PUTER_MODEL_IDS } from "@/lib/catalog";
 
 function activityMeta(step: string) {
   const raw = step.replace(/^(?:[a-z_]+):\\s*/i, "").trim();
-  if (/error|fail|ผิดพลาด|ไม่สำเร็จ/i.test(raw)) return { icon: "⚠️", tone: "text-red-300", dot: "bg-red-400", line: "border-red-500/20" };
-  if (/verify|ตรวจสอบ|ผ่าน|เรียบร้อย|success/i.test(raw)) return { icon: "✓", tone: "text-emerald-300", dot: "bg-emerald-400", line: "border-emerald-500/20" };
-  if (/tool|github|web|search|sandbox|อ่าน|เปิด|ค้นหา|กำลัง/i.test(raw)) return { icon: "◆", tone: "text-sky-300", dot: "bg-sky-400", line: "border-sky-500/20" };
-  if (/edit|write|แก้|สร้าง|เขียน|deploy|ดีพลอย/i.test(raw)) return { icon: "✦", tone: "text-violet-300", dot: "bg-violet-400", line: "border-violet-500/20" };
-  return { icon: "·", tone: "text-zinc-300", dot: "bg-zinc-500", line: "border-zinc-800" };
+  if (/error|fail|ผิดพลาด|ไม่สำเร็จ/i.test(raw)) return { icon: "×", tone: "text-red-300", dot: "bg-red-400" };
+  if (/verify|ตรวจสอบ|ผ่าน|เรียบร้อย|success/i.test(raw)) return { icon: "✓", tone: "text-emerald-300", dot: "bg-emerald-400" };
+  if (/tool|github|web|search|sandbox|อ่าน|เปิด|ค้นหา|กำลัง/i.test(raw)) return { icon: "↗", tone: "text-sky-300", dot: "bg-sky-400" };
+  if (/edit|write|แก้|สร้าง|เขียน|deploy|ดีพลอย/i.test(raw)) return { icon: "✦", tone: "text-violet-300", dot: "bg-violet-400" };
+  return { icon: "·", tone: "text-zinc-400", dot: "bg-zinc-500" };
 }
 
 function BossActivityStream({ steps, active }: { steps: string[]; active: boolean }) {
-  const visible = steps.slice(-12);
+  const visible = steps.slice(-8);
   if (!visible.length) return null;
+
   return (
-    <div className="mt-4 w-full overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/70" aria-live="polite">
-      <div className="flex items-center justify-between border-b border-zinc-800/70 px-3.5 py-2.5">
-        <div className="flex items-center gap-2">
-          <span className={"relative grid size-5 place-items-center rounded-full " + (active ? "bg-emerald-500/10" : "bg-zinc-800")}>
-            <span className={"size-1.5 rounded-full " + (active ? "bg-emerald-400 animate-pulse" : "bg-zinc-500")} />
-            {active && <span className="absolute inset-0 rounded-full border border-emerald-400/20 animate-ping" />}
-          </span>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400">{active ? "BOSS · LIVE" : "BOSS · ACTIVITY"}</span>
+    <div className="mt-3 w-full pl-0.5" aria-live="polite">
+      {visible.map((step, index) => {
+        const meta = activityMeta(step);
+        const current = active && index === visible.length - 1;
+        const text = step.includes(": ") ? step.slice(step.indexOf(": ") + 2) : step;
+        return (
+          <div
+            key={step + "-" + index}
+            className="relative flex min-h-7 items-start gap-2.5 py-1.5 animate-in fade-in slide-in-from-bottom-1 duration-200"
+          >
+            {index < visible.length - 1 && (
+              <span className="absolute left-[7px] top-6 bottom-[-2px] w-px bg-zinc-800/80" />
+            )}
+            <span className={"relative z-10 mt-0.5 grid size-4 shrink-0 place-items-center text-[10px] " + meta.tone}>
+              {current ? (
+                <span className={"relative size-1.5 rounded-full " + meta.dot}>
+                  <span className={"absolute -inset-1 rounded-full opacity-30 animate-ping " + meta.dot} />
+                </span>
+              ) : meta.icon}
+            </span>
+            <span className={"min-w-0 flex-1 text-[11px] leading-5 " + (current ? "text-zinc-200" : "text-zinc-500")}>
+              {text}
+              {current && <span className="ml-1.5 inline-flex gap-0.5 align-middle">
+                <i className="size-0.5 rounded-full bg-zinc-500 animate-bounce" />
+                <i className="size-0.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:100ms]" />
+                <i className="size-0.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:200ms]" />
+              </span>}
+            </span>
+          </div>
+        );
+      })}
+      {!active && (
+        <div className="mt-1 flex items-center gap-1.5 pl-[26px] text-[10px] text-emerald-400/80">
+          <span>✓</span><span>ตรวจสอบสถานะเสร็จแล้ว</span>
         </div>
-        {active && <span className="text-[9px] text-emerald-400/80">กำลังทำงาน</span>}
-      </div>
-      <div className="px-3.5 py-3">
-        {visible.map((step, index) => {
-          const meta = activityMeta(step);
-          const current = active && index === visible.length - 1;
-          const isLast = index === visible.length - 1;
-          const text = step.includes(": ") ? step.slice(step.indexOf(": ") + 2) : step;
-          return (
-            <div key={step + "-" + index} className="relative flex gap-3">
-              {!isLast && <span className="absolute left-[9px] top-5 bottom-[-3px] w-px bg-zinc-800" />}
-              <span className={"relative z-10 mt-0.5 grid size-[19px] shrink-0 place-items-center rounded-full border bg-zinc-950 text-[9px] " + meta.line + " " + meta.tone}>
-                {current ? <span className="size-1.5 rounded-full bg-current animate-pulse" /> : meta.icon}
-              </span>
-              <div className={"mb-3 min-w-0 flex-1 rounded-xl px-2.5 py-2 transition-all duration-300 " + (current ? "bg-zinc-900/90 ring-1 ring-zinc-800" : "")}>
-                <div className={"text-[11px] leading-4 " + (current ? "text-zinc-100" : "text-zinc-500")}>{text}</div>
-                {current && <div className="mt-1.5 flex items-center gap-1.5"><span className="text-[9px] text-zinc-600">กำลังทำงาน</span><span className="flex gap-1"><i className="size-1 rounded-full bg-zinc-500 animate-bounce" /><i className="size-1 rounded-full bg-zinc-500 animate-bounce [animation-delay:120ms]" /><i className="size-1 rounded-full bg-zinc-500 animate-bounce [animation-delay:240ms]" /></span></div>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      )}
     </div>
   );
 }
+
 function BossMarkdown({ content }: { content: string }) {
   const fence = String.fromCharCode(96, 96, 96);
   const parts = content.split(fence);
