@@ -1,0 +1,27 @@
+{
+  "name": "bossnu-unified",
+  "version": "0.1.0",
+  "runtime": "panupan33-incremental-migration",
+  "apps": {
+    "web": "apps/web",
+    "api": "apps/api",
+    "bot": "apps/bot",
+    "admin": "apps/admin"
+  },
+  "packages": {
+    "core": "packages/core",
+    "agents": "packages/agents",
+    "skills": "packages/skills",
+    "tools": "packages/tools",
+    "models": "packages/models",
+    "botflow": "packages/botflow",
+    "auth": "packages/auth",
+    "philosophy": "packages/philosophy"
+  },
+  "counts": {
+    "agents": 6,
+    "skills": 5,
+    "tools": 11
+  },
+  "principle": "user_goal_to_verified_result"
+}
