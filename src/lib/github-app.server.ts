@@ -59,7 +59,10 @@ export async function githubAppInstallUrl(): Promise<string> {
   return `https://github.com/apps/${encodeURIComponent(result.data.slug)}/installations/new`;
 }
 
-async function getInstallationToken(owner: string, repo: string): Promise<string> {
+async function getInstallationToken(owner: string, repo: string, githubToken?: string): Promise<string> {
+  // Browser-session GitHub PAT takes precedence. Never persist or log it.
+  if (githubToken) return githubToken;
+
   const jwt = createAppJwt();
   const installation = await github<{ id: number }>(
     `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/installation`,
@@ -87,8 +90,9 @@ export async function githubGetFile(input: {
   repo: string;
   path: string;
   ref?: string;
+  githubToken?: string;
 }) {
-  const token = await getInstallationToken(input.owner, input.repo);
+  const token = await getInstallationToken(input.owner, input.repo, input.githubToken);
   const ref = input.ref ? `?ref=${encodeURIComponent(input.ref)}` : "";
   const result = await github<{
     name: string;
@@ -105,8 +109,8 @@ export async function githubGetFile(input: {
   return { ...result.data, content };
 }
 
-export async function githubListDir(input: { owner: string; repo: string; path?: string; ref?: string }) {
-  const token = await getInstallationToken(input.owner, input.repo);
+export async function githubListDir(input: { owner: string; repo: string; path?: string; ref?: string; githubToken?: string }) {
+  const token = await getInstallationToken(input.owner, input.repo, input.githubToken);
   const basePath = input.path
     ? contentPath(input.owner, input.repo, input.path)
     : "/repos/" + encodeURIComponent(input.owner) + "/" + encodeURIComponent(input.repo) + "/contents";
@@ -127,8 +131,9 @@ export async function githubWriteFile(input: {
   message: string;
   sha?: string;
   branch?: string;
+  githubToken?: string;
 }) {
-  const token = await getInstallationToken(input.owner, input.repo);
+  const token = await getInstallationToken(input.owner, input.repo, input.githubToken);
   const result = await github<{
     content?: { path?: string; sha?: string; html_url?: string };
     commit?: { sha?: string; html_url?: string; message?: string };
@@ -144,8 +149,8 @@ export async function githubWriteFile(input: {
   return result.data;
 }
 
-export async function githubStatus(owner: string, repo: string) {
-  const token = await getInstallationToken(owner, repo);
+export async function githubStatus(owner: string, repo: string, githubToken?: string) {
+  const token = await getInstallationToken(owner, repo, githubToken);
   const result = await github<{
     full_name: string;
     default_branch: string;
@@ -162,9 +167,10 @@ export async function githubCreateBranch(input: {
   repo: string;
   branch: string;
   from?: string;
+  githubToken?: string;
 }) {
-  const token = await getInstallationToken(input.owner, input.repo);
-  const base = input.from || (await githubStatus(input.owner, input.repo)).default_branch;
+  const token = await getInstallationToken(input.owner, input.repo, input.githubToken);
+  const base = input.from || (await githubStatus(input.owner, input.repo, input.githubToken)).default_branch;
   const ref = await github<{ object: { sha: string } }>(
     `/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/git/ref/heads/${encodeURIComponent(base)}`,
     {},
@@ -188,9 +194,10 @@ export async function githubCreatePullRequest(input: {
   base?: string;
   title: string;
   body?: string;
+  githubToken?: string;
 }) {
-  const token = await getInstallationToken(input.owner, input.repo);
-  const base = input.base || (await githubStatus(input.owner, input.repo)).default_branch;
+  const token = await getInstallationToken(input.owner, input.repo, input.githubToken);
+  const base = input.base || (await githubStatus(input.owner, input.repo, input.githubToken)).default_branch;
   const result = await github<{ number: number; html_url: string; title: string; state: string }>(
     `/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/pulls`,
     {
@@ -208,7 +215,7 @@ export async function githubCreateIssue(input: {
   title: string;
   body?: string;
 }) {
-  const token = await getInstallationToken(input.owner, input.repo);
+  const token = await getInstallationToken(input.owner, input.repo, input.githubToken);
   const result = await github<{ number: number; html_url: string; title: string; state: string }>(
     `/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/issues`,
     {
@@ -220,8 +227,8 @@ export async function githubCreateIssue(input: {
   return result.data;
 }
 
-export async function githubActions(input: { owner: string; repo: string; branch?: string }) {
-  const token = await getInstallationToken(input.owner, input.repo);
+export async function githubActions(input: { owner: string; repo: string; branch?: string; githubToken?: string }) {
+  const token = await getInstallationToken(input.owner, input.repo, input.githubToken);
   const result = await github<{
     total_count: number;
     workflow_runs: Array<{
@@ -253,11 +260,11 @@ async function githubText(path: string, token: string): Promise<string> {
   return text;
 }
 
-export async function githubWaitForWorkflow(input: { owner: string; repo: string; runId: number; timeoutMs?: number; pollMs?: number }) {
+export async function githubWaitForWorkflow(input: { owner: string; repo: string; runId: number; timeoutMs?: number; pollMs?: number; githubToken?: string }) {
   const timeoutMs = Math.min(Math.max(input.timeoutMs ?? 120_000, 5_000), 300_000);
   const pollMs = Math.min(Math.max(input.pollMs ?? 3_000, 1_000), 15_000);
   const deadline = Date.now() + timeoutMs;
-  const token = await getInstallationToken(input.owner, input.repo);
+  const token = await getInstallationToken(input.owner, input.repo, input.githubToken);
   while (Date.now() < deadline) {
     const result = await github<{ id: number; status: string; conclusion: string | null; html_url: string; head_branch: string | null }>(
       `/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/actions/runs/${input.runId}`,
@@ -271,8 +278,8 @@ export async function githubWaitForWorkflow(input: { owner: string; repo: string
   return { runId: input.runId, status: "timeout", conclusion: null, verified: false };
 }
 
-export async function githubWorkflowDiagnostics(input: { owner: string; repo: string; runId: number }) {
-  const token = await getInstallationToken(input.owner, input.repo);
+export async function githubWorkflowDiagnostics(input: { owner: string; repo: string; runId: number; githubToken?: string }) {
+  const token = await getInstallationToken(input.owner, input.repo, input.githubToken);
   const jobs = await github<{ jobs: Array<{ id: number; name: string; status: string; conclusion: string | null; steps?: Array<{ name: string; status: string; conclusion: string | null }> }> }>(
     `/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/actions/runs/${input.runId}/jobs?per_page=20`,
     {}, token,
@@ -295,8 +302,9 @@ export async function githubDispatchWorkflow(input: {
   workflow: string;
   branch?: string;
   inputs?: Record<string, string>;
+  githubToken?: string;
 }) {
-  const token = await getInstallationToken(input.owner, input.repo);
+  const token = await getInstallationToken(input.owner, input.repo, input.githubToken);
   const branch = input.branch || (await githubStatus(input.owner, input.repo)).default_branch;
   await github(
     `/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/actions/workflows/${encodeURIComponent(input.workflow)}/dispatches`,
