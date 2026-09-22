@@ -101,7 +101,7 @@ export class SelfChecker {
     try {
       localStorage.setItem("bossnu-self-check", JSON.stringify(result));
       localStorage.setItem("bossnu-self-history", JSON.stringify(this.checkHistory));
-    } catch {}
+    } catch { /* intentionally ignored */ }
 
     if (!readyToTeach) {
       console.log(`[Self-First] 🧘 ${result.messageTh} - ไปฝึกในแซนบ็อกซ์ลับก่อน`);
