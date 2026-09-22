@@ -312,7 +312,7 @@ export function SuperChat() {
       <div className="relative flex-1 min-h-0">
         <div
           ref={scrollerRef}
-          className="h-full min-h-0 overflow-y-scroll overscroll-y-contain touch-pan-y px-4 py-6 sm:px-6 sm:py-7 space-y-6 [scrollbar-gutter:stable]"
+          className="absolute inset-0 overflow-y-auto overscroll-y-contain touch-pan-y px-4 py-6 pb-8 sm:px-6 sm:py-7 space-y-6 [scrollbar-gutter:stable]"
           style={{ overflowAnchor: "none", WebkitOverflowScrolling: "touch" }}
           onScroll={(e) => {
             const el = e.currentTarget;
