@@ -17,6 +17,25 @@ export type TaskIntent =
   | "chat"
   | "general";
 
+export type UrgencyProfile = {
+  urgent: boolean;
+  parallel: boolean;
+  maxTools: number;
+  maxRounds: number;
+  directPath: boolean;
+};
+
+/** Keep the hot path short: urgent work skips unnecessary planning and uses a small focused tool set. */
+export function getUrgencyProfile(prompt: string, intent?: TaskIntent): UrgencyProfile {
+  const text = prompt.toLowerCase();
+  const urgent = /ด่วน|เร่งด่วน|ทันที|เดี๋ยวนี้|โดยเร็ว|asap|urgent|immediately|right now|fix now/.test(text);
+  const resolvedIntent = intent ?? inferTaskIntent(prompt);
+  if (urgent) {
+    return { urgent: true, parallel: resolvedIntent !== "chat" && resolvedIntent !== "general", maxTools: resolvedIntent === "search" ? 1 : 2, maxRounds: resolvedIntent === "chat" ? 0 : 4, directPath: true };
+  }
+  return { urgent: false, parallel: resolvedIntent === "github" || resolvedIntent === "code" || resolvedIntent === "search", maxTools: resolvedIntent === "search" ? 1 : resolvedIntent === "verify" ? 2 : 3, maxRounds: resolvedIntent === "chat" ? 0 : 6, directPath: resolvedIntent === "search" || resolvedIntent === "verify" };
+}
+
 function sourceOf(tool: CodingFleetTool): ToolSource {
   if (tool.githubSearchSource) return "github-search";
   if (tool.sandboxSource) return "sandbox";
@@ -103,7 +122,7 @@ export async function selectToolsForTask(prompt: string, maxTools = 3): Promise<
     intent === "data" ? 2 :
     2;
 
-  const limit = Math.max(1, Math.min(maxTools, intentCap));
+  const urgency = getUrgencyProfile(prompt, intent);\n  const limit = Math.max(1, Math.min(maxTools, intentCap, urgency.maxTools));
   const ranked = registry
     .map((tool, index) => ({ tool, score: score(tool, prompt), index }))
     .sort((a, b) => b.score - a.score || a.index - b.index);
@@ -118,7 +137,7 @@ export async function selectToolsForTask(prompt: string, maxTools = 3): Promise<
     return tool.score !== undefined || true;
   };
 
-  const selected: ToolRegistryEntry[] = [];
+  const selected: ToolRegistryEntry[] = [];\n\n  // Urgent path: prefer the single highest-scoring actionable tool and avoid speculative tools.\n  if (urgency.urgent) {\n    const urgentCandidate = ranked.find(({ tool, score: sc }) => sc > 0 && matchesIntent(tool));\n    if (urgentCandidate) return [urgentCandidate.tool];\n  }
   // Sandbox is a first-class execution tool for code/test/debug intents.
   // Keep it explicitly available so the model can actually invoke it.
   if (intent === "code" || intent === "verify") {
