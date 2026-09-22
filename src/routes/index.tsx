@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Bot, Paperclip, ShieldCheck, Terminal, Brain, GitBranch, Search, Wrench, CheckCircle2, Users, Workflow, LockKeyhole } from "lucide-react";
+import { ArrowRight, Bot, Paperclip, ShieldCheck, Terminal, Brain, GitBranch, Search, Wrench, CheckCircle2, Users, Workflow, LockKeyhole, Code2, Radar, Bug, Rocket, Eye } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { APP_NAME, MOTTO_EN, MOTTO_TH } from "@/lib/catalog";
@@ -7,6 +7,17 @@ import { APP_NAME, MOTTO_EN, MOTTO_TH } from "@/lib/catalog";
 export const Route = createFileRoute("/")({ component: Home });
 
 function Home() {
+  const roles = [
+    { icon: Brain, title: "COMMANDER", body: "อ่าน Goal และกำหนดเส้นทางงานโดยไม่บังคับให้คุณเลือกเครื่องมือ" },
+    { icon: Search, title: "RESEARCHER", body: "ค้นข้อมูล ตรวจเอกสาร และแยกสัญญาณสำคัญก่อนลงมือ" },
+    { icon: Code2, title: "BUILDER", body: "สร้างและแก้โค้ดเป็นงานจริง พร้อมรักษาโครงสร้างของโปรเจกต์" },
+    { icon: Terminal, title: "OPERATOR", body: "รันคำสั่ง ทดสอบ Sandbox เชื่อม GitHub และจัดการ workflow" },
+    { icon: Bug, title: "REPAIR ENGINE", body: "เมื่อพังไม่หยุดที่รายงาน Error แต่ย้อนหาสาเหตุแล้วซ่อมต่อ" },
+    { icon: Eye, title: "VERIFIER", body: "ตรวจ Build, Runtime, HTTP และ Preview ก่อนยืนยันผล" },
+    { icon: Rocket, title: "PUBLISHER", body: "พางานจากไฟล์ไปสู่ Preview หรือ deployment ที่ตรวจสอบได้" },
+    { icon: Radar, title: "WATCHER", body: "เฝ้าดูผลหลังลงมือและเปิด Recovery Loop เมื่อผลจริงไม่ตรงเป้า" },
+  ];
+
   const capabilities = [
     {
       icon: Users,
@@ -78,7 +89,7 @@ function Home() {
               </div>
             </div>
 
-            <div className="mt-14 overflow-hidden rounded-2xl border border-border bg-surface/70 shadow-[var(--shadow-border)]">
+            <div className="mt-8 flex flex-wrap items-center gap-3 text-xs text-subtle">\n              <span className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5">ใครจะรู้... ถ้าไม่ลองสั่ง Boss</span>\n              <span className="rounded-full border border-border bg-surface/60 px-3 py-1.5">30,000+ Identity Space</span>\n              <span className="rounded-full border border-border bg-surface/60 px-3 py-1.5">Goal → Build → Verify → Live</span>\n            </div>\n\n            <div className="mt-14 overflow-hidden rounded-2xl border border-border bg-surface/70 shadow-[var(--shadow-border)]">
               <div className="grid divide-y divide-border md:grid-cols-6 md:divide-x md:divide-y-0">
                 {[
                   ["06", "Agents"],
@@ -87,6 +98,7 @@ function Home() {
                   ["∞", "Model routes"],
                   ["LIVE", "Trace"],
                   ["✓", "Verify"],
+                  ["30K+", "Identity space"],
                 ].map(([value, label]) => (
                   <div key={label} className="px-5 py-5">
                     <div className="text-2xl font-semibold tracking-tight">{value}</div>
@@ -100,7 +112,7 @@ function Home() {
 
         <section className="border-b border-border">
           <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-20">
-            <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:items-start">
+            <div className="mb-10 max-w-2xl">\n              <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Agent roles</p>\n              <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">เบื้องหลังคำว่า “ทำเลย” มีทั้งทีม</h2>\n              <p className="mt-4 text-sm leading-7 text-muted">Boss แบ่งบทบาทตามงาน แล้วส่งไม้ต่อพร้อมหลักฐาน ตั้งแต่ค้นหา สร้าง รัน ซ่อม ตรวจ จนถึง publish</p>\n            </div>\n            <div className="mb-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">\n              {roles.map((role) => (\n                <article key={role.title} className="group rounded-2xl border border-border bg-surface p-5 transition-all duration-200 hover:-translate-y-1 hover:border-primary/30">\n                  <role.icon className="size-5 text-primary transition-transform duration-200 group-hover:scale-110" />\n                  <div className="mt-5 text-[10px] font-semibold tracking-[0.2em] text-subtle">BOSS MESH</div>\n                  <h3 className="mt-1 text-sm font-semibold">{role.title}</h3>\n                  <p className="mt-2 text-sm leading-6 text-muted">{role.body}</p>\n                </article>\n              ))}\n            </div>\n\n            <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:items-start">
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">How Boss thinks</p>
                 <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">จากประโยคเดียวสู่ผลลัพธ์จริง</h2>
