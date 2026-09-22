@@ -58,7 +58,7 @@ export function SuperChat() {
   const patchActivity = useFleet((s) => s.patchActivity);
   const patchVerified = useFleet((s) => s.patchVerified);
   const thread = threads.find(t => t.id === activeThreadId) ?? threads[0];
-  const scrollerRef = useRef<HTMLDivElement>(null);\n  const [liveStream, setLiveStream] = useState<{ id: string; steps: string[]; active: boolean }>({ id: "", steps: [], active: false });
+  const scrollerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: "smooth" });
@@ -227,7 +227,8 @@ export function SuperChat() {
                     })}
                   </div>
                 </div>
-              )           </div>
+              )}
+            </div>
             {m.role === "user" && (
               <div className="size-7 rounded-full bg-zinc-700 grid place-items-center shrink-0 mt-0.5">
                 <span className="text-[11px]">U</span>
