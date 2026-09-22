@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState, useRef } from "react";
-import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X, CheckCircle2, Circle, Activity } from "lucide-react";
+import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X, CheckCircle2, Circle, Activity, Copy, Check, Square } from "lucide-react";
 import { useFleet } from "@/lib/store";
 import { backgroundLab } from "@/lib/background-sandbox";
 import { freeAI } from "@/lib/autonomous";
@@ -36,6 +36,9 @@ export function SuperChat() {
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [traceOpen, setTraceOpen] = useState(true);
+  const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [models, setModels] = useState<PuterModel[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
   const [liveStream, setLiveStream] = useState<{ id: string; steps: string[]; active: boolean }>({ id: "", steps: [], active: false });
@@ -84,6 +87,24 @@ export function SuperChat() {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [isPinnedToBottom, setIsPinnedToBottom] = useState(true);
   const isPinnedRef = useRef(true);
+
+  const copyMessage = async (messageId: string, content: string) => {
+    try { await navigator.clipboard.writeText(content); setCopiedMessage(messageId); window.setTimeout(() => setCopiedMessage(null), 1400); } catch { setCopiedMessage(null); }
+  };
+
+  const toggleVoice = () => {
+    const Recognition = (window as unknown as { webkitSpeechRecognition?: new () => { lang: string; continuous: boolean; interimResults: boolean; onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onend: (() => void) | null; start: () => void; stop: () => void } }).webkitSpeechRecognition;
+    if (!Recognition) return;
+    if (isListening) { setIsListening(false); return; }
+    const recognition = new Recognition();
+    recognition.lang = "th-TH";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onresult = (event) => { const text = Array.from(event.results).map((r) => r[0]?.transcript ?? "").join(" "); setInput((v) => `${v}${v ? " " : ""}${text}`); };
+    recognition.onend = () => setIsListening(false);
+    setIsListening(true);
+    recognition.start();
+  };
 
   const isNearBottom = (el: HTMLDivElement, threshold = 80) =>
     el.scrollHeight - (el.scrollTop + el.clientHeight) <= threshold;
@@ -135,6 +156,12 @@ export function SuperChat() {
   const removeThread = (id: string) => {
     deleteThread(id);
     requestAnimationFrame(() => { if (scrollerRef.current) scrollerRef.current.scrollTop = 0; });
+  };
+
+  const handleAttachment = (file?: File) => {
+    if (!file || !thread) return;
+    const note = `แนบไฟล์: ${file.name} (${Math.ceil(file.size / 1024)} KB)`;
+    appendMessage(thread.id, { role: "user", content: note, attachments: [{ name: file.name, size: file.size, type: file.type }] });
   };
 
   const handleSend = async () => {
@@ -323,7 +350,7 @@ export function SuperChat() {
       >
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
           {thread?.messages.map((m) => (
-            <div key={m.id} className={`flex gap-3 ${m.role === "user" ? "justify-end" : ""}`}>
+            <div key={m.id} className={`group flex gap-3 ${m.role === "user" ? "justify-end" : ""}`}>
               {m.role === "assistant" && (
                 <div className="size-7 rounded-full bg-zinc-800 border border-zinc-700 grid place-items-center shrink-0 mt-0.5">
                   <span className="text-[11px]">B</span>
@@ -335,7 +362,7 @@ export function SuperChat() {
                   : "bg-zinc-900/80 border border-zinc-800 text-zinc-100"
               }`}>
                 <div className="whitespace-pre-wrap">{m.content}</div>
-                {m.role === "assistant" && m.activity && m.activity.length > 0 && m.id === liveStream.id && liveStream.active && (
+                {m.role === "assistant" && m.activity && m.activity.length > 0 && (
                   <div className="mt-4 border-t border-zinc-800/80 pt-3 text-[12px]">
                     <button
                       type="button"
@@ -347,7 +374,7 @@ export function SuperChat() {
                         <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-emerald-400 animate-pulse" />
                       </span>
                       <span className="font-medium">Boss Live</span>
-                      <span className="text-[10px] uppercase tracking-widest text-emerald-400">streaming</span>
+                      <span className="text-[10px] uppercase tracking-widest text-emerald-400">{m.id === liveStream.id && liveStream.active ? "streaming" : m.verified ? "verified" : "trace"}</span>
                       <ChevronDown className={`ml-auto size-3.5 text-zinc-500 transition-transform ${traceOpen ? "" : "-rotate-90"}`} />
                     </button>
 
@@ -375,7 +402,7 @@ export function SuperChat() {
                             <span className="text-[10px] text-zinc-600">{liveStream.steps.length} events</span>
                           </div>
                           <div className="space-y-1.5">
-                            {m.activity.slice(-8).map((a, i, arr) => {
+                            {(m.activity ?? []).slice(-8).map((a, i, arr) => {
                               const parts = a.split(": ");
                               const phase = parts[0] ?? "";
                               const detail = parts.slice(1).join(": ") || a;
@@ -389,12 +416,17 @@ export function SuperChat() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 text-[10px] text-zinc-600">
-                          <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          <span>ติดตามการทำงานแบบเรียลไทม์ · ไม่เลื่อนหน้าจอผู้ใช้เอง</span>
+                        <div className="flex items-center justify-between gap-3 text-[10px] text-zinc-600">
+                          <div className="flex items-center gap-2"><span className={`size-1.5 rounded-full ${m.id === liveStream.id && liveStream.active ? "bg-emerald-400 animate-pulse" : m.verified ? "bg-emerald-400" : "bg-zinc-600"}`} /><span>{m.id === liveStream.id && liveStream.active ? "ติดตามแบบเรียลไทม์ · ไม่เลื่อนหน้าจอผู้ใช้เอง" : m.verified ? "ตรวจสอบแล้วจาก Agent" : "เก็บ execution trace ไว้ตรวจย้อนหลัง"}</span></div>
+                          {m.verified && <span className="inline-flex items-center gap-1 text-emerald-400"><CheckCircle2 className="size-3" /> verified</span>}
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+                {m.role === "assistant" && m.content && (
+                  <div className="mt-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <button type="button" onClick={() => copyMessage(m.id, m.content)} className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" aria-label="คัดลอกคำตอบ">{copiedMessage === m.id ? <Check className="size-3.5 text-emerald-400" /> : <Copy className="size-3.5" />}</button>
                   </div>
                 )}
               </div>
@@ -419,8 +451,9 @@ export function SuperChat() {
       </main>
 
       {/* Composer: fixed by flex layout, never part of the message scroll. */}
-      <div className="relative z-30 shrink-0 border-t border-zinc-800 bg-zinc-950/95 p-3 backdrop-blur-xl sm:p-4">        <div className="relative flex items-end gap-2 rounded-2xl bg-zinc-900 border border-zinc-800 p-2">
-          <button className="size-8 grid place-items-center rounded-full hover:bg-zinc-800 text-zinc-500">
+      <div className="relative z-30 shrink-0 border-t border-zinc-800 bg-zinc-950/95 p-3 backdrop-blur-xl sm:p-4"><div className="relative flex items-end gap-2 rounded-2xl bg-zinc-900 border border-zinc-800 p-2">
+          <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => { handleAttachment(e.target.files?.[0]); e.currentTarget.value = ""; }} />
+          <button type="button" onClick={() => fileInputRef.current?.click()} className="size-8 grid place-items-center rounded-full hover:bg-zinc-800 text-zinc-500" aria-label="แนบไฟล์">
             <Paperclip className="size-4" />
           </button>
           <textarea
@@ -436,8 +469,8 @@ export function SuperChat() {
             className="flex-1 bg-transparent text-sm text-zinc-100 placeholder:text-zinc-600 resize-none outline-none max-h-32 min-h-[24px] py-1.5"
             rows={1}
           />
-          <button className="size-8 grid place-items-center rounded-full hover:bg-zinc-800 text-zinc-500">
-            <Mic className="size-4" />
+          <button type="button" onClick={toggleVoice} className={`size-8 grid place-items-center rounded-full hover:bg-zinc-800 ${isListening ? "text-emerald-400 bg-emerald-500/10" : "text-zinc-500"}`} aria-label="พูดกับ Boss">
+            {isListening ? <Square className="size-3" /> : <Mic className="size-4" />}
           </button>
           <button
             onClick={handleSend}
