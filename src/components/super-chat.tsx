@@ -77,16 +77,47 @@ export function SuperChat() {
   const patchVerified = useFleet((s) => s.patchVerified);
   const thread = threads.find(t => t.id === activeThreadId) ?? threads[0];
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const [isPinnedToBottom, setIsPinnedToBottom] = useState(true);
+  const isPinnedRef = useRef(true);
+
+  const isNearBottom = (el: HTMLDivElement, threshold = 80) =>
+    el.scrollHeight - (el.scrollTop + el.clientHeight) <= threshold;
 
   useEffect(() => {
-    scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: "smooth" });
+    const el = scrollerRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const pinned = isNearBottom(el);
+      isPinnedRef.current = pinned;
+      setIsPinnedToBottom(pinned);
+    };
+    onScroll();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el || !isPinnedRef.current) return;
+    requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
   }, [thread?.messages]);
+
+  const pinToBottom = (behavior: ScrollBehavior = "smooth") => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    isPinnedRef.current = true;
+    setIsPinnedToBottom(true);
+    el.scrollTo({ top: el.scrollHeight, behavior });
+  };
 
   const handleSend = async () => {
     if (!input.trim() || !thread) return;
 
     const userText = input;
     setInput("");
+    isPinnedRef.current = true;
+    setIsPinnedToBottom(true);
+    requestAnimationFrame(() => pinToBottom("auto"));
 
     // เพิ่มข้อความ user
     appendMessage(thread.id, { role: "user", content: userText });
@@ -179,7 +210,7 @@ export function SuperChat() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-8rem)] w-full max-w-3xl mx-auto">
+    <div className="flex flex-col h-[calc(100dvh-8rem)] w-full max-w-3xl mx-auto overflow-hidden">
       <style>{`
         @keyframes boss-swoosh {
           0% { transform: translateX(-2px); opacity: .35; }
@@ -219,7 +250,18 @@ export function SuperChat() {
       </div>
 
       {/* Messages แบบ GPT */}
-      <div ref={scrollerRef} className="flex-1 overflow-auto px-4 py-6 space-y-6">
+      <div className="relative flex-1 min-h-0">
+        <div
+          ref={scrollerRef}
+          onWheel={(e) => {
+            if (e.deltaY < 0) {
+              isPinnedRef.current = false;
+              setIsPinnedToBottom(false);
+            }
+          }}
+          className="h-full overflow-y-auto overscroll-contain px-4 py-6 space-y-6"
+          style={{ overflowAnchor: "none" }}
+        >
         {thread?.messages.map((m) => (
           <div key={m.id} className={`flex gap-3 ${m.role === "user" ? "justify-end" : ""}`}>
             {m.role === "assistant" && (
@@ -266,7 +308,20 @@ export function SuperChat() {
         
       </div>
 
-      {/* Input แบบ GPT */}
+        </div>
+        {!isPinnedToBottom && (
+          <button
+            type="button"
+            onClick={() => pinToBottom("smooth")}
+            aria-label="เลื่อนไปข้อความล่าสุด"
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 size-9 rounded-full border border-zinc-700 bg-zinc-900/95 text-zinc-200 shadow-lg grid place-items-center hover:bg-zinc-800 transition"
+          >
+            <ChevronDown className="size-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Input แบบ GPT */
       <div className="p-4 border-t border-zinc-800">
         <div className="relative flex items-end gap-2 rounded-2xl bg-zinc-900 border border-zinc-800 p-2">
           <button className="size-8 grid place-items-center rounded-full hover:bg-zinc-800 text-zinc-500">
