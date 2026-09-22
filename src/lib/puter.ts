@@ -14,7 +14,7 @@ type PuterAPI = {
     isSignedIn: () => boolean;
     getUser: () => Promise<PuterUser>;
   };
-  ai: { chat: (prompt: unknown, options?: Record<string, unknown>) => Promise<unknown>; listModels?: () => Promise<unknown> };
+  ai: { chat: (prompt: unknown, options?: Record<string, unknown>) => Promise<unknown>; listModels?: (provider?: string) => Promise<unknown> };
 };
 
 declare global { interface Window { puter?: PuterAPI } }
@@ -189,6 +189,11 @@ export async function currentPuterUser(): Promise<PuterUser | null> {
   }
 }
 
+function isModelError(err: unknown): boolean {
+  const raw = friendlyError(err).toLowerCase();
+  return /model_not_found|model not found|invalid model|unknown model|does not exist|404/.test(raw);
+}
+
 export async function chatWithPuter(opts: { messages: ChatTurn[]; model: string; onDelta?: (full: string) => void }): Promise<ChatResult> {
   let puter: PuterAPI;
   try { puter = await ensurePuter(); } catch (err) { return { ok: false, error: friendlyError(err) }; }
@@ -212,10 +217,27 @@ export async function chatWithPuter(opts: { messages: ChatTurn[]; model: string;
     const text = extractText(resp); if (text) opts.onDelta?.(text); return text;
   };
   try {
-    const text = await run(true); if (!text.trim()) return { ok: false, error: "Empty response from the model." }; return { ok: true, text, model: opts.model, verified: false };
+    const text = await run(true);
+    if (!text.trim()) return { ok: false, error: "Empty response from the model." };
+    return { ok: true, text, model: opts.model, verified: false };
   } catch (err) {
-    try { const text = await run(false); if (!text.trim()) return { ok: false, error: friendlyError(err) }; return { ok: true, text, model: opts.model }; }
-    catch (err2) { return { ok: false, error: friendlyError(err2) }; }
+    // Puter can return structured objects for model errors. Retry once with the
+    // catalog's known default instead of surfacing "[object Object]".
+    if (isModelError(err) && opts.model !== "gpt-5-nano") {
+      try {
+        const fallbackText = await puter.ai.chat(payload, { model: "gpt-5-nano", stream: false });
+        const normalized = extractText(fallbackText);
+        if (normalized.trim()) return { ok: true, text: normalized, model: "gpt-5-nano", verified: false };
+      } catch {}
+    }
+    try {
+      const text = await run(false);
+      if (!text.trim()) return { ok: false, error: friendlyError(err) };
+      return { ok: true, text, model: opts.model };
+    } catch (err2) {
+      const detail = friendlyError(err2);
+      return { ok: false, error: detail === "[object object]" ? friendlyError(err) : detail };
+    }
   }
 }
 
