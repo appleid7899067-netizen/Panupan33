@@ -265,8 +265,6 @@ export function SuperChat() {
         ))}
         
       </div>
-          </div>
-        )}      </div>
 
       {/* Input แบบ GPT */}
       <div className="p-4 border-t border-zinc-800">
