@@ -552,7 +552,8 @@ async function chatModel(messages: Array<Record<string, unknown>>, tools: Coding
     puter = await ensurePuter();
     if (!puter.auth.isSignedIn()) await puter.auth.signIn();
   }
-  const providerMessages = normalizeAgentProviderMessages(messages);\n  const response = await puter.ai.chat(providerMessages, { model, tools: toPuterTools(tools), normalize: true, stream: false });
+  const providerMessages = normalizeAgentProviderMessages(messages);
+  const response = await puter.ai.chat(providerMessages, { model, tools: toPuterTools(tools), normalize: true, stream: false });
   return { text: extractText(response), response, toolCalls: extractToolCalls(response) };
 }
 
