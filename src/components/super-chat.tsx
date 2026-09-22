@@ -520,6 +520,10 @@ export function SuperChat() {
       }
       if (!result) throw new Error("Agent stream ended without a final result.");
       const resultText = displayAgentText(result.text);
+      const previewUrl = resultText.match(/https:\/\/[a-z0-9-]+\.puter\.site(?:\/[^\s)<>]*)?/i)?.[0];
+      if (previewUrl && thread) {
+        try { window.localStorage.setItem(`bossnu-preview:${thread.id}`, previewUrl); } catch {}
+      }
       const response = result.ok
         ? (resultText || "Boss ทำงานเสร็จแล้ว แต่ Agent ไม่ได้ส่งข้อความกลับมา")
         : `ยังทำงานนี้ไม่สำเร็จ: ${resultText || "Agent ไม่มีผลลัพธ์"}`;
