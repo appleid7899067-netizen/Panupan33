@@ -105,26 +105,32 @@ function verificationPassed(results: ToolExecutionResult[]): { passed: boolean; 
   return { passed: false, evidence: "verification tool ทำงานแล้ว แต่ผลจริงยังไม่ผ่านเกณฑ์" };
 }
 
-/** Plan → Select → Act → Observe → Refine → Verify. */
-export async function runAgentLoop(prompt: string, tools: CodingFleetTool[], maxIterations = 6, authToken?: string, onStep?: (step: AgentStep) => void, model = "gpt-5.6-luna"): Promise<AgentRunResult> {
+/** Plan → Select ONE → Act → Observe → Refine → Verify (Codex-style). */
+export async function runAgentLoop(prompt: string, tools: CodingFleetTool[], maxIterations = 4, authToken?: string, onStep?: (step: AgentStep) => void, model = "openrouter:qwen/qwen3-coder"): Promise<AgentRunResult> {
   const steps: AgentStep[] = [];
   const emitStep = (step: AgentStep) => { steps.push(step); onStep?.(step); };
   const initialSteps: AgentStep[] = [
-    { phase: "plan", detail: "วิเคราะห์เป้าหมายและแตกงานเป็นขั้นตอน" },
-    { phase: "select", detail: `เลือกเครื่องมือจาก Tool Registry: ${summarizeToolNames(tools) || "ไม่มีชื่อเครื่องมือ"}` },
+    { phase: "plan", detail: "วิเคราะห์เจตนาผู้ใช้และแตกงานเป็นขั้นตอน (Codex)" },
+    { phase: "select", detail: `เครื่องมือที่เปิดตามเจตนา: ${summarizeToolNames(tools) || "ไม่มี — ตอบตรง"}` },
   ];
   initialSteps.forEach(emitStep);
   const mcp = await discoverMCPTools();
   const mcpCount = mcp.reduce((sum, item) => sum + item.tools.length, 0);
   let currentPrompt = `${prompt}
 
-Agent protocol: Plan → Select → Act → Observe → Refine → Verify.
-MCP tools discovered: ${mcpCount}.
+CODEX-STYLE AGENT PROTOCOL (บังคับ):
+1. อ่านเจตนาผู้ใช้ให้ครบ — ทำเฉพาะที่ขอ อย่าขยาย scope
+2. Plan → Select ONE tool that is necessary right now → Act → Observe real output → Refine → next step
+3. ห้ามเรียกเครื่องมือทีละชุดทั้งหมดในรอบเดียว อย่างมาก 1–2 tool ต่อรอบ
+4. ถ้ายังไม่จำเป็นต้องใช้ tool ให้ตอบตรง ๆ เลย
+5. ถ้า tool ล้มเหลว: วินิจฉัยจาก output จริง แล้วซ่อม — ห้ามเดา
+6. อย่า claim สำเร็จจนกว่าจะมีหลักฐาน verification
+
+MCP tools discovered: ${mcpCount} (registry already filtered by intent — do not invent extra tools).
 Task mutation expected: ${looksLikeMutation(prompt)}.
-Verification requested or required: ${looksLikeVerification(prompt)}. For deployed URLs, prefer web_check and treat HTTP 2xx as healthy; 5xx or timeout means verification failed and should trigger diagnosis/repair.
-Use the selected tools. If a tool fails, diagnose from its actual output and repair instead of guessing.
-For deployment or website health tasks, if a public HTTPS URL is available, MUST call web_check after the deploy/build step. If a target URL was detected, use this exact health target: ${prompt.match(/https:\/\/[^\s)\]}>,]+/i)?.[0] || "the public HTTPS URL returned by the deployment tool"}. Treat HTTP 2xx as healthy; HTTP 4xx/5xx, timeout, redirect failure, or tool error as a failed verification that must enter the repair loop.
-Never claim an external action succeeded without evidence.`;
+Verification requested: ${looksLikeVerification(prompt)}. For deployed URLs use web_check; HTTP 2xx = healthy; 5xx/timeout = failed.
+Health target if any: ${prompt.match(/https:\/\/[^\s)\]}>,]+/i)?.[0] || "none"}.
+Never claim external success without tool evidence.`;
   let last = "";
   let hadToolActivity = false;
   let hadVerificationActivity = false;
@@ -134,8 +140,8 @@ Never claim an external action succeeded without evidence.`;
   const toolFailureCounts = new Map<string, number>();
   const mutationExpected = looksLikeMutation(prompt);
 
-  for (let iteration = 0; iteration < Math.max(1, Math.min(maxIterations, 8)); iteration += 1) {
-    steps.push({ phase: "act", detail: `รอบที่ ${iteration + 1}: ลงมือทำผ่านเครื่องมือ` });
+  for (let iteration = 0; iteration < Math.max(1, Math.min(maxIterations, 6)); iteration += 1) {
+    steps.push({ phase: "act", detail: `รอบที่ ${iteration + 1}: ลงมือทำ (1–2 tool ตามเจตนา)` });
     const result = await callWithFallback(currentPrompt, tools, [model], (activity) => activity.forEach((detail) => emitStep({ phase: "observe", detail })), authToken);
     if (!result.ok) {
       steps.push({ phase: "observe", detail: `เครื่องมือ/โมเดลแจ้งข้อผิดพลาด: ${result.error.slice(0, 300)}` });
@@ -156,7 +162,7 @@ Never claim an external action succeeded without evidence.`;
     if (!result.toolCalls.length) {
       if ((mutationExpected || hadVerificationActivity || looksLikeVerification(prompt)) && !verificationPassedEvidence) {
         steps.push({ phase: "verify", detail: "ยังไม่มีหลักฐานจาก verification tool หลังมีการเปลี่ยนแปลง จึงบังคับให้ Agent ตรวจซ้ำ" });
-        if (iteration === Math.min(maxIterations, 8) - 1) {
+        if (iteration === Math.min(maxIterations, 6) - 1) {
           return { ok: false, text: failureText(last, result.toolResults ?? []), steps, verified: false };
         }
         steps.push({ phase: "refine", detail: "ขอให้ Agent เรียกเครื่องมือตรวจสอบจริงก่อนประกาศสำเร็จ" });
@@ -174,7 +180,7 @@ Verification gate: external mutation is expected. You MUST use an actual verific
       const verificationRequired = mutationExpected || hadVerificationActivity || looksLikeVerification(prompt);
       return { ok: !verificationRequired || Boolean(verificationPassedEvidence), text: last, steps, verified: !verificationRequired || Boolean(verificationPassedEvidence) };
     }
-    if (iteration === Math.min(maxIterations, 8) - 1) {
+    if (iteration === Math.min(maxIterations, 6) - 1) {
       steps.push({ phase: "verify", detail: "หมดรอบซ่อมที่กำหนด จึงยังไม่ประกาศว่าสำเร็จ" });
       return { ok: false, text: failureText(last, result.toolResults), steps, verified: false };
     }
@@ -216,22 +222,17 @@ Verification gate: external mutation is expected. You MUST use an actual verific
 
 Repair context: ${repairedToolNames.size ? `เครื่องมือที่เคยพลาดและต้องติดตาม: ${Array.from(repairedToolNames).join(", ")}. เครื่องมือที่พลาดซ้ำ: ${repeatedFailures.length ? repeatedFailures.join(", ") : "ไม่มี"}` : "ยังไม่มี"}.
 
-Previous agent output:
-${last.slice(-12000)}
+Previous agent output:\n${last.slice(-12000)}
 
-Actual tool observations from this round:
-${observedResults.length ? observedResults.join("\n") : "ไม่มี"}
+Actual tool observations from this round:\n${observedResults.length ? observedResults.join("\n") : "ไม่มี"}
 
-Actual failed tools from this round:
-${failedTools.length ? failedTools.join("\n") : "ไม่มี"}
-     ${failedTools.length ? failedTools.join("\n") : "ไม่มี"}
+Actual failed tools from this round:\n${failedTools.length ? failedTools.join("\n") : "ไม่มี"}
 
-Deterministic diagnosis hints:
-${diagnosisHints.length ? diagnosisHints.join("\n") : "ไม่มี"}
+Deterministic diagnosis hints:\n${diagnosisHints.length ? diagnosisHints.join("\n") : "ไม่มี"}
 ${verificationIssue}
 ${escalationInstruction}
 
-Continue from the actual observations above. For every failed tool, diagnose the concrete error, make the smallest safe repair when appropriate, then rerun the relevant tool. If verification fails, diagnose and repair the root cause. Do not stop merely because a file was changed. Do not claim success until verification evidence exists.`;
+Continue Codex-style: use at most 1–2 tools this round. Diagnose from observations. Do not claim success without verification evidence.`;
   }
   return { ok: false, text: failureText(last, []), steps, verified: false };
 }
