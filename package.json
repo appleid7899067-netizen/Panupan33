@@ -20,7 +20,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "start": "node .output/server/index.mjs",
-    "postinstall": "node scripts/render-build.mjs"
+    "postinstall": "node scripts/render-build.mjs",
+    "agents:api": "node scripts/agents-api-run.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",
