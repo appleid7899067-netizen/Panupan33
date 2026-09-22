@@ -179,13 +179,13 @@ export function SuperChat() {
       const storage = window.sessionStorage;
       const saved = storage.getItem("bossnu_github_token") || storage.getItem("github_token") || storage.getItem("githubToken") || "";
       if (saved) setGithubToken(saved);
-    } catch {}
+    } catch { /* intentionally ignored */ }
   }, []);
 
   const saveGithubToken = () => {
     const value = githubTokenInput.trim();
     if (value.length < 20) return;
-    try { window.sessionStorage.setItem("bossnu_github_token", value); } catch {}
+    try { window.sessionStorage.setItem("bossnu_github_token", value); } catch { /* intentionally ignored */ }
     setGithubToken(value);
     setGithubTokenInput("");
     setGithubTokenOpen(false);
@@ -196,7 +196,7 @@ export function SuperChat() {
       window.sessionStorage.removeItem("bossnu_github_token");
       window.sessionStorage.removeItem("github_token");
       window.sessionStorage.removeItem("githubToken");
-    } catch {}
+    } catch { /* intentionally ignored */ }
     setGithubToken("");
     setGithubTokenInput("");
   };
@@ -357,7 +357,7 @@ export function SuperChat() {
             chunks.push(`===== ${path} =====\n${text}`);
             totalChars += text.length;
             count++;
-          } catch {}
+          } catch { /* intentionally ignored */ }
         }
         const extracted = `ZIP RAW EXTRACT: ${file.name}\nไฟล์ข้อความที่อ่านได้: ${count}\n\n${chunks.join("\n\n")}`.slice(0, 100000);
         setAttachmentContext(extracted);
@@ -522,7 +522,7 @@ export function SuperChat() {
       const resultText = displayAgentText(result.text);
       const previewUrl = resultText.match(/https:\/\/[a-z0-9-]+\.puter\.site(?:\/[^\s)<>]*)?/i)?.[0];
       if (previewUrl && thread) {
-        try { window.localStorage.setItem(`bossnu-preview:${thread.id}`, previewUrl); } catch {}
+        try { window.localStorage.setItem(`bossnu-preview:${thread.id}`, previewUrl); } catch { /* intentionally ignored */ }
       }
       const response = result.ok
         ? (resultText || "Boss ทำงานเสร็จแล้ว แต่ Agent ไม่ได้ส่งข้อความกลับมา")
@@ -563,7 +563,7 @@ export function SuperChat() {
             <Eye className="size-3.5 shrink-0" />
             <span className="hidden sm:inline text-[11px]">Preview</span>
           </button>
-          <button type="button" onClick={() => setGithubTokenOpen((open) => !open) className={"flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-left hover:bg-zinc-800 " + (githubToken ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : "border-zinc-700 bg-zinc-900/90 text-zinc-400")} aria-label="GitHub Token">
+          <button type="button" onClick={() => setGithubTokenOpen((open) => !open)} className={"flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-left hover:bg-zinc-800 " + (githubToken ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : "border-zinc-700 bg-zinc-900/90 text-zinc-400")} aria-label="GitHub Token">
             <Github className="size-3.5 shrink-0" />
             <span className="hidden sm:inline text-[11px]">{githubToken ? "GitHub พร้อม" : "GitHub"}</span>
             <span className={"size-1.5 rounded-full " + (githubToken ? "bg-emerald-400" : "bg-zinc-600")} />
