@@ -47,6 +47,7 @@ const TOOLS: ToolDef[] = [
   { type: "function", function: { name: "github_actions", description: "Read recent GitHub Actions workflow runs for a repository.", parameters: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, branch: { type: "string" } }, required: ["owner", "repo"], additionalProperties: false } } },
   { type: "function", function: { name: "github_workflow_diagnostics", description: "Inspect a workflow run and retrieve the tail of failed job logs for diagnosis.", parameters: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, runId: { type: "integer" } }, required: ["owner", "repo", "runId"], additionalProperties: false } } },
   { type: "function", function: { name: "github_dispatch_workflow", description: "Dispatch a GitHub Actions workflow on a branch.", parameters: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, workflow: { type: "string" }, branch: { type: "string" }, inputs: { type: "object", additionalProperties: { type: "string" } } }, required: ["owner", "repo", "workflow"], additionalProperties: false } } },
+  { type: "function", function: { name: "google_search", description: "Search Google for public web results. Use this when the user asks Boss to find a website or when a deployment URL is unknown. Return the most relevant public result URLs and titles.", parameters: { type: "object", properties: { query: { type: "string", minLength: 2, maxLength: 500 }, limit: { type: "integer", minimum: 1, maximum: 10 } }, required: ["query"], additionalProperties: false } } },
   { type: "function", function: { name: "web_check", description: "Check the deployed Boss URL. If url is omitted, automatically use BOSS_VERIFY_URL, Render/Vercel production URL, or the known Boss deployment. Return status, final URL, response time, content type, and body preview. Use after deployment and when diagnosing 500/502/503/timeouts.", parameters: { type: "object", properties: { url: { type: "string", minLength: 8, maxLength: 2048 }, timeoutMs: { type: "integer", minimum: 1000, maximum: 30000 } }, required: [], additionalProperties: false } } },
   { type: "function", function: { name: "github_wait_for_workflow", description: "Wait for a GitHub Actions run to complete and return its actual conclusion. Use after dispatching or after a commit that triggers CI.", parameters: { type: "object", properties: { owner: { type: "string" }, repo: { type: "string" }, runId: { type: "integer" }, timeoutMs: { type: "integer" }, pollMs: { type: "integer" } }, required: ["owner", "repo", "runId"], additionalProperties: false } } },
 ];
@@ -83,6 +84,34 @@ function assistantMessage(response: unknown): Record<string, unknown> | null {
 }
 
 async function execute(name: string, args: Record<string, unknown>): Promise<unknown> {
+  if (name === "google_search") {
+    const query = String(args.query ?? "").trim();
+    if (!query) throw new Error("google_search requires a query.");
+    const limit = Math.min(10, Math.max(1, Number(args.limit ?? 5)));
+    const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=${limit}`;
+    const response = await fetch(url, {
+      headers: {
+        Accept: "text/html",
+        "User-Agent": "Mozilla/5.0 (compatible; Bossnu-GoogleSearch/1.0)"
+      }
+    });
+    if (!response.ok) return { ok: false, status: response.status, results: [] };
+    const html = await response.text();
+    const results: Array<{ title: string; url: string }> = [];
+    const seen = new Set<string>();
+    const pattern = /<a[^>]+href="(https?:\\/\\/[^"]+)"[^>]*>([\\s\\S]*?)<\\/a>/gi;
+    for (const match of html.matchAll(pattern)) {
+      const rawUrl = match[1];
+      const title = match[2].replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\\s+/g, " ").trim();
+      if (!title || !rawUrl || /google\\./i.test(new URL(rawUrl).hostname)) continue;
+      if (seen.has(rawUrl)) continue;
+      seen.add(rawUrl);
+      results.push({ title, url: rawUrl });
+      if (results.length >= limit) break;
+    }
+    return { ok: true, query, results };
+  }
+
   if (name === "web_check") {
     const configuredUrl = String(
       args.url ??
@@ -150,7 +179,7 @@ async function runModel(prompt: string, model: string, authToken?: string): Prom
   }
 
   const messages: Array<Record<string, unknown>> = [
-    { role: "system", content: "You are CodingFleet GitHub Agent 77. Work as an autonomous software engineer: inspect first, make the smallest safe change, run or dispatch verification, inspect failed workflow logs, fix the root cause, and verify again. For updates to existing files, read the file first and use its current sha. Never claim success without evidence from the actual tool or verification result. For deployment verification, do not ask the user for a URL when one can be inferred: the current Boss deployment is https://panupanboss.onrender.com/chat unless an environment-provided production URL overrides it. Call web_check directly." },
+    { role: "system", content: "You are CodingFleet GitHub Agent 77. Work as an autonomous software engineer: inspect first, make the smallest safe change, run or dispatch verification, inspect failed workflow logs, fix the root cause, and verify again. For updates to existing files, read the file first and use its current sha. Never claim success without evidence from the actual tool or verification result. For deployment verification, do not ask the user for a URL first. If the URL is unknown, use google_search to search Google for the project/deployment name and identify the most relevant public URL, then call web_check on that URL. You may also use the known Boss deployment https://panupanboss.onrender.com/chat unless an environment-provided production URL overrides it." },
     { role: "user", content: prompt },
   ];
   const allCalls: ToolCall[] = [];
