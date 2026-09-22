@@ -91,7 +91,7 @@ export class SuperBrain {
             totalCost: parsed.usage?.[m.id]?.cost || 0,
           }));
         }
-      } catch {}
+      } catch { /* intentionally ignored */ }
     }
   }
 
@@ -119,7 +119,7 @@ export class SuperBrain {
         selectedId: id,
         usage,
       }));
-    } catch {}
+    } catch { /* intentionally ignored */ }
 
     console.log(`[Super Brain] 🧠 เลือกโมเดล: ${model.nameTh} - วิ่งในโมเดลนี้เท่านั้น ไม่เปลือง`);
     return true;
