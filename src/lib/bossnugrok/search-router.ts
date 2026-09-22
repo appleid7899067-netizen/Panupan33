@@ -18,7 +18,7 @@ export function getSearchEngine(): SearchEngine {
   try {
     const value = window.localStorage.getItem("search_engine");
     if (value === "yandex" || value === "duckduckgo" || value === "brave" || value === "auto") return value;
-  } catch {}
+  } catch { /* intentionally ignored */ }
   return "yandex";
 }
 
