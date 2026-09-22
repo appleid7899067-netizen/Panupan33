@@ -305,7 +305,7 @@ export async function githubDispatchWorkflow(input: {
   githubToken?: string;
 }) {
   const token = await getInstallationToken(input.owner, input.repo, input.githubToken);
-  const branch = input.branch || (await githubStatus(input.owner, input.repo)).default_branch;
+  const branch = input.branch || (await githubStatus(input.owner, input.repo, input.githubToken)).default_branch;
   await github(
     `/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/actions/workflows/${encodeURIComponent(input.workflow)}/dispatches`,
     {
