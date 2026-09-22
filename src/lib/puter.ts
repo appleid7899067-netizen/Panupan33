@@ -194,6 +194,38 @@ function isModelError(err: unknown): boolean {
   return /model_not_found|model not found|invalid model|unknown model|does not exist|404/.test(raw);
 }
 
+// Puter-compatible message normalization:
+// Some Puter-backed providers accept only user/assistant roles. Preserve
+// system instructions by folding them into the next user turn instead of
+// sending an unsupported system role to the provider.
+function normalizePuterMessages(messages: ChatTurn[]): Array<{ role: "user" | "assistant"; content: string }> {
+  const normalized: Array<{ role: "user" | "assistant"; content: string }> = [];
+  let pendingSystem: string[] = [];
+
+  for (const message of messages) {
+    if (message.role === "system") {
+      if (message.content.trim()) pendingSystem.push(message.content.trim());
+      continue;
+    }
+
+    if (message.role === "user" && pendingSystem.length) {
+      const prefix = pendingSystem.join("\\n\\n");
+      normalized.push({ role: "user", content: `${prefix}\\n\\n--- User request ---\\n${message.content}` });
+      pendingSystem = [];
+      continue;
+    }
+
+    normalized.push({ role: message.role, content: message.content });
+  }
+
+  // A system-only request still needs a supported role.
+  if (pendingSystem.length) {
+    normalized.push({ role: "user", content: pendingSystem.join("\\n\\n") });
+  }
+
+  return normalized;
+}
+
 export async function chatWithPuter(opts: { messages: ChatTurn[]; model: string; onDelta?: (full: string) => void }): Promise<ChatResult> {
   let puter: PuterAPI;
   try { puter = await ensurePuter(); } catch (err) { return { ok: false, error: friendlyError(err) }; }
@@ -206,7 +238,7 @@ export async function chatWithPuter(opts: { messages: ChatTurn[]; model: string;
   } catch {
     return { ok: false, error: "Puter session ยังไม่พร้อม กรุณากด Sign in with Puter อีกครั้ง" };
   }
-  const payload = withCredentialPolicy(opts.messages).map((m) => ({ role: m.role, content: m.content }));
+  const payload = normalizePuterMessages(withCredentialPolicy(opts.messages));
   const run = async (stream: boolean) => {
     const resp = await puter.ai.chat(payload, { model: opts.model, stream });
     if (stream && resp && typeof resp === "object" && Symbol.asyncIterator in (resp as object)) {
