@@ -321,7 +321,7 @@ export function SuperChat() {
         )}
       </div>
 
-      {/* Input แบบ GPT */
+      {/* Input แบบ GPT */}
       <div className="p-4 border-t border-zinc-800">
         <div className="relative flex items-end gap-2 rounded-2xl bg-zinc-900 border border-zinc-800 p-2">
           <button className="size-8 grid place-items-center rounded-full hover:bg-zinc-800 text-zinc-500">
