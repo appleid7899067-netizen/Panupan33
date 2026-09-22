@@ -117,6 +117,61 @@ async function loadPluginTools(): Promise<CodingFleetTool[]> {
   return normalizePluginEntries(await response.json());
 }
 
+function nativePuterTools(): CodingFleetTool[] {
+  const text = { type: "string", maxLength: 500000 };
+  const path = { type: "string", minLength: 1, maxLength: 2000 };
+  return [
+    {
+      name: "puter_fs_read",
+      description: "Read a real text file from the signed-in user's Puter filesystem. Use for workspace/context inspection.",
+      inputSchema: { type: "object", properties: { path }, required: ["path"], additionalProperties: false },
+      mcpServer: "puter://native",
+    },
+    {
+      name: "puter_fs_write",
+      description: "Write or replace a real text file in the signed-in user's Puter filesystem. Use only when the task explicitly requires a file mutation.",
+      inputSchema: { type: "object", properties: { path, content: text }, required: ["path", "content"], additionalProperties: false },
+      mcpServer: "puter://native",
+    },
+    {
+      name: "puter_fs_list",
+      description: "List real files/directories in the signed-in user's Puter filesystem.",
+      inputSchema: { type: "object", properties: { path }, required: ["path"], additionalProperties: false },
+      mcpServer: "puter://native",
+    },
+    {
+      name: "puter_kv_get",
+      description: "Read persistent per-user Boss memory/state from Puter KV.",
+      inputSchema: { type: "object", properties: { key: { type: "string", minLength: 1, maxLength: 500 } }, required: ["key"], additionalProperties: false },
+      mcpServer: "puter://native",
+    },
+    {
+      name: "puter_kv_set",
+      description: "Persist Boss memory/state in the user's Puter KV store. Prefer compact structured JSON.",
+      inputSchema: { type: "object", properties: { key: { type: "string", minLength: 1, maxLength: 500 }, value: {} }, required: ["key", "value"], additionalProperties: false },
+      mcpServer: "puter://native",
+    },
+    {
+      name: "puter_models",
+      description: "Discover the current Puter AI model catalog. Use this when choosing a model, capability, provider, or low-cost option.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      mcpServer: "puter://native",
+    },
+    {
+      name: "puter_hosting_list",
+      description: "List websites currently hosted through the signed-in Puter account.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      mcpServer: "puter://native",
+    },
+    {
+      name: "puter_hosting_create",
+      description: "Publish a Puter filesystem directory as a real public website. Only use when the user explicitly asks to publish/deploy through Puter.",
+      inputSchema: { type: "object", properties: { subdomain: { type: "string", minLength: 1, maxLength: 80 }, rootDir: path }, required: ["subdomain", "rootDir"], additionalProperties: false },
+      mcpServer: "puter://native",
+    },
+  ];
+}
+
 function nativeSandboxTools(): CodingFleetTool[] {
   return [
     {
@@ -429,7 +484,7 @@ export async function loadCodingFleetTools(forceRefresh = false): Promise<Coding
   const codingFleet = sources[0].status === "fulfilled" ? sources[0].value : [];
   const pluginTools = sources[1].status === "fulfilled" ? sources[1].value : [];
   const mcpTools = sources[2].status === "fulfilled" ? sources[2].value : [];
-  const nativeTools = [...nativeSandboxTools(), ...nativeWebTools(), ...nativeAuthenticatedGitHubTools(), ...nativeGitSearchTools(), ...nativeGitHubTools()];
+  const nativeTools = [...nativePuterTools(), ...nativeSandboxTools(), ...nativeWebTools(), ...nativeAuthenticatedGitHubTools(), ...nativeGitSearchTools(), ...nativeGitHubTools()];
   const remoteTools = [
     ...codingFleet.map((tool) => ({ ...tool, codingFleetSource: true })),
     ...pluginTools,
@@ -532,8 +587,50 @@ async function executeAuthenticatedGithub(name: string, args: Record<string, unk
   }
 }
 
-async function executeTool(tool: CodingFleetTool, args: Record<string, unknown>): Promise<unknown> {
+async function executeNativePuterTool(name: string, args: Record<string, unknown>, authToken?: string): Promise<unknown> {
+  const token = authToken || process.env.PUTER_AUTH_TOKEN;
+  if (!token) throw new Error("Puter session token is required. Sign in to Puter in the browser first.");
+  const require = createRequire(import.meta.url);
+  const { init } = require("@heyputer/puter.js/src/init.cjs") as { init: (token: string) => any };
+  const puter = init(token);
+
+  if (name === "puter_fs_read") {
+    const item = await puter.fs.read(String(args.path));
+    return { ok: true, path: String(args.path), content: await item.text() };
+  }
+  if (name === "puter_fs_write") {
+    const item = await puter.fs.write(String(args.path), String(args.content ?? ""), { createMissingParents: true });
+    return { ok: true, path: item?.path ?? String(args.path), size: item?.size };
+  }
+  if (name === "puter_fs_list") {
+    const items = await puter.fs.readdir(String(args.path || "."));
+    return { ok: true, items: Array.isArray(items) ? items.slice(0, 200) : items };
+  }
+  if (name === "puter_kv_get") {
+    return { ok: true, key: String(args.key), value: await puter.kv.get(String(args.key)) };
+  }
+  if (name === "puter_kv_set") {
+    const value = args.value;
+    await puter.kv.set(String(args.key), value);
+    return { ok: true, key: String(args.key), value };
+  }
+  if (name === "puter_models") {
+    const models = await puter.ai.listModels();
+    return { ok: true, models: Array.isArray(models) ? models.slice(0, 200) : models };
+  }
+  if (name === "puter_hosting_list") {
+    return { ok: true, sites: await puter.hosting.list() };
+  }
+  if (name === "puter_hosting_create") {
+    const site = await puter.hosting.create(String(args.subdomain), String(args.rootDir));
+    return { ok: true, site };
+  }
+  throw new Error("Unknown native Puter tool: " + name);
+}
+
+async function executeTool(tool: CodingFleetTool, args: Record<string, unknown>, authToken?: string): Promise<unknown> {
   const name = toolName(tool);
+  if (name.startsWith("puter_")) return executeNativePuterTool(name, args, authToken);
   if (name === "sandbox_run") return executeSandboxTool(args);
   if (name === "web_check") return executeWebCheck(args);
   if (name === "web_open") return executeWebOpen(args);
@@ -683,7 +780,7 @@ export async function callWithFallback(
             continue;
           }
           try {
-            const output = await executeTool(tool, call.arguments);
+            const output = await executeTool(tool, call.arguments, authToken);
             toolResults.push({ name: call.name, ok: true, result: output });
             onActivity?.([`✓ ${call.name} เสร็จแล้ว`, `📡 กำลังอ่านผลลัพธ์และตรวจหลักฐาน...`]);
             messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify({ ok: true, result: output }) });
@@ -702,7 +799,7 @@ export async function callWithFallback(
           const target = roundToolResults.filter((item) => item.ok).map((item) => extractPublicHttpsUrl(item.result)).find(Boolean) ?? extractPublicHttpsUrl(prompt);
           if (target) {
             try {
-              const output = await executeTool(healthTool, { url: target });
+              const output = await executeTool(healthTool, { url: target }, authToken);
               toolResults.push({ name: "web_check", ok: true, result: output });
               onActivity?.([`ตรวจสุขภาพเว็บ: ${target}`, `Observe: web_check ${String((output as Record<string, unknown>)?.status ?? "")}`]);
               messages.push({ role: "tool", tool_call_id: `forced-web-check-${round}`, content: JSON.stringify({ ok: true, result: output }) });
