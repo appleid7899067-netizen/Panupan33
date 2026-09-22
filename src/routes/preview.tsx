@@ -15,7 +15,7 @@ function PreviewPage() {
     setChatId(id);
     try {
       if (id) setUrl(window.localStorage.getItem(`bossnu-preview:${id}`) || "");
-    } catch {}
+    } catch { /* intentionally ignored */ }
   }, []);
 
   const refresh = () => {
