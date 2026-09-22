@@ -38,10 +38,22 @@ function BossMarkdown({ content }: { content: string }) {
           const lines = part.split("\n");
           const language = lines[0]?.trim() || "";
           const code = lines.slice(1).join("\n");
+          const isHtml = /^(html|htm|xhtml)$/i.test(language);
           return (
             <div key={i} className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/90">
-              {language && <div className="border-b border-zinc-800 px-3 py-1.5 text-[10px] uppercase tracking-wider text-zinc-500">{language}</div>}
-              <pre className="overflow-x-auto p-3 text-[12px] leading-5 text-zinc-200"><code>{code}</code></pre>
+              {language && <div className="border-b border-zinc-800 px-3 py-1.5 text-[10px] uppercase tracking-wider text-zinc-500">{isHtml ? "HTML Preview" : language}</div>}
+              {isHtml && (
+                <div className="bg-white">
+                  <iframe
+                    title="HTML Preview"
+                    srcDoc={code}
+                    sandbox="allow-scripts"
+                    className="block h-[min(520px,65vh)] w-full border-0"
+                    style={{ colorScheme: "light" }}
+                  />
+                </div>
+              )}
+              <pre className="overflow-x-auto border-t border-zinc-800 p-3 text-[12px] leading-5 text-zinc-200"><code>{code}</code></pre>
             </div>
           );
         }
