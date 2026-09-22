@@ -87,10 +87,12 @@ function formatInline(text: string) {
 function displayAgentText(value: unknown): string {
   if (typeof value === "string") {
     return value
-      .replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "")
-      .replace(/<arg_key>[\s\S]*?<\/arg_key>/gi, "")
-      .replace(/<arg_value>[\s\S]*?<\/arg_value>/gi, "")
-      .replace(/^\s*ตอบทันที\s*[·•.]*(?:\s*ไม่เปิด Agent)?\s*$/gim, "")
+      .replaceAll("<tool_call>", "")
+      .replaceAll("</tool_call>", "")
+      .replaceAll("<arg_key>", "")
+      .replaceAll("</arg_key>", "")
+      .replaceAll("<arg_value>", "")
+      .replaceAll("</arg_value>", "")
       .trim();
   }
   if (value == null) return "";
