@@ -147,7 +147,7 @@ Never claim external success without tool evidence.`;
     emitStep({ phase: "act", detail: `รอบที่ ${iteration + 1}: ลงมือทำ (1–2 tool ตามเจตนา)` });
     const result = await callWithFallback(currentPrompt, tools, [model], (activity) => activity.forEach((detail) => emitStep({ phase: "observe", detail })), authToken);
     if (!result.ok) {
-      emitStep({ phase: "observe", detail: `เครื่องมือ/โมเดลแจ้งข้อผิดพลาด: ${result.error.slice(0, 300)}` });
+      emitStep({ phase: "observe", detail: `เครื่องมือ/โมเดลแจ้งข้อผิดพลาด: ${safeText(result.error, "ไม่ทราบรายละเอียด").slice(0, 300)}` });
       return { ok: false, text: failureText(result.error, "toolResults" in result ? result.toolResults : []), steps, verified: false };
     }
     last = result.text;
