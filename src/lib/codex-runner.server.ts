@@ -66,9 +66,9 @@ export async function runCodexAgent(prompt: string, githubToken?: string, puterA
     onOutput?.("✏️ Codex กำลังอ่านและแก้ไฟล์จริง");
 
     const codexPrompt = prompt + "\n\nYou are the coding executor controlled by Bossnu. Boss/Puter is the orchestrator. Use the connected Puter MCP server when useful. Work directly inside the current repository. Inspect existing code before changing anything. Fix the root cause. Make the requested changes now, do not merely explain. Run the most relevant typecheck, tests, and build checks. If a check fails, inspect the concrete output, repair it, and rerun it. Do not commit or push; leave changes in the working tree for Bossnu to publish. Do not claim success without concrete verification evidence.";
-    // This installed Codex CLI does not accept --full-auto. Use the supported exec
-    // form with a non-interactive approval policy and workspace-write sandbox.
-    const codex = await run("codex", ["exec", "--sandbox", "workspace-write", "--ask-for-approval", "never", codexPrompt], repoDir, env, (line) => onOutput?.("🤖 " + line));
+    // Keep the command compatible with the installed Codex CLI. This version
+    // accepts sandbox mode but does not accept --full-auto or --ask-for-approval.
+    const codex = await run("codex", ["exec", "--sandbox", "workspace-write", codexPrompt], repoDir, env, (line) => onOutput?.("🤖 " + line));
     if (codex.code !== 0) return { ok: false, verified: false, text: "Codex ทำงานไม่สำเร็จ:\n" + codex.output.slice(-3000), error: codex.output.slice(-3000) };
 
     onOutput?.("🧪 ตรวจ typecheck หลัง Codex");
