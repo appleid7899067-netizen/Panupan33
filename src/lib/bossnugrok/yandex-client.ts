@@ -14,6 +14,24 @@ export interface YandexSearchResponse {
 
 const SEARCH_URL = "https://yandex.com/search/xml";
 
+const FETCH_TIMEOUT_MS = 7000;
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = FETCH_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Yandex search timeout");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+
 function storage(key: string): string | undefined {
   if (typeof window === "undefined") return undefined;
   try { return window.localStorage.getItem(key) || undefined; } catch { return undefined; }
@@ -44,7 +62,7 @@ export async function searchYandex(
   });
 
   try {
-    const res = await fetch(SEARCH_URL + "?" + params.toString(), {
+    const res = await fetchWithTimeout(SEARCH_URL + "?" + params.toString(), {
       headers: { Accept: "application/xml, text/xml" },
     });
     if (!res.ok) throw new Error("Yandex HTTP " + res.status);
@@ -62,16 +80,20 @@ async function searchYandexFallback(query: string, maxResults: number): Promise<
     "https://corsproxy.io/?url=" + encodeURIComponent(target),
   ];
 
-  for (const proxy of proxies) {
-    try {
-      const res = await fetch(proxy);
-      if (!res.ok) continue;
-      const parsed = parseHtml(await res.text(), query, maxResults);
-      if (parsed.results.length) return { ...parsed, engine: "yandex", source: "fallback" };
-    } catch {}
-  }
+  const attempts = proxies.map(async (proxy) => {
+    const res = await fetchWithTimeout(proxy, {}, FETCH_TIMEOUT_MS);
+    if (!res.ok) throw new Error("fallback HTTP " + res.status);
+    const parsed = parseHtml(await res.text(), query, maxResults);
+    if (!parsed.results.length) throw new Error("fallback returned no results");
+    return { ...parsed, engine: "yandex" as const, source: "fallback" as const };
+  });
 
-  throw new Error("Yandex search unavailable. Configure XML API or a server-side search route.");
+  try {
+    // Race both CORS fallbacks so a dead proxy cannot make Boss appear frozen.
+    return await Promise.any(attempts);
+  } catch {
+    throw new Error("Yandex search unavailable or timed out. Configure XML API or a server-side search route.");
+  }
 }
 
 function parseXml(xml: string, query: string, maxResults: number) {
