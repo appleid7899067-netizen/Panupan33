@@ -112,6 +112,57 @@ export const runAgentStream = createServerFn({ method: "POST" })
       return;
     }
 
+    // IMPORTANT: streamed chat must use the same authenticated GitHub path as runAgent.
+    // Otherwise requests such as "เปิด repo แบบ Codex" fall back to the generic Puter
+    // tool loop, which may expose tools but cannot actually open the user's repository.
+    const registryHasGitHub = selected.some((tool) => String(tool.name ?? "").toLowerCase().includes("github"));
+    if (registryHasGitHub && prefersAuthenticatedGitHub(data.prompt)) {
+      yield {
+        type: "step",
+        step: { phase: "act", detail: "🔐 กำลังเปิด GitHub Agent ที่เชื่อม repo จริง..." },
+      };
+      const result = await runGitHubAgent(taskPrompt, data.authToken, data.model);
+      if (!result.ok) {
+        yield {
+          type: "step",
+          step: { phase: "observe", detail: `GitHub Agent ล้มเหลว: ${result.error.slice(0, 300)}` },
+        };
+        yield {
+          type: "done",
+          result: {
+            ok: false,
+            text: result.error,
+            steps: [registryStep, { phase: "act", detail: "🔐 GitHub Agent" }, { phase: "observe", detail: `GitHub Agent ล้มเหลว: ${result.error.slice(0, 300)}` }],
+            verified: false,
+          },
+        };
+        return;
+      }
+      yield {
+        type: "step",
+        step: {
+          phase: "verify",
+          detail: result.verified
+            ? "✓ GitHub Agent ได้ผลจาก repo จริงและผ่าน verification"
+            : "⚠️ GitHub Agent ได้ผลจาก repo จริง แต่ยังไม่มีหลักฐาน verification",
+        },
+      };
+      yield {
+        type: "done",
+        result: {
+          ok: result.verified || !/แก้|เขียน|สร้าง|ลบ|update|write|fix|repair|deploy|ดีพลอย|modify|change/i.test(data.prompt),
+          text: result.text,
+          steps: [
+            registryStep,
+            { phase: "act", detail: "🔐 GitHub Agent เปิด repo และทำงานผ่าน GitHub App" },
+            { phase: "verify", detail: result.verified ? "✓ verification ผ่าน" : "⚠️ ยังไม่มี verification gate" },
+          ],
+          verified: result.verified,
+        },
+      };
+      return;
+    }
+
     const queue: AgentStreamEvent[] = [];
     let wake: (() => void) | null = null;
     let finished = false;
