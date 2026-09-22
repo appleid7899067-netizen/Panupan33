@@ -279,7 +279,7 @@ export function SuperChat() {
     recognition.start();
   };
 
-  const isNearBottom = (el: HTMLDivElement, threshold = 80) =>
+  const isNearBottom = (el: HTMLElement, threshold = 80) =>
     el.scrollHeight - (el.scrollTop + el.clientHeight) <= threshold;
 
   useEffect(() => {
@@ -474,7 +474,7 @@ export function SuperChat() {
     if (wantsSandbox) {
       const language = sandboxMatch?.[1] || "javascript";
       const code = sandboxMatch?.[2] || userText.replace(/^.*?(?:รันโค้ด|รัน code|run code|ทดสอบโค้ด|test code|sandbox)[:\s]*/i, "").trim();
-      const sandbox = await runAgentSandbox({ language, code });
+      const sandbox = await runAgentSandbox({ data: { language, code } });
       const status = sandbox.ok ? "ผ่าน" : "ไม่ผ่าน";
       const output = [
         `🧪 Sandbox: ${status}`,
@@ -510,12 +510,13 @@ export function SuperChat() {
         },
       })) {
         if (event.type === "step") {
+          if (!event.step) continue;
           liveSteps.push(`${event.step.phase}: ${event.step.detail}`);
           const visibleSteps = liveSteps.slice(-10);
           patchActivity(thread.id, assistantId, visibleSteps);
           setLiveStream({ id: assistantId, steps: visibleSteps, active: true });
         } else if (event.type === "done") {
-          result = event.result;
+          if (event.result) result = event.result;
         }
       }
       if (!result) throw new Error("Agent stream ended without a final result.");
