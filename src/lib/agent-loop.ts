@@ -108,11 +108,13 @@ function verificationPassed(results: ToolExecutionResult[]): { passed: boolean; 
 /** Plan → Select ONE → Act → Observe → Refine → Verify (Codex-style). */
 export async function runAgentLoop(prompt: string, tools: CodingFleetTool[], maxIterations = 4, authToken?: string, onStep?: (step: AgentStep) => void, model = "openrouter:qwen/qwen3-coder"): Promise<AgentRunResult> {
   const steps: AgentStep[] = [];
+  const deepReasoning = /(?:architecture|สถาปัตย์|ออกแบบ|debug|แก้บั๊ก|bug|refactor|หลายขั้น|ทั้งระบบ|ระบบ|deploy|ดีพลอย|CI|workflow|database|ฐานข้อมูล|security|ความปลอดภัย|MCP|agent|โค้ด|code)/i.test(prompt) || prompt.length > 700;
   const emitStep = (step: AgentStep) => { steps.push(step); onStep?.(step); };
   const initialSteps: AgentStep[] = [
     { phase: "plan", detail: "วิเคราะห์เจตนาผู้ใช้และแตกงานเป็นขั้นตอน (Codex)" },
     { phase: "select", detail: `เครื่องมือที่เปิดตามเจตนา: ${summarizeToolNames(tools) || "ไม่มี — ตอบตรง"}` },
   ];
+  if (deepReasoning) initialSteps.splice(1, 0, { phase: "plan", detail: "🧠 Deep reasoning: ตรวจข้อจำกัด, ผลข้างเคียง และเส้นทางแก้ที่สั้นที่สุด (ไม่เปิดเผย chain-of-thought)" });
   initialSteps.forEach(emitStep);
   const mcp = await discoverMCPTools();
   const mcpCount = mcp.reduce((sum, item) => sum + item.tools.length, 0);
@@ -132,6 +134,7 @@ Verification requested: ${looksLikeVerification(prompt)}. For deployed URLs use 
 Health target if any: ${prompt.match(/https:\/\/[^\s)\]}>,]+/i)?.[0] || "none"}.
 Never claim external success without tool evidence.`;
   let last = "";
+  let checkpoint = "";
   let hadToolActivity = false;
   let hadVerificationActivity = false;
   let verificationPassedEvidence = "";
@@ -148,6 +151,7 @@ Never claim external success without tool evidence.`;
       return { ok: false, text: failureText(result.error, "toolResults" in result ? result.toolResults : []), steps, verified: false };
     }
     last = result.text;
+    checkpoint = `OBJECTIVE: ${prompt.slice(0, 1200)}\nLAST RESULT: ${last.slice(-2400)}\nEVIDENCE: ${result.toolResults.slice(-4).map((x) => `${x.name}=${x.ok ? "ok" : "failed"}`).join(", ")}`;
     hadToolActivity ||= result.toolCalls.length > 0;
     hadVerificationActivity ||= result.toolResults.some((item) => isVerificationToolCall(item.name));
     const verification = verificationPassed(result.toolResults);
@@ -232,7 +236,7 @@ Deterministic diagnosis hints:\n${diagnosisHints.length ? diagnosisHints.join("\
 ${verificationIssue}
 ${escalationInstruction}
 
-Continue Codex-style: use at most 1–2 tools this round. Diagnose from observations. Do not claim success without verification evidence.`;
+Continue Codex-style: use at most 1–2 tools this round. Deep reasoning mode=${deepReasoning ? "ON" : "OFF"}: reason over constraints and concrete evidence internally, but expose only concise action/status updates. Never output private chain-of-thought. Diagnose from observations. Do not claim success without verification evidence.`;
   }
   return { ok: false, text: failureText(last, []), steps, verified: false };
 }
