@@ -55,17 +55,20 @@ function Home() {
     <AppShell>
       <main className="min-h-full">
         <section className="relative overflow-hidden border-b border-border">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(120,90,255,.14),transparent_35%),radial-gradient(circle_at_85%_20%,rgba(40,170,255,.10),transparent_32%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(120,90,255,.18),transparent_35%),radial-gradient(circle_at_85%_20%,rgba(40,170,255,.14),transparent_32%)]" />
+          <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(255,255,255,.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.045)_1px,transparent_1px)] [background-size:42px_42px] [mask-image:linear-gradient(to_bottom,black,transparent_78%)]" />
+          <div className="pointer-events-none absolute -left-32 top-10 size-72 rounded-full bg-primary/10 blur-3xl animate-pulse" />
+          <div className="pointer-events-none absolute -right-32 top-24 size-80 rounded-full bg-sky-400/10 blur-3xl animate-pulse [animation-delay:900ms]" />
           <div className="relative mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-24">
             <div className="max-w-4xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/70 px-3 py-1.5 text-xs font-medium tracking-[0.18em] text-subtle">
-                <span className="size-1.5 rounded-full bg-primary" />
+              <div className="group inline-flex items-center gap-2 rounded-full border border-primary/20 bg-surface/70 px-3 py-1.5 text-xs font-medium tracking-[0.18em] text-subtle shadow-[0_0_35px_rgba(120,90,255,.10)] transition-all duration-500 hover:border-primary/50 hover:shadow-[0_0_55px_rgba(120,90,255,.22)]">
+                <span className="size-1.5 rounded-full bg-primary shadow-[0_0_12px_rgba(139,92,246,.9)] animate-pulse" />
                 BOSSNU UNIFIED · AI AGENT WORKSPACE
               </div>
               <h1 className="mt-6 text-5xl font-semibold tracking-[-0.04em] text-fg sm:text-7xl">
                 คุณบอกเป้าหมาย
                 <br />
-                <span className="text-primary">Boss หาวิธีทำเอง</span>
+                <span className="bg-gradient-to-r from-primary via-fuchsia-400 to-sky-400 bg-clip-text text-transparent drop-shadow-[0_0_28px_rgba(139,92,246,.25)]">Boss หาวิธีทำเอง</span>
               </h1>
               <p className="mt-6 max-w-3xl text-xl leading-8 text-muted sm:text-2xl">
                 ไม่ใช่แค่ AI ที่ตอบข้อความ แต่เป็นชั้นควบคุมที่เชื่อม
@@ -77,6 +80,9 @@ function Home() {
                 Boss รับ Goal แล้วจัดเส้นทางให้เอง พร้อมเก็บ Execution Trace และไม่ประกาศว่าสำเร็จจนกว่าจะมีหลักฐานจากระบบจริง
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
+                <div className="pointer-events-none absolute right-8 top-28 hidden size-28 rounded-full border border-primary/20 sm:block animate-[spin_18s_linear_infinite]">
+                  <div className="absolute -right-1 top-1/2 size-2 rounded-full bg-primary shadow-[0_0_18px_rgba(139,92,246,1)]" />
+                </div>
                 <Button size="lg" asChild>
                   <Link to="/chat">
                     เริ่มแชทกับ Boss
@@ -89,7 +95,9 @@ function Home() {
               </div>
             </div>
 
-            <div className="mt-8 flex flex-wrap items-center gap-3 text-xs text-subtle">\n              <span className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5">ใครจะรู้... ถ้าไม่ลองสั่ง Boss</span>\n              <span className="rounded-full border border-border bg-surface/60 px-3 py-1.5">30,000+ Identity Space</span>\n              <span className="rounded-full border border-border bg-surface/60 px-3 py-1.5">Goal → Build → Verify → Live</span>\n            </div>\n\n            <div className="mt-14 overflow-hidden rounded-2xl border border-border bg-surface/70 shadow-[var(--shadow-border)]">
+            <div className="mt-8 flex flex-wrap items-center gap-3 text-xs text-subtle">              <span className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5">ใครจะรู้... ถ้าไม่ลองสั่ง Boss</span>\n              <span className="rounded-full border border-border bg-surface/60 px-3 py-1.5">30,000+ Identity Space</span>\n              <span className="rounded-full border border-border bg-surface/60 px-3 py-1.5">Goal → Build → Verify → Live</span>\n            </div>
+
+            <div className="mt-14 overflow-hidden rounded-2xl border border-border bg-surface/70 shadow-[var(--shadow-border)]">
               <div className="grid divide-y divide-border md:grid-cols-6 md:divide-x md:divide-y-0">
                 {[
                   ["06", "Agents"],
@@ -100,7 +108,7 @@ function Home() {
                   ["✓", "Verify"],
                   ["30K+", "Identity space"],
                 ].map(([value, label]) => (
-                  <div key={label} className="px-5 py-5">
+                  <div key={label} className="group relative overflow-hidden px-5 py-5 transition-all duration-300 hover:-translate-y-1 hover:bg-primary/[0.04]">
                     <div className="text-2xl font-semibold tracking-tight">{value}</div>
                     <div className="mt-1 text-xs uppercase tracking-[0.16em] text-subtle">{label}</div>
                   </div>
@@ -168,8 +176,8 @@ function Home() {
             </div>
             <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {capabilities.map((item) => (
-                <article key={item.title} className="rounded-2xl border border-border bg-surface p-5 transition-transform duration-200 hover:-translate-y-0.5">
-                  <item.icon className="size-5 text-primary" />
+                <article key={item.title} className="group rounded-2xl border border-border bg-surface p-5 transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-[0_18px_50px_rgba(0,0,0,.16)]">
+                  <item.icon className="size-5 text-primary transition-transform duration-300 group-hover:scale-125 group-hover:rotate-3" />
                   <h3 className="mt-5 text-base font-semibold">{item.title}</h3>
                   <p className="mt-2 text-sm leading-6 text-muted">{item.body}</p>
                 </article>
