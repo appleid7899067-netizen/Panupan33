@@ -48,6 +48,20 @@ function summarizeToolNames(tools: CodingFleetTool[]): string {
   return tools.slice(0, 8).map((tool) => String(tool.name ?? tool.slug ?? tool.id ?? "")).filter(Boolean).join(", ");
 }
 
+function activityLabel(toolName: string, ok: boolean): string {
+  const name = toolName.toLowerCase();
+  if (!ok) return "⚠️ กำลังตรวจ error จาก " + toolName;
+  if (/extract|unzip|archive|zip|upload|attachment/.test(name)) return "📦 กำลังแตก/อ่านไฟล์จากงานที่แนบ";
+  if (/github.*(fetch|read)|read.*file|file.*read/.test(name)) return "📄 กำลังอ่านไฟล์จริงจาก GitHub";
+  if (/github.*(write|update|create)|write.*file|edit|patch/.test(name)) return "✏️ กำลังแก้ไขไฟล์จริง";
+  if (/search|web|yandex|google/.test(name)) return "🔎 กำลังค้นข้อมูล";
+  if (/sandbox|terminal|exec|run|shell|command/.test(name)) return "▶️ กำลังรันคำสั่งใน Sandbox";
+  if (/workflow|actions|ci|build|test|lint|typecheck/.test(name)) return "🧪 กำลังตรวจ Build / Test / CI";
+  if (/deploy|vercel|render|netlify/.test(name)) return "🚀 กำลังตรวจ/ทำ Deployment";
+  if (/preview|browser|http|health/.test(name)) return "🌐 กำลังตรวจ Preview / เว็บที่รันจริง";
+  return "⚙️ กำลังทำงานผ่าน " + toolName;
+}
+
 function looksLikeMutation(prompt: string): boolean {
   return /แก้|เขียน|สร้าง|ลบ|update|write|fix|repair|deploy|ดีพลอย|modify|change|commit/i.test(prompt);
 }
@@ -161,6 +175,7 @@ Never claim external success without tool evidence.`;
         const ui = (toolResult.result as Record<string, unknown>).ui;
         if (ui && typeof ui === "object") emitStep({ phase: "observe", detail: `MCP_UI:${JSON.stringify(ui).slice(0, 6000)}` });
       }
+      emitStep({ phase: "observe", detail: activityLabel(toolResult.name, toolResult.ok) });
       const detail = toolResult.ok
         ? `✓ ${toolResult.name}`
         : `✗ ${toolResult.name}: ${String(toolResult.error ?? "tool failed").slice(0, 180)}`;
