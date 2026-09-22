@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState, useRef } from "react";
-import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X, CheckCircle2, Circle, Activity, Copy } from "lucide-react";
+import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X, CheckCircle2, Circle, Activity } from "lucide-react";
 import { useFleet } from "@/lib/store";
 import { backgroundLab } from "@/lib/background-sandbox";
 import { freeAI } from "@/lib/autonomous";
