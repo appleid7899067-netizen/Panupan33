@@ -516,7 +516,7 @@ export function SuperChat() {
           patchActivity(thread.id, assistantId, visibleSteps);
           setLiveStream({ id: assistantId, steps: visibleSteps, active: true });
         } else if (event.type === "done") {
-          if (event.result) result = event.result;
+          if (event.result) result = event.result as import("@/lib/agent-loop").AgentRunResult;
         }
       }
       if (!result) throw new Error("Agent stream ended without a final result.");
