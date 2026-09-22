@@ -112,7 +112,23 @@ function Home() {
 
         <section className="border-b border-border">
           <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-20">
-            <div className="mb-10 max-w-2xl">\n              <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Agent roles</p>\n              <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">เบื้องหลังคำว่า “ทำเลย” มีทั้งทีม</h2>\n              <p className="mt-4 text-sm leading-7 text-muted">Boss แบ่งบทบาทตามงาน แล้วส่งไม้ต่อพร้อมหลักฐาน ตั้งแต่ค้นหา สร้าง รัน ซ่อม ตรวจ จนถึง publish</p>\n            </div>\n            <div className="mb-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">\n              {roles.map((role) => (\n                <article key={role.title} className="group rounded-2xl border border-border bg-surface p-5 transition-all duration-200 hover:-translate-y-1 hover:border-primary/30">\n                  <role.icon className="size-5 text-primary transition-transform duration-200 group-hover:scale-110" />\n                  <div className="mt-5 text-[10px] font-semibold tracking-[0.2em] text-subtle">BOSS MESH</div>\n                  <h3 className="mt-1 text-sm font-semibold">{role.title}</h3>\n                  <p className="mt-2 text-sm leading-6 text-muted">{role.body}</p>\n                </article>\n              ))}\n            </div>\n\n            <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:items-start">
+            <div className="mb-10 max-w-2xl">
+              <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Agent roles</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">เบื้องหลังคำว่า “ทำเลย” มีทั้งทีม</h2>
+              <p className="mt-4 text-sm leading-7 text-muted">Boss แบ่งบทบาทตามงาน แล้วส่งไม้ต่อพร้อมหลักฐาน ตั้งแต่ค้นหา สร้าง รัน ซ่อม ตรวจ จนถึง publish</p>
+            </div>
+            <div className="mb-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {roles.map((role) => (
+                <article key={role.title} className="group rounded-2xl border border-border bg-surface p-5 transition-all duration-200 hover:-translate-y-1 hover:border-primary/30">
+                  <role.icon className="size-5 text-primary transition-transform duration-200 group-hover:scale-110" />
+                  <div className="mt-5 text-[10px] font-semibold tracking-[0.2em] text-subtle">BOSS MESH</div>
+                  <h3 className="mt-1 text-sm font-semibold">{role.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted">{role.body}</p>
+                </article>
+              ))}
+            </div>
+
+            <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:items-start">
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">How Boss thinks</p>
                 <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">จากประโยคเดียวสู่ผลลัพธ์จริง</h2>
