@@ -495,7 +495,7 @@ export function SuperChat() {
       setLiveStream({ id: assistantId, steps: [initialAgentStatus], active: true });
       const puter = await loadPuter();
       const authToken = (puter as unknown as { authToken?: string }).authToken;
-      let result: Awaited<ReturnType<typeof runAgent>> | null = null;
+      let result: import("@/lib/agent-loop").AgentRunResult | null = null;
       const liveSteps: string[] = [];
       for await (const event of await runAgentStream({
         data: {
