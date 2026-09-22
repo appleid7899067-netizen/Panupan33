@@ -9,36 +9,28 @@ export const FOOTER_LINE =
   "© 2026 Bossnu SlieLo · พัฒนาโดย ภาณุพัน และ สลี่.ออลา · Models run through Puter. Threads stay in this browser.";
 export const PUTER_DOCS = "https://developer.puter.com";
 
-/** Default free model — fast + capable for everyday Boss work. */
-export const DEFAULT_PUTER_MODEL = "openrouter:qwen/qwen3-coder";
+/** Free-first default. Boss tries the free tier before paid fallbacks. */
+export const DEFAULT_PUTER_MODEL = "nex-agi/nex-n2.5-pro:free";
 
-/**
- * Free / low-cost models available through Puter for the model picker.
- * Prefer open-weight and free-tier IDs so users can work without paid keys.
- */
+/** Verified free-tier candidates supplied by the current model catalog. */
+export const FREE_PUTER_MODEL_IDS = [
+  "nex-agi/nex-n2.5-pro:free",
+  "dots-studio/dots-3-note-preview:free",
+  "inclusionai/ling-3.0-flash-sante:free",
+  "nex-agi/nex-n2.5-mini:free",
+] as const;
+
+/** Free-first picker list, followed by cheap paid fallbacks when needed. */
 export const POWER_PUTER_MODEL_IDS = [
-  // Free / strong coding
-  "openrouter:qwen/qwen3-coder",
-  "openrouter:qwen/qwen3-235b-a22b",
-  "openrouter:deepseek/deepseek-chat-v3-0324",
-  "openrouter:deepseek/deepseek-r1",
-  "openrouter:meta-llama/llama-4-maverick",
-  "openrouter:meta-llama/llama-4-scout",
-  "openrouter:google/gemma-3-27b-it",
-  "openrouter:google/gemini-2.5-flash-preview",
-  "openrouter:mistralai/mistral-small-3.1-24b-instruct",
-  "openrouter:mistralai/devstral-small",
-  // Puter-native / alternate free paths
+  ...FREE_PUTER_MODEL_IDS,
   "upstage/solar-pro-4",
   "qwen/qwen3.7-flash",
   "deepseek/deepseek-v4.1-flash",
   "deepseek/deepseek-v4-flash",
   "google/gemini-3.1-flash-lite",
-  "x-ai/grok-4-20-reasoning",
-  // Optional stronger (may need quota)
   "openai/gpt-5.6-luna",
   "openai/gpt-5.6-luna-pro",
-  "anthropic/claude-sonnet-4",
+  "x-ai/grok-4-20-reasoning",
 ] as const;
 
 export type NavItem = { to: string; label: string; icon: LucideIcon };
