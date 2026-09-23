@@ -57,11 +57,20 @@ export type KernelDecision =
   | { kind: "complete"; reason: string }
   | { kind: "blocked"; reason: string };
 
+export type KnowledgePartition = {
+  problem: string;
+  facts: string[];
+  sources: string[];
+  updatedAt: number;
+};
+
 export type AgentKernelState = {
   contract: GoalContract;
   actions: KernelAction[];
   observations: KernelObservation[];
   failures: Record<string, number>;
+  deniedSources: Record<string, number>;
+  knowledge: KnowledgePartition[];
   completedCapabilities: string[];
   startedAt: number;
   updatedAt: number;
@@ -157,6 +166,8 @@ export function createAgentKernel(goal: string): AgentKernelState {
     actions: [],
     observations: [],
     failures: {},
+    deniedSources: {},
+    knowledge: [],
     completedCapabilities: [],
     startedAt: now,
     updatedAt: now,
@@ -213,6 +224,38 @@ export function recordObservation(
   };
 }
 
+export function recordAccessDenied(state: AgentKernelState, source: string): AgentKernelState {
+  return {
+    ...state,
+    deniedSources: {
+      ...state.deniedSources,
+      [source]: (state.deniedSources[source] ?? 0) + 1,
+    },
+    updatedAt: Date.now(),
+  };
+}
+
+export function rememberKnowledge(
+  state: AgentKernelState,
+  problem: string,
+  facts: string[],
+  source?: string,
+): AgentKernelState {
+  const key = problem.trim().slice(0, 160);
+  const existing = state.knowledge.find((item) => item.problem === key);
+  const next: KnowledgePartition = {
+    problem: key,
+    facts: [...new Set([...(existing?.facts ?? []), ...facts.map((x) => x.trim()).filter(Boolean)])].slice(-12),
+    sources: [...new Set([...(existing?.sources ?? []), ...(source ? [source] : [])])].slice(-8),
+    updatedAt: Date.now(),
+  };
+  return {
+    ...state,
+    knowledge: [...state.knowledge.filter((item) => item.problem !== key), next].slice(-20),
+    updatedAt: Date.now(),
+  };
+}
+
 export function recordFailure(state: AgentKernelState, tool: string): AgentKernelState {
   return {
     ...state,
@@ -246,9 +289,10 @@ export function shouldAvoidAction(state: AgentKernelState, tool: string, input?:
   const fp = actionFingerprint(tool, input);
   const same = state.actions.filter((a) => a.inputFingerprint === fp);
   const failedCapability = (state.failures[tool] ?? 0) >= 1;
+  const denied = (state.deniedSources[tool] ?? 0) >= 1;
   const exactFailureReplay = failedCapability && same.length >= 1;
   const exhaustedCapability = (state.failures[tool] ?? 0) >= 3;
-  return exactFailureReplay || exhaustedCapability;
+  return exactFailureReplay || denied || exhaustedCapability;
 }
 
 export function missingVerification(state: AgentKernelState): string[] {
@@ -318,6 +362,9 @@ export function kernelSummary(state: AgentKernelState): string {
     `Mutation: ${state.contract.mutation}`,
     `Evidence: ${hasEvidence(state) ? "yes" : "no"}`,
     `Avoid exact failed actions: ${Object.keys(state.failures).length ? "yes" : "no"}`,
+    `Denied sources remembered: ${Object.keys(state.deniedSources).join(", ") || "none"}`,
+    `Knowledge partitions: ${state.knowledge.length}`,
+    `Rule: if a source denied access, do not return to it in this run; split the problem and use allowed sources.`,
     `Recovery rule: failed path is remembered; next action must change tool, input, or route`,
     `Next: ${decision.kind} — ${decision.reason}`,
     recent ? `Recent observations:\n${recent}` : "Recent observations: none",
