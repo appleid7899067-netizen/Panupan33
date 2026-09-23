@@ -2,6 +2,7 @@
  * Tool loader — Puter + Sandbox + Web + Full GitHub + Builder surface
  * GitHub: any owner/repo when user provides token; no pre-bound connection required.
  * Builder: ported from https://github.com/HeyPuter/builder (Apache-2.0)
+ * Web: forced public browser (Bing+Wikipedia+navigate); private hosts blocked.
  */
 import { ensurePuter, extractText } from "@/lib/puter";
 import { runInSandbox } from "@/lib/sandbox";
@@ -11,6 +12,7 @@ import { AUTH_GITHUB_FULL, isGithubAuthTool, nativeFullGitHubTools } from "@/lib
 import { nativeBuilderTools, isBuilderTool } from "@/lib/builder/tools";
 import { executeBuilderTool } from "@/lib/builder/execute";
 import { callMCPTool, discoverMCPTools } from "@/lib/mcp";
+import { browserWebSearch, browserNavigate, assertPublicHttpsUrl } from "@/lib/web-browser";
 
 export type CodingFleetTool = {
   name?: string;
@@ -86,20 +88,58 @@ function nativeSandboxTools(): CodingFleetTool[] {
 }
 
 function nativeWebTools(): CodingFleetTool[] {
-  return [{
-    name: "web_search",
-    webSource: true,
-    description: "Search the live Internet through OpenAI's hosted web search.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: { type: "string", minLength: 2, maxLength: 600 },
-        count: { type: "integer", minimum: 1, maximum: 10 },
+  const urlProp = { type: "string", minLength: 8, maxLength: 2048 };
+  return [
+    {
+      name: "web_search",
+      webSource: true,
+      description:
+        "REQUIRED public-internet search via real browser (Bing + Wikipedia). Use for any live web facts. Only public HTTPS hosts. Optional openTop opens top result pages and extracts text.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string", minLength: 2, maxLength: 600 },
+          count: { type: "integer", minimum: 1, maximum: 10 },
+          openTop: { type: "integer", minimum: 0, maximum: 3, description: "Open top N result pages in browser and extract text" },
+        },
+        required: ["query"],
+        additionalProperties: false,
       },
-      required: ["query"],
-      additionalProperties: false,
     },
-  }];
+    {
+      name: "web_browse",
+      webSource: true,
+      description: "Open any public HTTPS page in the browser and extract title + readable text. Blocks private/local hosts.",
+      inputSchema: {
+        type: "object",
+        properties: { url: urlProp, timeoutMs: { type: "integer", minimum: 2000, maximum: 45000 } },
+        required: ["url"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "web_check",
+      webSource: true,
+      description: "Browser GET status check for a public HTTPS URL.",
+      inputSchema: {
+        type: "object",
+        properties: { url: urlProp, timeoutMs: { type: "integer" } },
+        required: ["url"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "web_fetch",
+      webSource: true,
+      description: "Browser-fetch public HTTPS page body (text extracted).",
+      inputSchema: {
+        type: "object",
+        properties: { url: urlProp, timeoutMs: { type: "integer" } },
+        required: ["url"],
+        additionalProperties: false,
+      },
+    },
+  ];
 }
 
 function nativeAuthenticatedGitHubTools(): CodingFleetTool[] {
@@ -126,9 +166,6 @@ export async function loadCodingFleetTools(_forceRefresh = false): Promise<Codin
     const n = toolName(t);
     if (n) byName.set(n, t);
   }
-  // MCP is part of the agent tool pool, not a separate user-selected mode.
-  // Prefix names to prevent collisions between servers while preserving the
-  // original MCP tool name in the executor metadata.
   const mcp = await discoverMCPTools();
   for (const entry of mcp) {
     for (const mcpTool of entry.tools) {
@@ -186,53 +223,52 @@ async function executePublicGitHub(name: string, args: Record<string, unknown>):
 async function executeWebSearch(args: Record<string, unknown>): Promise<unknown> {
   const query = String(args.query ?? "").trim();
   if (!query) throw new Error("web_search requires query");
-  const count = Math.min(10, Math.max(1, Number(args.count ?? 8)));
-  const openaiKey = String(process.env.OPENAI_API_KEY ?? "").trim();
-  if (!openaiKey) throw new Error("OpenAI web search requires OPENAI_API_KEY.");
-
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${openaiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: process.env.OPENAI_WEB_SEARCH_MODEL || "gpt-5-mini",
-      tools: [{ type: "web_search" }],
-      input: `Search the live Internet for: ${query}\nReturn up to ${count} relevant sources with title, URL, and a concise factual snippet. Prefer primary/authoritative sources.`,
-    }),
+  // Forced public browser — real HTTPS navigation only (no private hosts)
+  return browserWebSearch(query, {
+    count: Number(args.count ?? 8),
+    openTop: Number(args.openTop ?? 0),
   });
-  if (!response.ok) throw new Error(`OpenAI web search HTTP ${response.status}`);
-  const data = await response.json() as {
-    output_text?: string;
-    output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string; annotations?: Array<{ type?: string; url?: string; title?: string }> }> }>;
-  };
-  return {
-    provider: "openai",
-    query,
-    text: data.output_text ?? "",
-    output: data.output ?? [],
-  };
 }
 
 async function executeWeb(name: string, args: Record<string, unknown>): Promise<unknown> {
   const rawUrl = String(args.url ?? "").trim();
-  if (!/^https:\/\//i.test(rawUrl)) throw new Error("HTTPS only");
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), Math.min(30000, Number(args.timeoutMs ?? 15000)));
-  try {
-    const response = await fetch(rawUrl, {
-      signal: controller.signal,
-      headers: { Accept: "text/html,application/json,*/*", "User-Agent": "Bossnu-Web/1.0" },
-    });
-    const body = await response.text();
-    if (name === "web_check") {
-      return { ok: response.ok, status: response.status, finalUrl: response.url, bodyPreview: body.slice(0, 2000) };
-    }
-    return { ok: response.ok, status: response.status, finalUrl: response.url, data: body.slice(0, 30000) };
-  } finally {
-    clearTimeout(timer);
+  assertPublicHttpsUrl(rawUrl);
+  const page = await browserNavigate(rawUrl, {
+    timeoutMs: args.timeoutMs ? Number(args.timeoutMs) : undefined,
+  });
+  if (name === "web_browse") {
+    return {
+      ok: page.ok,
+      status: page.status,
+      finalUrl: page.finalUrl,
+      title: page.title,
+      text: page.text.slice(0, 50000),
+      responseTimeMs: page.responseTimeMs,
+      via: "browser",
+      ...(page.error ? { error: page.error } : {}),
+    };
   }
+  if (name === "web_check") {
+    return {
+      ok: page.ok,
+      status: page.status,
+      finalUrl: page.finalUrl,
+      contentType: page.contentType,
+      bodyPreview: page.text.slice(0, 2000),
+      responseTimeMs: page.responseTimeMs,
+      via: "browser",
+      ...(page.error ? { error: page.error } : {}),
+    };
+  }
+  return {
+    ok: page.ok,
+    status: page.status,
+    finalUrl: page.finalUrl,
+    contentType: page.contentType,
+    data: page.text.slice(0, 50000),
+    via: "browser",
+    ...(page.error ? { error: page.error } : {}),
+  };
 }
 
 async function executeTool(
@@ -256,6 +292,7 @@ async function executeTool(
     });
   }
   if (name === "web_search") return executeWebSearch(args);
+  if (name === "web_browse" || name === "web_check" || name === "web_fetch") return executeWeb(name, args);
   if (isBuilderTool(name) || tool.builderSource) {
     return executeBuilderTool(name, args, { authToken });
   }
@@ -356,11 +393,11 @@ export async function callWithFallback(
             if (!tool) throw new Error(`Unknown tool ${call.name}`);
             const result = await executeTool(tool, call.arguments, authToken, githubToken);
             toolResults.push({ name: call.name, ok: true, result });
-            messages.push({ role: "user", content: `[TOOL RESULT: ${call.name}]\\n${JSON.stringify(result).slice(0, 50000)}` });
+            messages.push({ role: "user", content: `[TOOL RESULT: ${call.name}]\n${JSON.stringify(result).slice(0, 50000)}` });
           } catch (e) {
             const err = e instanceof Error ? e.message : String(e);
             toolResults.push({ name: call.name, ok: false, error: err });
-            messages.push({ role: "user", content: `[TOOL ERROR: ${call.name}]\\n${JSON.stringify({ error: err })}` });
+            messages.push({ role: "user", content: `[TOOL ERROR: ${call.name}]\n${JSON.stringify({ error: err })}` });
           }
         }
       }
@@ -371,7 +408,7 @@ export async function callWithFallback(
         model,
         toolCalls: lastCalls,
         toolResults,
-        verified: toolResults.some((t) => t.ok && /web_check|wait_for_workflow|actions|builder_publish/i.test(t.name)),
+        verified: toolResults.some((t) => t.ok && /web_check|web_browse|web_search|wait_for_workflow|actions|builder_publish/i.test(t.name)),
       };
     } catch (e) {
       lastError = e instanceof Error ? e.message : String(e);
