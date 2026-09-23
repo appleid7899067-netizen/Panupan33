@@ -109,7 +109,7 @@ function hasVerification(goal: string): boolean {
 }
 
 function hasLiveCheck(goal: string): boolean {
-  return /deploy|ดีพลอย|publish|preview|เปิดเว็บ|url|https?:\\/\\//.test(goal.toLowerCase());
+  return /deploy|ดีพลอย|publish|preview|เปิดเว็บ|url|https?:\/\//.test(goal.toLowerCase());
 }
 
 function riskOf(goal: string): KernelRisk {
