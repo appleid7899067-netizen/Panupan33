@@ -1,34 +1,36 @@
-# Render Recovery — panupanboss.onrender.com
+# Render — ไล่เวอร์ชันเก่า / ขึ้นของใหม่
 
-## อาการล่าสุด (2026-09-23) — 2 รอบติด
+## สถานะ
 
+- เว็บอาจยังเสิร์ฟ **build เก่าที่สำเร็จครั้งสุดท้าย** แม้ main มีโค้ดใหม่แล้ว
+- ถ้า deploy ล้ม → Render **ไม่สลับ** ไปเวอร์ชันใหม่ (ค้างของเก่า)
+
+## ทำบน Dashboard (ต้องทำมือ 1 ครั้ง)
+
+1. เปิด https://dashboard.render.com → service **panupanboss**
+2. ตรวจว่าเชื่อม repo `appleid7899067-netizen/Panupan33` branch **main**
+3. **Settings**
+   - **Build Command:** `npm install && npm run build`
+   - **Start Command:** `npm start`
+   - **Health Check Path:** `/`
+4. **Manual Deploy** → **Clear build cache & deploy**
+5. รอ Logs:
+   - ต้องเห็น `[render-build] ... skipping vite build in postinstall`
+   - แล้ว `vite build` ในขั้น Build Command ต้องผ่าน
+6. Deploy เขียวแล้ว hard-refresh เว็บ (Ctrl+Shift+R)
+
+## ตรวจว่าขึ้นของใหม่
+
+```bash
+curl -sS https://panupanboss.onrender.com/boss-build.txt
+# ควรเห็น boss-build=...
 ```
-Exited with status 1 while building your code.
-npm error command failed
-npm error command sh -c node scripts/render-build.mjs
-Source: b212954
-```
 
-**สาเหตุ:** `postinstall` → `scripts/render-build.mjs` รัน `vite build` ระหว่าง `npm install` บน Render → พัง status 1
+ถ้ายัง 404 = ยังเป็น build เก่าที่ยังไม่มีไฟล์นี้
 
-**แก้แล้ว:** `render-build.mjs` **ไม่รัน vite build ใน postinstall** แล้ว (exit 0) — build จริงอยู่ที่ Build Command เท่านั้น
+## Commit ล่าสุดที่ควรขึ้น
 
-## ตั้งค่า Dashboard
-
-| ช่อง | ค่า |
-|------|-----|
-| **Build Command** | `npm install && npm run build` |
-| **Start Command** | `npm start` |
-| **Health Check Path** | `/` |
-| **Node** | `22` |
-
-## หลังมี commit แก้ postinstall
-
-1. Manual Deploy → **Clear build cache & deploy**
-2. Logs ควรเห็น: `[render-build] ... skipping vite build in postinstall`
-3. จากนั้นขั้น `npm run build` ต้องเขียว
-4. เปิด https://panupanboss.onrender.com/ ได้ 200
-
-## Free plan spin-down
-
-Cold start ช้าหลังไม่ใช้ ~15 นาที — ไม่ใช่ build fail คนละอาการ
+- `667bc41` boss-engine runners
+- `b4c8a75` agent-loop wire
+- `afbe6cf` puter-tool-loader regex fix
+- `37402a0` postinstall ไม่ vite-build แล้ว
