@@ -2,39 +2,61 @@
 
 อัปเดต: 2026-09-23
 
-## Phase 1 — เครื่องยนต์หลัก ✅ LANDED (modules)
+Roadmap มาตรฐาน (5 Phase):
 
-| # | รายการ | สถานะ | ไฟล์ |
-|---|--------|--------|------|
-| 1 | Autonomous Planner | ✅ module | `src/lib/boss-engine/boss-planner.ts` |
-| 2 | Agent State / Task Memory | ✅ module | `src/lib/boss-engine/boss-task-state.ts` |
-| 3 | Evidence Engine | ✅ module | `src/lib/boss-engine/boss-evidence.ts` |
-| 4 | Recovery Loop | ✅ module | `src/lib/boss-engine/boss-recovery.ts` |
-| 5 | Smart Tool Router | ✅ module | `src/lib/boss-engine/boss-tool-router.ts` |
+```
+PHASE 1 Core Engine → VERIFIED (modules + orchestrator)
+PHASE 2 Coding Intelligence → modules landed
+PHASE 3 GitHub Autonomous Loop
+PHASE 4 Publisher / Preview
+PHASE 5 Autonomy
+```
 
-**ยังค้าง Phase 1:** เชื่อมเข้า `agent-loop.ts` ให้รันจริงในทุก chat (integration)
+## PHASE 1 — Core Engine ✅ modules + orchestrator
 
-## Phase 2 — Coding Agent (6–10) ⏳ ถัดไป
-## Phase 3 — GitHub + CI (11–14) ⏳
-## Phase 4 — Preview (15–18) ⏳
-## Phase 5 — Memory ยาว (19–21) ⏳
-## Phase 6 — UX (22–26) ⏳
-## Phase 7 — Boss เต็มระบบ (27–35) ⏳
+| Component | File | Status |
+|-----------|------|--------|
+| Planner | `boss-planner.ts` | ✅ |
+| Task State / Memory | `boss-task-state.ts` | ✅ |
+| Evidence Engine | `boss-evidence.ts` | ✅ |
+| Recovery Loop | `boss-recovery.ts` | ✅ |
+| Tool Router | `boss-tool-router.ts` | ✅ |
+| Orchestrator | `boss-orchestrator.ts` | ✅ |
 
-### วิธีใช้ตอนนี้
+**ค้าง:** ผูก `bootstrapBoss` / `bossPromptPrefix` / `onToolResults` เข้า `agent-loop.ts` แบบเต็ม (runtime VERIFIED)
+
+## PHASE 2 — Coding Intelligence ✅ modules
+
+| Component | File | Status |
+|-----------|------|--------|
+| Repo Understanding | `coding-repo.ts` | ✅ |
+| Dependency Intelligence | `coding-deps.ts` | ✅ |
+| Diff + Change Plan + Rollback | `coding-diff.ts` | ✅ |
+
+**ค้าง:** เรียกจาก coding path ก่อนแก้ไฟล์จริง + เก็บ snapshot rollback อัตโนมัติ
+
+## PHASE 3 — GitHub Autonomous Loop ⏳
+Branch → Edit → Commit → PR → CI → Diagnose → Repair → Verify
+
+## PHASE 4 — Publisher / Preview ⏳
+Publish → HTTP Verify → Runtime Verify → Project Binding → Auto Update
+
+## PHASE 5 — Autonomy ⏳
+Capability Discovery · Model Routing · Multi-Agent · Budget Guard · Loop Detection · Self-Critique · Evidence Completion
+
+---
+
+Import:
 
 ```ts
 import {
-  createPlan,
-  nextRunnableStep,
-  markStepDone,
-  planSummary,
-  createTaskState,
-  resumeSummary,
-  createEvidenceEngine,
-  createRecoveryEngine,
-  routeToolsForTask,
+  bootstrapBoss,
+  bossPromptPrefix,
+  onToolResults,
+  shouldStopAsVerified,
+  buildRepoMap,
+  decideDependency,
+  createChangeSet,
+  createRollbackSnapshot,
 } from "@/lib/boss-engine";
 ```
-
-ดู `src/lib/boss-engine/README.md`
