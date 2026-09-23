@@ -150,6 +150,9 @@ export default defineConfig(({ command, isPreview }) => ({
     host: "0.0.0.0",
     port: 8080,
     strictPort: true,
+    // The live-preview proxy reaches the dev server through per-sandbox
+    // hostnames (e.g. 8080-<sandboxId>.e2b.app) — allow that subdomain.
+    allowedHosts: [".e2b.app"],
   },
   preview: {
     host: "127.0.0.1",

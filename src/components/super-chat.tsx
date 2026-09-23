@@ -523,6 +523,7 @@ export function SuperChat() {
           context: attachmentContext ? `${context}\n\n${attachmentContext}` : context,
           ...(authToken ? { authToken } : {}),
           ...(githubToken ? { githubToken } : {}),
+          ...(thread?.id ? { threadId: thread.id } : {}),
           model: selectedModel,
         },
       })) {

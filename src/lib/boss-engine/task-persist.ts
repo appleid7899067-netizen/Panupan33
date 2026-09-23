@@ -42,13 +42,16 @@ export function parseBossState(raw: unknown): BossPersistedBlob | null {
   }
 }
 
-/** Instructions injected so the model persists via puter_kv_* tools. */
+/**
+ * Instructions about task memory. Persistence is handled by the system
+ * (puter-kv.server.ts) — the model never calls KV tools itself.
+ */
 export function persistInstructions(threadId?: string): string {
   const key = bossKvKey(threadId);
   return [
-    "BOSS MEMORY PROTOCOL:",
-    `- After meaningful progress, call puter_kv_set with key "${key}" and JSON state { version:1, task, githubLoop?, preview?, updatedAt }.`,
-    `- At the start of a continuing task, call puter_kv_get key "${key}" and resume from stored task/plan if present.`,
-    "- Keep the value compact (< 50KB). Do not store secrets or tokens.",
+    "BOSS MEMORY PROTOCOL (system-managed):",
+    `- The system auto-saves this thread's task state to Puter KV key "${key}" after each run and re-injects it as "RESUMED TASK MEMORY" when work continues.`,
+    "- If RESUMED TASK MEMORY / RESUMED GITHUB LOOP sections are present, continue from that state — do not redo completed work and do not invent new goals.",
+    "- Keep tool outputs compact (< 50KB). Never write secrets or tokens into repo files or tool arguments.",
   ].join("\n");
 }

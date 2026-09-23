@@ -15,6 +15,10 @@ import { executeBuilderTool } from "@/lib/builder/execute";
 import { callMCPTool, discoverMCPTools } from "@/lib/mcp";
 import { browserWebSearch, browserNavigate, assertPublicHttpsUrl } from "@/lib/web-browser";
 import { installRuntime, installAllRuntimes, getRuntimeMemory, SUPPORTED_LANGUAGES } from "@/lib/browser-runtimes";
+import { autoVerifyAfterPublish, extractPublishUrl } from "@/lib/boss-engine/post-publish";
+
+/** Context for auto-verification after publish/hosting tools (puter_hosting_create etc.). */
+export type PublishCtx = { projectId?: string; threadId?: string };
 
 export type CodingFleetTool = {
   name?: string;
@@ -299,6 +303,7 @@ async function executeTool(
   args: Record<string, unknown>,
   authToken?: string,
   githubToken?: string,
+  publishCtx?: PublishCtx,
 ): Promise<unknown> {
   const name = toolName(tool);
   if (tool.mcpServer && tool.mcpToolName) {
@@ -335,7 +340,34 @@ async function executeTool(
   if (name === "web_search") return executeWebSearch(args);
   if (name === "web_browse" || name === "web_check" || name === "web_fetch") return executeWeb(name, args);
   if (isBuilderTool(name) || tool.builderSource) {
-    return executeBuilderTool(name, args, { authToken });
+    const result = await executeBuilderTool(name, args, { authToken });
+    // Auto-verify after publish/hosting (puter_hosting_create / builder_publish_site):
+    // fetch the public URL, check HTTP + runtime HTML, merge evidence into the result.
+    try {
+      const auto = await autoVerifyAfterPublish(name, result, {
+        projectId: publishCtx?.projectId ?? "default",
+        threadId: publishCtx?.threadId,
+      });
+      if (auto) {
+        const url = extractPublishUrl(result);
+        const base =
+          result && typeof result === "object" && !Array.isArray(result)
+            ? (result as Record<string, unknown>)
+            : { result };
+        return {
+          ...base,
+          autoVerify: {
+            url,
+            ok: auto.ok,
+            httpStatus: auto.http?.status,
+            detail: auto.detail,
+          },
+        };
+      }
+    } catch {
+      /* verification is best-effort — never fail the publish itself */
+    }
+    return result;
   }
   if (tool.githubSource && isGithubAuthTool(name)) {
     try {
@@ -381,6 +413,7 @@ export async function callWithFallback(
   onActivity?: (lines: string[]) => void,
   authToken?: string,
   githubToken?: string,
+  publishCtx?: PublishCtx,
 ): Promise<{ ok: boolean; text: string; model?: string; toolCalls: ToolCall[]; toolResults: ToolExecutionResult[]; verified?: boolean; error?: string }> {
   const availableTools = tools.length ? tools : await loadCodingFleetTools();
   const puterTools = toPuterTools(availableTools);
@@ -446,7 +479,7 @@ export async function callWithFallback(
           const tool = toolMap.get(call.name);
           try {
             if (!tool) throw new Error(`Unknown tool ${call.name}`);
-            const result = await executeTool(tool, call.arguments, authToken, githubToken);
+            const result = await executeTool(tool, call.arguments, authToken, githubToken, publishCtx);
             toolResults.push({ name: call.name, ok: true, result });
             messages.push({ role: "user", content: `[TOOL RESULT: ${call.name}]\n${JSON.stringify(result).slice(0, 50000)}` });
           } catch (e) {
