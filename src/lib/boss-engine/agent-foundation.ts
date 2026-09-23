@@ -64,7 +64,7 @@ function isMutation(goal: string): boolean {
 }
 
 function isLive(goal: string): boolean {
-  return /deploy|ดีพลอย|publish|preview|เปิดเว็บ|url|https?:\\/\\//.test(text(goal));
+  return /deploy|ดีพลอย|publish|preview|เปิดเว็บ|url|https?:\/\//.test(text(goal));
 }
 
 /**
