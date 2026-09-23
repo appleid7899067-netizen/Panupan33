@@ -248,7 +248,7 @@ async function searchBing(query: string, count: number): Promise<SearchHit[]> {
   const re = /<h2[^>]*>\s*<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>\s*<\/h2>/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(body)) !== null && hits.length < count) {
-    let href = unwrapBingUrl(decodeEntities(m[1]));
+    const href = unwrapBingUrl(decodeEntities(m[1]));
     if (/javascript:/i.test(href)) continue;
     if (/bing\.com\/(search|ck|account|maps)/i.test(href)) continue;
     if (seen.has(href)) continue;

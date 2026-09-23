@@ -3,11 +3,49 @@ import { Bot, Cpu, PlugZap, Server } from "lucide-react";
 
 export const APP_NAME = "Bossnu SlieLo";
 export const MOTTO_TH = "ไม่มีอะไรที่ทำไม่ได้ · ไม่มีสิ่งใดที่แก้ไม่ได้ · สั่งวันนี้ต้องเสร็จเมื่อวาน · ใครจะรู้ว่า Boss จะทำได้ไกลแค่ไหน";
+export const MOTTO_EN =
+  "Nothing is impossible. Nothing can't be fixed. Ordered today, finished yesterday. Who knows how far Boss can go.";
+export const MOTTO_YESTERDAY = "สั่งวันนี้ต้องเสร็จเมื่อวาน";
 export const FOOTER_LINE =
   "© 2026 Bossnu SlieLo · พัฒนาโดย ภาณุพัน และ สลี่.ออลา · Models run through Puter. Threads stay in this browser.";
+export const PUTER_DOCS = "https://developer.puter.com";
 
-export const NAV_ITEMS: Array<{ to: string; label: string; icon: LucideIcon }> = [
+/** Free-first default. Boss tries the free tier before paid fallbacks. */
+export const DEFAULT_PUTER_MODEL = "nex-agi/nex-n2.5-pro:free";
+
+/** Verified free-tier candidates supplied by the current model catalog. */
+export const FREE_PUTER_MODEL_IDS = [
+  "nex-agi/nex-n2.5-pro:free",
+  "dots-studio/dots-3-note-preview:free",
+  "inclusionai/ling-3.0-flash-sante:free",
+  "nex-agi/nex-n2.5-mini:free",
+] as const;
+
+/** Free-first picker list, followed by cheap paid fallbacks when needed. */
+export const POWER_PUTER_MODEL_IDS = [
+  ...FREE_PUTER_MODEL_IDS,
+  "upstage/solar-pro-4",
+  "qwen/qwen3.7-flash",
+  "deepseek/deepseek-v4.1-flash",
+  "deepseek/deepseek-v4-flash",
+  "google/gemini-3.1-flash-lite",
+  "openai/gpt-5.6-luna",
+  "openai/gpt-5.6-luna-pro",
+  "x-ai/grok-4-20-reasoning",
+] as const;
+
+export type NavItem = { to: string; label: string; icon: LucideIcon };
+
+export const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Chat", icon: Bot },
+  { to: "/sandbox", label: "Sandbox", icon: Server },
+  { to: "/plugins", label: "Plugins", icon: PlugZap },
+  { to: "/models", label: "Models", icon: Cpu },
+];
+
+/** Nav used by the app shell — Chat lives on /chat, the landing page on /. */
+export const APP_NAV: NavItem[] = [
+  { to: "/chat", label: "Chat", icon: Bot },
   { to: "/sandbox", label: "Sandbox", icon: Server },
   { to: "/plugins", label: "Plugins", icon: PlugZap },
   { to: "/models", label: "Models", icon: Cpu },

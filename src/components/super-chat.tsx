@@ -756,7 +756,7 @@ export function SuperChat() {
             {isListening ? <Square className="size-3" /> : <Mic className="size-4" />}
           </button>
           <button
-            onClick={handleSend}
+            onClick={() => void handleSend()}
             disabled={!input.trim()}
             className="size-8 grid place-items-center rounded-full bg-white text-black disabled:opacity-30 disabled:bg-zinc-700"
           >
