@@ -717,9 +717,11 @@ export function SuperChat() {
                   />
                 )}
                 {m.role === "assistant" && m.content && (
-                  <div className="mt-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <button type="button" onClick={() => copyMessage(m.id, m.content)} className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" aria-label="คัดลอกคำตอบ" title="คัดลอกคำตอบ">{copiedMessage === m.id ? <Check className="size-3.5 text-emerald-400" /> : <Copy className="size-3.5" />}</button>
-                    <button type="button" onClick={() => downloadMessage(m.id, m.content)} className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" aria-label="ดาวน์โหลดคำตอบ" title="ดาวน์โหลดคำตอบ"><Download className="size-3.5" /></button>
+                  <div className="mt-2 flex items-center gap-1.5 opacity-100">
+                    <button type="button" onClick={() => copyMessage(m.id, m.content)} className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2 py-1.5 text-[11px] text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100" aria-label="คัดลอกคำตอบ" title="คัดลอกคำตอบ">
+                      {copiedMessage === m.id ? <><Check className="size-3.5 text-emerald-400" /><span className="text-emerald-300">คัดลอกแล้ว</span></> : <><Copy className="size-3.5" /><span>คัดลอก</span></>}
+                    </button>
+                    <button type="button" onClick={() => downloadMessage(m.id, m.content)} className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2 py-1.5 text-[11px] text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100" aria-label="ดาวน์โหลดคำตอบ" title="ดาวน์โหลดคำตอบ"><Download className="size-3.5" /><span>ดาวน์โหลด</span></button>
                   </div>
                 )}
               </div>
