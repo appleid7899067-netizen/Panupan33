@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require('fs');
 const CODE_PATH = '/tmp/user_code.js';
 const HTTP_LOG = '/tmp/http_log.jsonl';
