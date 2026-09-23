@@ -5,22 +5,14 @@
  * Puter account). Boss keeps control of EVERYTHING else — messages, tools,
  * the tool loop, retries, budgets and verification all run in the Boss engine
  * on the server. The model is just a component the gateway asks for
- * text/tool-calls; it is a raw `puter.ai.chat` completion, never a Puter
- * agent with its own autonomy.
+ * text/tool-calls; it is a raw completion, never a Puter agent with its own autonomy.
  *
  * Provider order:
- *   1. Puter with the user's session token (user's free Puter quota)
- *   2. Puter with the server PUTER_AUTH_TOKEN (owner quota) — when the user
- *      is not signed in
- *   3. OpenRouter with the server OPENROUTER_API_KEY — legacy fallback
+ *   1. Puter with the user's session token
+ *   2. Puter with the server PUTER_AUTH_TOKEN
+ *   3. OpenRouter with the server OPENROUTER_API_KEY
  *
- * Model-id strategy: the UI catalog uses OpenRouter-style ids
- * ("openai/gpt-5.6-luna") while Puter's registry uses its own ids
- * ("gpt-5.6-luna"). The gateway tries the requested id, then a vendor-stripped
- * variant, then the verified Puter pool — a rejected id simply falls through.
- *
- * Completers are injectable so unit tests cover the selection logic without
- * touching the network.
+ * The OpenRouter pool is intentionally free and focused on agentic/coding use.
  */
 import { createRequire } from "node:module";
 
@@ -55,13 +47,19 @@ export type ModelAttempt = {
   label: string;
 };
 
-/** Verified Puter registry models (same pool the GitHub agent uses). */
-export const PUTER_FALLBACK_POOL = ["gpt-5.6-luna", "deepseek/deepseek-chat"] as const;
+/** Current Puter fallback. Keep the server pool small and reliable. */
+export const PUTER_FALLBACK_POOL = ["gpt-5.6-luna"] as const;
 
-/** Free OpenRouter models — last-resort fallback pool. */
+/**
+ * Current free OpenRouter agent/coding pool.
+ * Old Nex-N2.5 and Ling 3.0 Flash Sante entries are removed.
+ */
 export const OPENROUTER_FALLBACK_POOL = [
-  "nex-agi/nex-n2.5-pro:free",
-  "nex-agi/nex-n2.5-mini:free",
+  "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "poolside/laguna-s-2.1:free",
+  "dots-studio/dots-3-note-preview:free",
+  "nvidia/nemotron-3.5-lightning:free",
+  "cohere/north-mini-code:free",
 ] as const;
 
 function dedupe(values: string[]): string[] {
@@ -87,16 +85,11 @@ function readableError(value: unknown): string {
   return String(value);
 }
 
-/** "openai/gpt-5.6-luna" → "gpt-5.6-luna" (Puter ids have no vendor prefix). */
 export function stripVendorPrefix(modelId: string): string {
   const idx = modelId.lastIndexOf("/");
   return idx > 0 ? modelId.slice(idx + 1) : modelId;
 }
 
-/**
- * Build the ordered provider/model plan. Puter (main) first, OpenRouter
- * (fallback) after. No credentials at all → empty plan (caller reports it).
- */
 export function buildModelPlan(opts: {
   requested?: string;
   puterUserToken?: string;
@@ -111,32 +104,48 @@ export function buildModelPlan(opts: {
 
   const plan: ModelAttempt[] = [];
 
-  // MAIN path — Puter. Requested id, vendor-stripped variant, verified pool.
-  const puterModels = dedupe([requested, requested ? stripVendorPrefix(requested) : "", ...PUTER_FALLBACK_POOL]).slice(0, 3);
+  const puterModels = dedupe([
+    requested,
+    requested ? stripVendorPrefix(requested) : "",
+    ...PUTER_FALLBACK_POOL,
+  ]).slice(0, 3);
+
   if (puterUser) {
     for (const model of puterModels) {
-      plan.push({ provider: "puter", token: puterUser, tokenScope: "user", model, label: `puter:user · ${model}` });
+      plan.push({
+        provider: "puter",
+        token: puterUser,
+        tokenScope: "user",
+        model,
+        label: `puter:user · ${model}`,
+      });
     }
   } else if (puterServer) {
     for (const model of puterModels) {
-      plan.push({ provider: "puter", token: puterServer, tokenScope: "server", model, label: `puter:server · ${model}` });
+      plan.push({
+        provider: "puter",
+        token: puterServer,
+        tokenScope: "server",
+        model,
+        label: `puter:server · ${model}`,
+      });
     }
   }
 
-  // Fallback — OpenRouter (server key), requested id first, then free pool.
   if (openrouterKey) {
     for (const model of dedupe([requested, ...OPENROUTER_FALLBACK_POOL])) {
-      plan.push({ provider: "openrouter", token: openrouterKey, tokenScope: "server", model, label: `openrouter:server · ${model}` });
+      plan.push({
+        provider: "openrouter",
+        token: openrouterKey,
+        tokenScope: "server",
+        model,
+        label: `openrouter:server · ${model}`,
+      });
     }
   }
 
-  const max = opts.maxAttempts ?? 6;
-  return plan.slice(0, max);
+  return plan.slice(0, opts.maxAttempts ?? 8);
 }
-
-/* ------------------------------------------------------------------ */
-/* Response parsing (OpenAI-shaped — both providers normalize to it)   */
-/* ------------------------------------------------------------------ */
 
 function completionText(value: unknown): string {
   if (value == null) return "";
@@ -178,19 +187,21 @@ export function parseToolCalls(response: unknown): GatewayToolCall[] {
     const fn = (rec.function ?? rec) as Record<string, unknown>;
     const name = String(fn.name ?? "").trim();
     if (!name) return [];
-    return [{ id: rec.id ? String(rec.id) : undefined, name, arguments: parseArguments(fn.arguments ?? fn.input) }];
+    return [{
+      id: rec.id ? String(rec.id) : undefined,
+      name,
+      arguments: parseArguments(fn.arguments ?? fn.input),
+    }];
   });
 }
-
-/* ------------------------------------------------------------------ */
-/* Production completers                                               */
-/* ------------------------------------------------------------------ */
 
 export function createPuterCompleter(): ModelCompleter {
   return async ({ model, messages, tools, token }) => {
     const require = createRequire(import.meta.url);
     const { init } = require("@heyputer/puter.js/src/init.cjs") as {
-      init: (t: string) => { ai: { chat: (m: unknown, o: Record<string, unknown>) => Promise<unknown> } };
+      init: (t: string) => {
+        ai: { chat: (m: unknown, o: Record<string, unknown>) => Promise<unknown> };
+      };
     };
     const puter = init(token);
     const resp = await puter.ai.chat(messages, {
@@ -244,15 +255,10 @@ export function createOpenRouterCompleter(): ModelCompleter {
   };
 }
 
-/* ------------------------------------------------------------------ */
-/* Gateway runner                                                      */
-/* ------------------------------------------------------------------ */
-
 export type GatewayRunOptions = {
   messages: GatewayMessage[];
   tools: GatewayToolDef[];
   requestedModel?: string;
-  /** User's Puter session token (main path). */
   puterToken?: string;
   onAttempt?: (label: string) => void;
   maxAttempts?: number;
@@ -263,12 +269,6 @@ export type GatewayRunOptions = {
 export type GatewaySuccess = { ok: true; result: CompletionResult; attempt: ModelAttempt };
 export type GatewayFailure = { ok: false; error: string; attempts: string[] };
 
-/**
- * Ask a model for one completion, walking the Puter-first plan until one
- * provider/model works. The winning attempt (provider+token+model) is
- * returned so the caller can keep talking to the same model through the
- * tool loop.
- */
 export async function runModelGateway(opts: GatewayRunOptions): Promise<GatewaySuccess | GatewayFailure> {
   const plan = buildModelPlan({
     requested: opts.requestedModel,
@@ -277,26 +277,32 @@ export async function runModelGateway(opts: GatewayRunOptions): Promise<GatewayS
     openrouterKey: process.env.OPENROUTER_API_KEY,
     maxAttempts: opts.maxAttempts,
   });
+
   if (!plan.length) {
     return {
       ok: false,
-      error:
-        "ไม่มี model gateway ใช้ได้ — Sign in กับ Puter เพื่อใช้โมเดลฟรี (แนะนำ) หรือตั้ง OPENROUTER_API_KEY ใน server",
+      error: "ไม่มี model gateway ใช้ได้ — Sign in กับ Puter เพื่อใช้โมเดลฟรี หรือตั้ง OPENROUTER_API_KEY ใน server",
       attempts: [],
     };
   }
+
   const puter = opts.puterCompleter ?? createPuterCompleter();
   const openrouter = opts.openrouterCompleter ?? createOpenRouterCompleter();
-
   const attempts: string[] = [];
   let lastError = "";
   const seenErrors = new Set<string>();
+
   for (const attempt of plan) {
     opts.onAttempt?.(attempt.label);
     attempts.push(attempt.label);
     const completer = attempt.provider === "puter" ? puter : openrouter;
     try {
-      const result = await completer({ model: attempt.model, messages: opts.messages, tools: opts.tools, token: attempt.token });
+      const result = await completer({
+        model: attempt.model,
+        messages: opts.messages,
+        tools: opts.tools,
+        token: attempt.token,
+      });
       return { ok: true, result, attempt };
     } catch (e) {
       lastError = readableError(e);
@@ -308,5 +314,10 @@ export async function runModelGateway(opts: GatewayRunOptions): Promise<GatewayS
       if (fingerprint) seenErrors.add(fingerprint);
     }
   }
-  return { ok: false, error: `ทุก model gateway ล้มเหลว (ลอง ${attempts.length} ครั้ง) — สาเหตุจริง: ${lastError.slice(0, 500)}`, attempts };
+
+  return {
+    ok: false,
+    error: `ทุก model gateway ล้มเหลว (ลอง ${attempts.length} ครั้ง) — สาเหตุจริง: ${lastError.slice(0, 500)}`,
+    attempts,
+  };
 }
