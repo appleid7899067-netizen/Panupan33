@@ -44,7 +44,7 @@ export const AUTONOMOUS_PHILOSOPHY = {
       en: "Wandering the internet",
       actions: [
         "เปิด GitHub trending ดูว่ามีอะไรใหม่",
-        "ยืมเครื่องมือจาก Yandex, Google มาลอง",
+        "ค้นหาและทดลองใช้เครื่องมือเว็บที่เหมาะสม โดยเคารพข้อกำหนดของแหล่งข้อมูล",
         "อ่าน Wikipedia เรื่องที่สนใจ",
         "ดูว่ามีคนขอความช่วยเหลืออะไรไหม",
       ],
@@ -171,7 +171,7 @@ export class FreeAI {
   private translateToThai(en: string): string {
     const map: Record<string, string> = {
       "Check GitHub trending": "ดู GitHub ว่ามีอะไรฮิต",
-      "Borrow tools from Yandex, Google": "ยืมเครื่องมือจาก Yandex, Google มาลอง",
+      "Borrow web tools": "ค้นหาและทดลองใช้เครื่องมือเว็บที่เหมาะสม",
       "Fix bug by itself": "เจอบั๊กเลยแก้เอง",
       "Create prototype": "ลองสร้างต้นแบบเล่นๆ",
     };
