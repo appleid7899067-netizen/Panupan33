@@ -395,22 +395,37 @@ export async function callWithFallback(
       let lastCalls: ToolCall[] = [];
 
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-        const puterChat = (globalThis as unknown as {
-          puter?: {
-            ai?: {
-              chat?: (
-                messages: Array<Record<string, unknown>>,
-                options?: { model?: string; tools?: unknown[]; stream?: boolean },
-              ) => Promise<unknown>;
-            };
-          };
-        }).puter?.ai?.chat;
-        if (typeof puterChat !== "function") throw new Error("Puter AI chat is unavailable.");
-        const response = await puterChat(messages, {
-          model,
-          tools: puterTools,
-          stream: false,
+        const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+        if (!apiKey) {
+          throw new Error("Server model provider is not configured. Set OPENROUTER_API_KEY on Render.");
+        }
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": process.env.OPENROUTER_SITE_URL ?? "https://panupanboss.onrender.com",
+            "X-Title": "Bossnu SlieLo",
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            tools: puterTools.length ? puterTools : undefined,
+            tool_choice: puterTools.length ? "auto" : undefined,
+          }),
         });
+        const raw = await response.text();
+        if (!response.ok) {
+          throw new Error(`OpenRouter HTTP ${response.status}: ${raw.slice(0, 700)}`);
+        }
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          throw new Error(`OpenRouter returned invalid JSON: ${raw.slice(0, 700)}`);
+        }
+        const choice = (parsed as { choices?: Array<{ message?: unknown }> })?.choices?.[0];
+        const response = choice?.message ? { message: choice.message } : parsed;
         const text = extractText(response) || "";
         const calls = extractToolCalls(response);
         lastCalls = calls;
