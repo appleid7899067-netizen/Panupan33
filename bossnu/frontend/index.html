@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bossnu Autonomous</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>⚡ Bossnu Autonomous</h1>
+  <div class="status"><span id="status-dot"></span><span id="status-text">connecting...</span></div>
+</header>
+<main>
+  <section id="chat">
+    <div id="messages"></div>
+    <form id="chat-form">
+      <input id="chat-input" placeholder="บอกเป้าหมายมา..." autocomplete="off">
+      <button type="submit">ส่ง</button>
+    </form>
+  </section>
+  <aside id="trace">
+    <h2>🔍 Trace</h2>
+    <div id="trace-list"></div>
+    <h2 style="margin-top:20px">📎 Evidence</h2>
+    <div id="evidence-list"><p class="muted">ยังไม่มีหลักฐาน</p></div>
+  </aside>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
