@@ -36,6 +36,8 @@ import {
   kernelSummary,
   recoveryHint,
   shouldAvoidAction,
+  recordAccessDenied,
+  rememberKnowledge,
   type AgentKernelState,
 } from "@/lib/boss-engine/agent-kernel";
 
@@ -89,6 +91,17 @@ function isEvidenceTool(name: string): boolean {
   return /web_search|web_browse|web_check|web_fetch|sandbox_run|sandbox_install|github_|builder_|test|verify|build|ci|workflow|health|deploy/i.test(
     name,
   );
+}
+
+function isAccessDeniedResult(r: ToolExecutionResult): boolean {
+  const raw = safeText(r.error ?? r.result, "").toLowerCase();
+  return /(^|\\D)(401|403)(\\D|$)|access denied|forbidden|unauthorized|permission denied|not authorized|authentication required/.test(raw);
+}
+
+function knowledgeFacts(r: ToolExecutionResult): string[] {
+  if (!r.ok) return [];
+  const summary = safeText(r.result, "").replace(/\\s+/g, " ").trim();
+  return summary ? [summary.slice(0, 700)] : [];
 }
 
 function toolSucceeded(r: ToolExecutionResult): boolean {
@@ -341,10 +354,23 @@ export async function runAgentLoop(
       if (!tr.ok) recoveryEngine.recordFailure(tr.name, safeText(tr.error ?? tr.result, "tool failed"));
       else recoveryEngine.markResolved(tr.name);
       const evidence = tr.ok && isEvidenceTool(tr.name);
-      kernel = tr.ok
-        ? kernelRecordObservation(kernel, tr.name, true, summary, evidence)
-        : kernelRecordFailure(kernel, tr.name);
-      if (!tr.ok) kernel = kernelRecordObservation(kernel, tr.name, false, summary, false);
+      if (tr.ok) {
+        kernel = kernelRecordObservation(kernel, tr.name, true, summary, evidence);
+        const facts = knowledgeFacts(tr);
+        if (facts.length) {
+          kernel = rememberKnowledge(kernel, prompt, facts, tr.name);
+        }
+      } else {
+        kernel = kernelRecordFailure(kernel, tr.name);
+        kernel = kernelRecordObservation(kernel, tr.name, false, summary, false);
+        if (isAccessDeniedResult(tr)) {
+          kernel = recordAccessDenied(kernel, tr.name);
+          emit({
+            phase: "refine",
+            detail: `🔐 Access blocked on ${tr.name}: จำเส้นทางนี้ไว้และเปลี่ยนไปใช้ช่องทางที่ได้รับอนุญาตแทน`,
+          });
+        }
+      }
     }
     lastResults = result.toolResults;
     allResults = allResults.concat(result.toolResults);
