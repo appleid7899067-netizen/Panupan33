@@ -128,3 +128,9 @@
 .boss-nav-item{transition:color 160ms ease,background-color 160ms ease,transform 160ms ease}
 .boss-nav-item:hover{transform:translateY(-1px)}
 @media (prefers-reduced-motion:reduce){.boss-message-in,.boss-stream-caret,.boss-status-live,.boss-nav-item{animation:none!important;transition:none!important;transform:none!important}}
+
+@keyframes boss-avatar-glow{0%,100%{box-shadow:0 0 0 0 color-mix(in oklab,var(--color-primary) 0%,transparent)}50%{box-shadow:0 0 0 5px color-mix(in oklab,var(--color-primary) 16%,transparent),0 0 18px color-mix(in oklab,var(--color-primary) 22%,transparent)}}
+@keyframes boss-status-shimmer{0%{background-position:180% 0}100%{background-position:-80% 0}}
+.boss-avatar-working{animation:boss-avatar-glow 1.8s ease-in-out infinite}
+.boss-activity-surface{background:linear-gradient(90deg,transparent 0%,color-mix(in oklab,var(--color-primary) 5%,transparent) 50%,transparent 100%);background-size:220% 100%;animation:boss-status-shimmer 2.2s linear infinite}
+.boss-activity-row{animation:boss-message-in 180ms cubic-bezier(.22,1,.36,1) both}
