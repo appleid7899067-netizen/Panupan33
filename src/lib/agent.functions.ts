@@ -3,6 +3,8 @@ import { z } from "zod";
 import { selectToolsForTask, inferTaskIntent } from "@/lib/tool-registry";
 import { runGitHubAgent } from "@/lib/github-agent-tools.server";
 import { executeAgentCode, runAgentLoop } from "@/lib/agent-loop";
+import { bootstrapBoss, bossPromptPrefix, selectToolsFromRouter } from "@/lib/boss-engine";
+import { persistInstructions } from "@/lib/boss-engine/task-persist";
 
 const loopSchema = z.object({
   prompt: z.string().min(1).max(60_000),
@@ -21,10 +23,13 @@ function prefersAuthenticatedGitHub(prompt: string): boolean {
 export const runAgent = createServerFn({ method: "POST" })
   .validator(loopSchema)
   .handler(async ({ data }) => {
-    const taskPrompt = data.context ? `${data.context}\n\nCurrent user request:\n${data.prompt}` : data.prompt;
+    const basePrompt = data.context ? `${data.context}\n\nCurrent user request:\n${data.prompt}` : data.prompt;
+    const boss = await bootstrapBoss(data.prompt);
+    const taskPrompt = bossPromptPrefix(boss) + "\n\n" + persistInstructions(undefined) + "\n\n=== CURRENT REQUEST ===\n" + basePrompt;
     const intent = inferTaskIntent(data.prompt);
     // tools selected by intent (up to 24 — do not starve the agent)
-    const selected = await selectToolsForTask(taskPrompt, 24);
+    const engineSelected = selectToolsFromRouter(boss);
+    const selected = engineSelected.length ? engineSelected : await selectToolsForTask(taskPrompt, 24);
     const selectedNames = selected.slice(0, 12).map((tool) => String(tool.name ?? "")).filter(Boolean);
     const registryStep = {
       phase: "plan" as const,
@@ -89,9 +94,12 @@ export type AgentStreamEvent =
 export const runAgentStream = createServerFn({ method: "POST" })
   .validator(loopSchema)
   .handler(async function* ({ data }) {
-    const taskPrompt = data.context ? `${data.context}\n\nCurrent user request:\n${data.prompt}` : data.prompt;
+    const basePrompt = data.context ? `${data.context}\n\nCurrent user request:\n${data.prompt}` : data.prompt;
+    const boss = await bootstrapBoss(data.prompt);
+    const taskPrompt = bossPromptPrefix(boss) + "\n\n" + persistInstructions(undefined) + "\n\n=== CURRENT REQUEST ===\n" + basePrompt;
     const intent = inferTaskIntent(data.prompt);
-    const selected = await selectToolsForTask(taskPrompt, 24);
+    const engineSelected = selectToolsFromRouter(boss);
+    const selected = engineSelected.length ? engineSelected : await selectToolsForTask(taskPrompt, 24);
     const selectedNames = selected.slice(0, 12).map((tool) => String(tool.name ?? "")).filter(Boolean);
     const registryStep = {
       phase: "plan" as const,
