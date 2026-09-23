@@ -5,7 +5,7 @@
  * Web: forced public browser (Bing+Wikipedia+navigate); private hosts blocked.
  * Sandbox: multi-language real browser + install memory (2nd run never misses).
  */
-import { ensurePuter, extractText } from "@/lib/puter";
+import { extractText } from "@/lib/puter";
 import { runInSandbox } from "@/lib/sandbox";
 import { executeAuthenticatedGitHubTool } from "@/lib/github-tool-bridge";
 import { executeGithubWithPat } from "@/lib/github-pat";
