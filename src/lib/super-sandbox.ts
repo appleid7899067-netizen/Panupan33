@@ -198,7 +198,7 @@ export class SuperSandbox {
       .join("\n");
 
     const escapedId = JSON.stringify(runId || "preview");
-    const css = cssFiles.replace(/<\\/style/gi, "<\\\\/style");
+    const css = cssFiles.replace(/<\\/gi, "<");
 
     if (mainFile.language === "html") {
       return `<!doctype html>
