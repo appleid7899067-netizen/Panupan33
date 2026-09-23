@@ -1,12 +1,15 @@
 /**
- * Tool loader — Puter + Sandbox + Web + Full GitHub surface
+ * Tool loader — Puter + Sandbox + Web + Full GitHub + Builder surface
  * GitHub: any owner/repo when user provides token; no pre-bound connection required.
+ * Builder: ported from https://github.com/HeyPuter/builder (Apache-2.0)
  */
 import { ensurePuter, extractText } from "@/lib/puter";
 import { runInSandbox } from "@/lib/sandbox";
 import { executeAuthenticatedGitHubTool } from "@/lib/github-tool-bridge";
 import { executeGithubWithPat } from "@/lib/github-pat";
 import { AUTH_GITHUB_FULL, isGithubAuthTool, nativeFullGitHubTools } from "@/lib/github-tools-expand";
+import { nativeBuilderTools, isBuilderTool } from "@/lib/builder/tools";
+import { executeBuilderTool } from "@/lib/builder/execute";
 
 export type CodingFleetTool = {
   name?: string;
@@ -28,6 +31,7 @@ export type CodingFleetTool = {
   sandboxSource?: boolean;
   webSource?: boolean;
   codingFleetSource?: boolean;
+  builderSource?: boolean;
   [key: string]: unknown;
 };
 
@@ -107,6 +111,7 @@ export async function loadCodingFleetTools(_forceRefresh = false): Promise<Codin
     ...nativeWebTools(),
     ...nativeAuthenticatedGitHubTools(),
     ...nativeGitHubPublicTools(),
+    ...(nativeBuilderTools() as CodingFleetTool[]),
   ]) {
     const n = toolName(t);
     if (n) byName.set(n, t);
@@ -175,7 +180,7 @@ async function executeWeb(name: string, args: Record<string, unknown>): Promise<
 async function executeTool(
   tool: CodingFleetTool,
   args: Record<string, unknown>,
-  _authToken?: string,
+  authToken?: string,
   githubToken?: string,
 ): Promise<unknown> {
   const name = toolName(tool);
@@ -187,6 +192,9 @@ async function executeTool(
     });
   }
   if (name === "web_check" || name === "web_fetch") return executeWeb(name, args);
+  if (isBuilderTool(name) || tool.builderSource) {
+    return executeBuilderTool(name, args, { authToken });
+  }
   if (tool.githubSource && isGithubAuthTool(name)) {
     try {
       return await executeAuthenticatedGithub(name, args, githubToken);
@@ -290,7 +298,7 @@ export async function callWithFallback(
         model,
         toolCalls: lastCalls,
         toolResults,
-        verified: toolResults.some((t) => t.ok && /web_check|wait_for_workflow|actions/i.test(t.name)),
+        verified: toolResults.some((t) => t.ok && /web_check|wait_for_workflow|actions|builder_publish/i.test(t.name)),
       };
     } catch (e) {
       lastError = e instanceof Error ? e.message : String(e);
@@ -300,5 +308,4 @@ export async function callWithFallback(
   return { ok: false, text: "", toolCalls: [], toolResults: [], error: lastError || "All models failed" };
 }
 
-// Re-export auth list for diagnostics
-export { AUTH_GITHUB, isGithubAuthTool };
+export { AUTH_GITHUB, isGithubAuthTool, isBuilderTool };
