@@ -24,6 +24,7 @@ import { createRecoveryEngine, type RecoveryEngine } from "./boss-recovery";
 import { routeToolsForTask, routerDecisionSummary, type RouterDecision } from "./boss-tool-router";
 import type { CodingFleetTool } from "@/lib/puter-tool-loader";
 import { ADAPTIVE_DATA_EXTRACTION_PROMPT, isDataExtractionTask } from "@/lib/adaptive-data-extraction";
+import { ephemeralToolInstruction } from "@/lib/ephemeral-tool-borrowing";
 
 export type BossContext = {
   plan: ExecutionPlan;
@@ -64,6 +65,7 @@ export function bossPromptPrefix(ctx: BossContext): string {
     "7. งานแก้โค้ดหรือ deploy ต้องมี verification จริงก่อนตอบว่าสำเร็จ",
     "8. คำตอบจากโมเดลไม่ใช่หลักฐาน หลักฐานต้องมาจาก tool runtime CI หรือ HTTP จริง",
     "=== END TRUTH / REAL-WORK CONTRACT ===",
+    ephemeralToolInstruction(),
     ...(isDataExtractionTask(ctx.task.goal) ? [ADAPTIVE_DATA_EXTRACTION_PROMPT] : []),
     planSummary(ctx.plan),
     "",
