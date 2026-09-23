@@ -822,6 +822,7 @@ export async function callWithFallback(
           } catch {
             return { ok: false, error: "โมเดลไม่ส่งข้อความสรุปหลังทำงานเสร็จ" };
           }
+        }
         const assistantMessage = assistantToolMessage(result.response);
         if (assistantMessage) messages.push(assistantMessage);
         for (const call of result.toolCalls) {
