@@ -48,7 +48,11 @@ export type ModelAttempt = {
 };
 
 /** Current Puter fallback. Keep the server pool small and reliable. */
-export const PUTER_FALLBACK_POOL = ["gpt-5.6-luna"] as const;
+export const PUTER_FALLBACK_POOL = [
+  "gpt-5.6-luna",
+  "claude-opus-4-8",
+  "gemini-3.1-flash-lite",
+] as const;
 
 /**
  * Current free OpenRouter agent/coding pool.
@@ -104,10 +108,11 @@ export function buildModelPlan(opts: {
 
   const plan: ModelAttempt[] = [];
 
-  // Only send a model to Puter when it looks like a Puter model id.
-  // OpenRouter-style vendor/model ids must not consume Puter quota.
-  const requestedLooksOpenRouter = requested.includes("/") || requested.includes(":free");
-  const puterRequested = requestedLooksOpenRouter ? "" : requested;
+  // Puter is the primary model gateway. Puter accepts qualified model IDs
+  // (including provider/model forms), so do NOT route slash IDs or :free
+  // variants away from Puter automatically. The signed-in Puter account is
+  // the first authority for model selection; OpenRouter is only fallback.
+  const puterRequested = requested;
   const puterModels = dedupe([
     puterRequested,
     puterRequested ? stripVendorPrefix(puterRequested) : "",
@@ -302,7 +307,7 @@ export type GatewayFailure = { ok: false; error: string; attempts: string[] };
 
 export async function runModelGateway(opts: GatewayRunOptions): Promise<GatewaySuccess | GatewayFailure> {
   const plan = buildModelPlan({
-    requested: opts.requestedModel,
+    requested: opts.requestedModel || process.env.PUTER_PRIMARY_MODEL || "gpt-5.6-luna",
     puterUserToken: opts.puterToken,
     puterServerToken: process.env.PUTER_AUTH_TOKEN,
     openrouterKey: process.env.OPENROUTER_API_KEY,
