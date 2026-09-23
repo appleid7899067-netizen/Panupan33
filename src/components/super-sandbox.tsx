@@ -142,6 +142,7 @@ export function SuperSandbox() {
   }, []);
 
 
+  useEffect(() => {
     void run();
     // Initial preview only. Do not create a second sandbox or duplicate tool run.
     // eslint-disable-next-line react-hooks/exhaustive-deps
