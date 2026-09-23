@@ -1,0 +1,16 @@
+# Render Blueprint — stabilise panupanboss service
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: panupanboss
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      # Set secrets in Render dashboard: DATABASE_URL, etc.

@@ -2,61 +2,34 @@
 
 อัปเดต: 2026-09-23
 
-Roadmap มาตรฐาน (5 Phase):
-
 ```
-PHASE 1 Core Engine → VERIFIED (modules + orchestrator)
-PHASE 2 Coding Intelligence → modules landed
-PHASE 3 GitHub Autonomous Loop
-PHASE 4 Publisher / Preview
-PHASE 5 Autonomy
+PHASE 1 Core Engine           ✅ modules + orchestrator
+PHASE 2 Coding Intelligence   ✅ modules
+PHASE 3 GitHub Autonomous     ✅ modules (github-loop.ts)
+PHASE 4 Publisher / Preview   ✅ modules (publisher.ts)
+PHASE 5 Autonomy              ✅ modules (autonomy.ts)
+
+ค้างร่วม: ผูกทุก module เข้า agent-loop runtime + wire GitHub/Puter tools จริง
 ```
 
-## PHASE 1 — Core Engine ✅ modules + orchestrator
+## ไฟล์หลัก `src/lib/boss-engine/`
 
-| Component | File | Status |
-|-----------|------|--------|
-| Planner | `boss-planner.ts` | ✅ |
-| Task State / Memory | `boss-task-state.ts` | ✅ |
-| Evidence Engine | `boss-evidence.ts` | ✅ |
-| Recovery Loop | `boss-recovery.ts` | ✅ |
-| Tool Router | `boss-tool-router.ts` | ✅ |
-| Orchestrator | `boss-orchestrator.ts` | ✅ |
+| Phase | Files |
+|-------|--------|
+| 1 | planner, task-state, evidence, recovery, tool-router, orchestrator |
+| 2 | coding-repo, coding-deps, coding-diff |
+| 3 | github-loop |
+| 4 | publisher |
+| 5 | autonomy |
 
-**ค้าง:** ผูก `bootstrapBoss` / `bossPromptPrefix` / `onToolResults` เข้า `agent-loop.ts` แบบเต็ม (runtime VERIFIED)
+## Render
 
-## PHASE 2 — Coding Intelligence ✅ modules
+- Live: https://panupanboss.onrender.com/ (ตรวจล่าสุด HTTP 200)
+- คู่มือซ่อมเมื่อล่ม: `docs/RENDER_RECOVERY.md`
+- Blueprint: `render.yaml`
 
-| Component | File | Status |
-|-----------|------|--------|
-| Repo Understanding | `coding-repo.ts` | ✅ |
-| Dependency Intelligence | `coding-deps.ts` | ✅ |
-| Diff + Change Plan + Rollback | `coding-diff.ts` | ✅ |
+## Next runtime work
 
-**ค้าง:** เรียกจาก coding path ก่อนแก้ไฟล์จริง + เก็บ snapshot rollback อัตโนมัติ
-
-## PHASE 3 — GitHub Autonomous Loop ⏳
-Branch → Edit → Commit → PR → CI → Diagnose → Repair → Verify
-
-## PHASE 4 — Publisher / Preview ⏳
-Publish → HTTP Verify → Runtime Verify → Project Binding → Auto Update
-
-## PHASE 5 — Autonomy ⏳
-Capability Discovery · Model Routing · Multi-Agent · Budget Guard · Loop Detection · Self-Critique · Evidence Completion
-
----
-
-Import:
-
-```ts
-import {
-  bootstrapBoss,
-  bossPromptPrefix,
-  onToolResults,
-  shouldStopAsVerified,
-  buildRepoMap,
-  decideDependency,
-  createChangeSet,
-  createRollbackSnapshot,
-} from "@/lib/boss-engine";
-```
+1. `agent-loop.ts` เรียก `bootstrapBoss` + `onToolResults` + budget/selfCritique
+2. GitHub tools เดินตาม `createGitHubLoop` phases
+3. Preview path ใช้ `evaluateHttp` + `bindPreview`

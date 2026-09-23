@@ -1,7 +1,6 @@
 /**
- * Boss Engine
- * Phase 1: Planner + Task State + Evidence + Recovery + Tool Router + Orchestrator
- * Phase 2: Repo Understanding + Dependency Intelligence + Diff / Change / Rollback
+ * Boss Engine — full roadmap modules
+ * Phase 1 Core · Phase 2 Coding · Phase 3 GitHub · Phase 4 Publisher · Phase 5 Autonomy
  */
 
 export * from "./boss-planner";
@@ -13,3 +12,6 @@ export * from "./boss-orchestrator";
 export * from "./coding-repo";
 export * from "./coding-deps";
 export * from "./coding-diff";
+export * from "./github-loop";
+export * from "./publisher";
+export * from "./autonomy";
