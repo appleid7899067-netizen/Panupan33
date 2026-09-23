@@ -10,6 +10,7 @@ import { executeGithubWithPat } from "@/lib/github-pat";
 import { AUTH_GITHUB_FULL, isGithubAuthTool, nativeFullGitHubTools } from "@/lib/github-tools-expand";
 import { nativeBuilderTools, isBuilderTool } from "@/lib/builder/tools";
 import { executeBuilderTool } from "@/lib/builder/execute";
+import { callMCPTool, discoverMCPTools } from "@/lib/mcp";
 
 export type CodingFleetTool = {
   name?: string;
@@ -125,6 +126,22 @@ export async function loadCodingFleetTools(_forceRefresh = false): Promise<Codin
     const n = toolName(t);
     if (n) byName.set(n, t);
   }
+  // MCP is part of the agent tool pool, not a separate user-selected mode.
+  // Prefix names to prevent collisions between servers while preserving the
+  // original MCP tool name in the executor metadata.
+  const mcp = await discoverMCPTools();
+  for (const entry of mcp) {
+    for (const mcpTool of entry.tools) {
+      const name = `mcp__${entry.server.name}__${mcpTool.name}`;
+      byName.set(name, {
+        name,
+        description: mcpTool.description ?? `MCP tool ${mcpTool.name} from ${entry.server.name}`,
+        inputSchema: mcpTool.inputSchema ?? { type: "object", properties: {} },
+        mcpServer: entry.server.name,
+        mcpToolName: mcpTool.name,
+      });
+    }
+  }
   return Array.from(byName.values());
 }
 
@@ -225,6 +242,12 @@ async function executeTool(
   githubToken?: string,
 ): Promise<unknown> {
   const name = toolName(tool);
+  if (tool.mcpServer && tool.mcpToolName) {
+    const discovered = await discoverMCPTools();
+    const entry = discovered.find((item) => item.server.name === tool.mcpServer);
+    if (!entry) throw new Error(`MCP server not available: ${tool.mcpServer}`);
+    return callMCPTool(entry.server, tool.mcpToolName, args);
+  }
   if (name === "sandbox_run") {
     return runInSandbox({
       language: String(args.language ?? "javascript"),
