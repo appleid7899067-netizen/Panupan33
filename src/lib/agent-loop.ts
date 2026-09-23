@@ -355,15 +355,30 @@ export async function runAgentLoop(
       }
     }
 
-    // Duplicate-call detection
+    // Record every real action in the kernel/foundation so the next round
+    // can change strategy instead of blindly repeating a failed path.
     let duplicateOnly = result.toolCalls.length > 0;
+    const avoidedTools = new Set<string>();
     for (const call of result.toolCalls as ToolCall[]) {
       const fp = fingerprintCall(call);
       if (!seenCalls.has(fp)) duplicateOnly = false;
       seenCalls.add(fp);
+      kernel = kernelRecordAction(kernel, "act", call.name, call.arguments);
+      if (shouldAvoidAction(kernel, call.name, call.arguments)) avoidedTools.add(call.name);
       emit({ phase: "observe", detail: activityLabel(call.name, true) });
     }
     for (const tr of result.toolResults) {
+      const key = actionKey(tr.name, tr.result);
+      if (!tr.ok) {
+        recordFoundationFailure(foundationMemory, key);
+      } else if (isEvidenceTool(tr.name)) {
+        recordFoundationEvidence(foundationMemory, {
+          source: tr.name,
+          ok: true,
+          verified: true,
+          summary: safeText(tr.result, "verified").slice(0, 500),
+        });
+      }
       const ui = mcpUiPayload(tr);
       if (ui) emit({ phase: "observe", detail: `MCP_UI:${JSON.stringify(ui).slice(0, 6000)}` });
       emit({ phase: "observe", detail: activityLabel(tr.name, tr.ok) });
@@ -427,6 +442,16 @@ export async function runAgentLoop(
       }
     }
 
+    const decision = kernelDecideNext(kernel);
+    if (decision.kind === "recover") {
+      emit({ phase: "refine", detail: `🔄 Recovery: ${decision.reason}` });
+    } else if (decision.kind === "verify") {
+      emit({ phase: "refine", detail: `🔎 Verification gate: ${decision.reason}` });
+    }
+    if (avoidedTools.size) {
+      emit({ phase: "refine", detail: `⛔ หลีกเลี่ยง tool ที่วน/พังซ้ำ: ${[...avoidedTools].join(", ")}` });
+    }
+
     if (failed.length) {
       consecutiveFails += 1;
       emit({ phase: "refine", detail: `error: ${failed.map((f) => f.name).join(", ")}` });
@@ -438,10 +463,13 @@ export async function runAgentLoop(
           verified: hasUsefulEvidence(allResults),
         };
       }
-      currentPrompt = buildContinuePrompt(prompt, allResults, "retry", deepReasoning) + `\n\nKERNEL:\n${kernelSummary(kernel)}`;
+      const recovery = recoveryHint(failed[0]?.name ?? "tool", safeText(failed[0]?.error ?? failed[0]?.result, "tool failed"), consecutiveFails);
+      currentPrompt = buildContinuePrompt(prompt, allResults, "retry", deepReasoning) +
+        `\n\nKERNEL:\n${kernelSummary(kernel)}\n\nRECOVERY HINT:\n${recovery}${avoidedTools.size ? `\nAVOID THESE TOOLS THIS ROUND: ${[...avoidedTools].join(", ")}` : ""}`;
     } else {
       emit({ phase: "refine", detail: "ต่อจากผลลัพธ์" });
-      currentPrompt = buildContinuePrompt(prompt, allResults, "continue", deepReasoning) + `\n\nKERNEL:\n${kernelSummary(kernel)}`;
+      currentPrompt = buildContinuePrompt(prompt, allResults, "continue", deepReasoning) +
+        `\n\nKERNEL:\n${kernelSummary(kernel)}${decision.kind === "recover" ? `\n\nRECOVERY:\n${decision.reason}` : ""}`;
     }
   }
 
