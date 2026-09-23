@@ -1,0 +1,7 @@
+{
+  "binance_klines": {"url": "https://api.binance.com/api/v3/klines", "health_url": "https://api.binance.com/api/v3/ping", "requires_key": false, "status": "unknown", "category": "crypto"},
+  "coingecko": {"url": "https://api.coingecko.com/api/v3/simple/price", "health_url": "https://api.coingecko.com/api/v3/ping", "requires_key": false, "status": "unknown", "category": "crypto"},
+  "open_meteo": {"url": "https://api.open-meteo.com/v1/forecast", "health_url": "https://api.open-meteo.com/v1/forecast?latitude=0&longitude=0&current_weather=true", "requires_key": false, "status": "unknown", "category": "weather"},
+  "wikipedia": {"url": "https://en.wikipedia.org/api/rest_v1/page/summary", "health_url": "https://en.wikipedia.org/api/rest_v1/page/summary/Python", "requires_key": false, "status": "unknown", "category": "knowledge"},
+  "metals_live": {"url": "https://api.metals.live/v1/spot/gold", "health_url": "https://api.metals.live/v1/spot/gold", "requires_key": false, "status": "dead", "deprecated_since": "2023", "category": "metals", "notes": "ปิดให้บริการแล้ว"}
+}

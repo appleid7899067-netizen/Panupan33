@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: bossnu-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile.api
+    plan: starter
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: EVIDENCE_SIGNING_KEY
+        generateValue: true

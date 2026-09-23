@@ -1,0 +1,40 @@
+version: "3.9"
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://bossnu:bossnu@db:5432/bossnu
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - EVIDENCE_SIGNING_KEY=${EVIDENCE_SIGNING_KEY:-dev-key-change-me}
+      - SANDBOX_IMAGE=bossnu-sandbox:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: bossnu
+      POSTGRES_PASSWORD: bossnu
+      POSTGRES_DB: bossnu
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bossnu"]
+      interval: 5s
+      retries: 5
+  frontend:
+    image: nginx:alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    depends_on:
+      - api
+volumes:
+  pgdata:
