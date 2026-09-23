@@ -796,7 +796,13 @@ export async function callWithFallback(
           const answerModel = DEFAULT_MODELS[0];
           onActivity?.([`🧠 กำลังสรุปผลด้วย ${answerModel}...`]);
           try {
-            const answer = await chatModel(messages, [], answerModel, authToken);
+            // Final-answer context must be provider-safe: only plain user/assistant text.
+            // Do not forward assistant tool_calls or role:"tool" messages to the final call.
+            const finalMessages = normalizeAgentProviderMessages(messages).map((message) => ({
+              role: message.role === "assistant" ? "assistant" : "user",
+              content: typeof message.content === "string" ? message.content : safeText(message.content),
+            }));
+            const answer = await chatModel(finalMessages, [], answerModel, authToken);
             return { ok: true, text: answer.text.trim() || result.text, model: answerModel, toolCalls: [], toolResults, verified };
           } catch {
             return { ok: true, text: result.text, model, toolCalls: [], toolResults, verified };
