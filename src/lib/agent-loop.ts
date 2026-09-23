@@ -141,11 +141,31 @@ RULES:
 `;
 }
 
+/** Tasks that deserve one extra planning pass before acting. */
+function wantsDeepReasoning(prompt: string): boolean {
+  return (
+    /(?:architecture|สถาปัตย์|ออกแบบ|debug|แก้บั๊ก|bug|refactor|หลายขั้น|ทั้งระบบ|ระบบ|deploy|ดีพลอย|ci|workflow|database|ฐานข้อมูล|security|ความปลอดภัย|mcp|agent|โค้ด|code)/i.test(
+      prompt,
+    ) || prompt.length > 700
+  );
+}
+
+/** Pull a structured MCP UI payload out of a tool result, if the tool returned one. */
+function mcpUiPayload(result: ToolExecutionResult): Record<string, unknown> | null {
+  if (!result.ok || !result.result || typeof result.result !== "object") return null;
+  const ui = (result.result as Record<string, unknown>).ui;
+  return ui && typeof ui === "object" ? (ui as Record<string, unknown>) : null;
+}
+
 function buildContinuePrompt(
   prompt: string,
   results: ToolExecutionResult[],
   mode: "retry" | "continue" | "verify",
+  deepReasoning = false,
 ): string {
+  const reasoningRule = deepReasoning
+    ? "\n\nDeep reasoning mode ON: reason over constraints, side effects and the shortest fix internally, but expose only concise action/status updates. Never output private chain-of-thought."
+    : "";
   const summary = summarizeResults(results, 5);
   if (mode === "verify") {
     return `GOAL: ${prompt}
@@ -153,7 +173,7 @@ function buildContinuePrompt(
 EVIDENCE SO FAR:
 ${summary}
 
-Still need real verification (web_check / sandbox_run / github check). Call one verification tool, then answer.`;
+Still need real verification (web_check / sandbox_run / github check). Call one verification tool, then answer.${reasoningRule}`;
   }
   if (mode === "retry") {
     return `GOAL: ${prompt}
@@ -161,14 +181,14 @@ Still need real verification (web_check / sandbox_run / github check). Call one 
 PREVIOUS FAILURES:
 ${summary}
 
-Diagnose and retry with a DIFFERENT tool or different arguments. Do not repeat the identical call.`;
+Diagnose and retry with a DIFFERENT tool or different arguments. Do not repeat the identical call.${reasoningRule}`;
   }
   return `GOAL: ${prompt}
 
 LATEST RESULTS:
 ${summary}
 
-If the goal is done, answer now from the evidence. Otherwise take the next minimal useful tool action.`;
+If the goal is done, answer now from the evidence. Otherwise take the next minimal useful tool action.${reasoningRule}`;
 }
 
 /** Goal satisfied? Search/browse/check success is enough for non-mutation tasks. */
@@ -218,6 +238,7 @@ export async function runAgentLoop(
   };
 
   const budget = iterationBudget(prompt, maxIterations);
+  const deepReasoning = wantsDeepReasoning(prompt);
   const available = tools.length ? tools : await loadCodingFleetTools();
   const seenCalls = new Set<string>();
   let consecutiveFails = 0;
@@ -232,6 +253,12 @@ export async function runAgentLoop(
       .filter(Boolean)
       .join(", "),
   });
+  if (deepReasoning) {
+    emit({
+      phase: "plan",
+      detail: "🧠 Deep reasoning: ตรวจข้อจำกัด ผลข้างเคียง และเส้นทางแก้ที่สั้นที่สุด (ไม่เปิดเผย chain-of-thought)",
+    });
+  }
 
   let currentPrompt = buildKickoffPrompt(prompt, available);
   let last = "";
@@ -261,7 +288,7 @@ export async function runAgentLoop(
           verified: hasUsefulEvidence(allResults),
         };
       }
-      currentPrompt = buildContinuePrompt(prompt, allResults, "retry");
+      currentPrompt = buildContinuePrompt(prompt, allResults, "retry", deepReasoning);
       continue;
     }
 
@@ -279,6 +306,8 @@ export async function runAgentLoop(
       emit({ phase: "observe", detail: activityLabel(call.name, true) });
     }
     for (const tr of result.toolResults) {
+      const ui = mcpUiPayload(tr);
+      if (ui) emit({ phase: "observe", detail: `MCP_UI:${JSON.stringify(ui).slice(0, 6000)}` });
       emit({ phase: "observe", detail: activityLabel(tr.name, tr.ok) });
     }
 
@@ -301,7 +330,7 @@ export async function runAgentLoop(
       }
       if (i < budget - 1 && (looksLikeMutation(prompt) || looksLikeVerification(prompt))) {
         emit({ phase: "refine", detail: "ขอ verification เพิ่ม" });
-        currentPrompt = buildContinuePrompt(prompt, allResults, "verify");
+        currentPrompt = buildContinuePrompt(prompt, allResults, "verify", deepReasoning);
         continue;
       }
       emit({ phase: "verify", detail: verified ? "✓" : "จบแบบมีหลักฐานจำกัด" });
@@ -317,7 +346,7 @@ export async function runAgentLoop(
         emit({ phase: "verify", detail: "✓ ได้หลักฐานเพียงพอ — จบเร็ว" });
         // One short synthesis pass only if model gave empty text
         if (!last.trim() && i < budget - 1) {
-          currentPrompt = buildContinuePrompt(prompt, allResults, "continue") +
+          currentPrompt = buildContinuePrompt(prompt, allResults, "continue", deepReasoning) +
             "\n\nAnswer the user now from the evidence above. No more tools unless critical.";
           const synth = await callWithFallback(
             currentPrompt,
@@ -350,10 +379,10 @@ export async function runAgentLoop(
           verified: hasUsefulEvidence(allResults),
         };
       }
-      currentPrompt = buildContinuePrompt(prompt, allResults, "retry");
+      currentPrompt = buildContinuePrompt(prompt, allResults, "retry", deepReasoning);
     } else {
       emit({ phase: "refine", detail: "ต่อจากผลลัพธ์" });
-      currentPrompt = buildContinuePrompt(prompt, allResults, "continue");
+      currentPrompt = buildContinuePrompt(prompt, allResults, "continue", deepReasoning);
     }
   }
 

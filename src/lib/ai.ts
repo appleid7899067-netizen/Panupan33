@@ -253,7 +253,13 @@ export async function runFleet(
           "ส่งผลลัพธ์",
         ];
         onActivity?.(activity);
-        return { ok: true, text: fleet.text, model: fleet.model, activity, verified: fleet.verified };
+        return {
+          ok: true,
+          text: fleet.text,
+          model: fleet.model ?? puterModel,
+          activity,
+          verified: fleet.verified === true,
+        };
       }
     }
   } catch {

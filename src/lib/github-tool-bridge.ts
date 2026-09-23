@@ -1,6 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 
 /**
+ * Server-fn payloads must be serializable; the PAT surface returns heterogeneous
+ * GitHub JSON, so it is narrowed to a plain record before crossing the boundary.
+ */
+type GithubToolResult = Record<string, unknown>;
+
+/**
  * Server bridge for authenticated GitHub tools.
  * No pre-bound repo — owner/repo always from args.
  * Accepts optional githubToken for any tool.
@@ -14,7 +20,7 @@ export const executeAuthenticatedGitHubTool = createServerFn({ method: "POST" })
     // On server sessionStorage is unavailable — pass token explicitly
     if (githubToken) {
       try {
-        return await executeGithubWithPat(toolName, args, githubToken);
+        return (await executeGithubWithPat(toolName, args, githubToken)) as GithubToolResult;
       } catch {
         /* fall through to App */
       }
@@ -33,7 +39,7 @@ export const executeAuthenticatedGitHubTool = createServerFn({ method: "POST" })
     const repo = String(args.repo ?? "").trim();
     // Tools that don't need repo
     if (["github_me", "github_get_user", "github_list_repos", "github_search_code", "github_search_repos", "github_search_issues", "github_search_commits", "github_search_prs", "github_request"].includes(toolName)) {
-      if (githubToken) return executeGithubWithPat(toolName, args, githubToken);
+      if (githubToken) return executeGithubWithPat(toolName, args, githubToken) as Promise<GithubToolResult>;
       throw new Error("This GitHub tool requires a user token (no App fallback for global endpoints).");
     }
     if (!owner || !repo) throw new Error("GitHub requires owner and repo in args (no pre-bound repo)."
@@ -99,7 +105,7 @@ export const executeAuthenticatedGitHubTool = createServerFn({ method: "POST" })
         return githubStatus(owner, repo, githubToken);
       default:
         // Full surface via PAT when App doesn't implement the tool
-        if (githubToken) return executeGithubWithPat(toolName, args, githubToken);
+        if (githubToken) return executeGithubWithPat(toolName, args, githubToken) as Promise<GithubToolResult>;
         throw new Error(`Unknown authenticated GitHub tool: ${toolName}. Pass githubToken for full surface.`);
     }
   });

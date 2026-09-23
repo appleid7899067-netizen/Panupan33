@@ -4,7 +4,7 @@
  */
 
 import {
-  buildToolRegistry,
+  getToolRegistry,
   inferTaskIntent,
   getUrgencyProfile,
   type ToolRegistryEntry,
@@ -94,7 +94,7 @@ export async function routeToolsForTask(prompt: string, maxTools = 4): Promise<R
     };
   }
 
-  const registry = await buildToolRegistry();
+  const registry = await getToolRegistry();
   const limit = Math.max(1, Math.min(maxTools, urgency.maxTools));
 
   const excludedSources: string[] = [];
@@ -127,7 +127,8 @@ export async function routeToolsForTask(prompt: string, maxTools = 4): Promise<R
     if (!selected.some((s) => s.name === tool.name)) selected.push(tool);
   }
 
-  if (!selected.length && intent !== "chat") {
+  // `intent === "chat"` already returned above, so no chat guard is needed here.
+  if (!selected.length) {
     const fallback = registry.filter((t) => t.name === "sandbox_run" || t.name === "web_check").slice(0, 2);
     selected.push(...fallback);
   }

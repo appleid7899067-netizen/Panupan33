@@ -14,6 +14,7 @@ import { Route as ChatRouteImport } from './routes/chat'
 import { Route as LabRouteImport } from './routes/lab'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as PluginsRouteImport } from './routes/plugins'
+import { Route as PreviewRouteImport } from './routes/preview'
 import { Route as SandboxRouteImport } from './routes/sandbox'
 
 const IndexRoute = IndexRouteImport.update({
@@ -41,6 +42,11 @@ const PluginsRoute = PluginsRouteImport.update({
   path: '/plugins',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PreviewRoute = PreviewRouteImport.update({
+  id: '/preview',
+  path: '/preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SandboxRoute = SandboxRouteImport.update({
   id: '/sandbox',
   path: '/sandbox',
@@ -53,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/lab': typeof LabRoute
   '/models': typeof ModelsRoute
   '/plugins': typeof PluginsRoute
+  '/preview': typeof PreviewRoute
   '/sandbox': typeof SandboxRoute
 }
 export interface FileRoutesByTo {
@@ -61,6 +68,7 @@ export interface FileRoutesByTo {
   '/lab': typeof LabRoute
   '/models': typeof ModelsRoute
   '/plugins': typeof PluginsRoute
+  '/preview': typeof PreviewRoute
   '/sandbox': typeof SandboxRoute
 }
 export interface FileRoutesById {
@@ -70,14 +78,24 @@ export interface FileRoutesById {
   '/lab': typeof LabRoute
   '/models': typeof ModelsRoute
   '/plugins': typeof PluginsRoute
+  '/preview': typeof PreviewRoute
   '/sandbox': typeof SandboxRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/chat' | '/lab' | '/models' | '/plugins' | '/sandbox'
+  fullPaths:
+    '/' | '/chat' | '/lab' | '/models' | '/plugins' | '/preview' | '/sandbox'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chat' | '/lab' | '/models' | '/plugins' | '/sandbox'
-  id: '__root__' | '/' | '/chat' | '/lab' | '/models' | '/plugins' | '/sandbox'
+  to: '/' | '/chat' | '/lab' | '/models' | '/plugins' | '/preview' | '/sandbox'
+  id:
+    | '__root__'
+    | '/'
+    | '/chat'
+    | '/lab'
+    | '/models'
+    | '/plugins'
+    | '/preview'
+    | '/sandbox'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -86,6 +104,7 @@ export interface RootRouteChildren {
   LabRoute: typeof LabRoute
   ModelsRoute: typeof ModelsRoute
   PluginsRoute: typeof PluginsRoute
+  PreviewRoute: typeof PreviewRoute
   SandboxRoute: typeof SandboxRoute
 }
 
@@ -126,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PluginsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/preview': {
+      id: '/preview'
+      path: '/preview'
+      fullPath: '/preview'
+      preLoaderRoute: typeof PreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sandbox': {
       id: '/sandbox'
       path: '/sandbox'
@@ -142,6 +168,7 @@ const rootRouteChildren: RootRouteChildren = {
   LabRoute: LabRoute,
   ModelsRoute: ModelsRoute,
   PluginsRoute: PluginsRoute,
+  PreviewRoute: PreviewRoute,
   SandboxRoute: SandboxRoute,
 }
 export const routeTree = rootRouteImport
