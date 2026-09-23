@@ -1,3 +1,5 @@
+import { runWithBrowserRuntime } from "@/lib/browser-runtimes";
+
 export type SandboxFile = { path: string; contents: string };
 
 export type SandboxRunInput = {
@@ -89,7 +91,7 @@ export async function runInBrowserSandbox(input: SandboxRunInput): Promise<Brows
   const started = Date.now();
   const timeoutMs = Math.min(Math.max(input.timeoutMs ?? 12_000, 500), 30_000);
   const language = input.language.trim() || "javascript";
-  const runnable = /^(js|javascript|ts|typescript|html|htm|css)$/i.test(language);
+  const iframeLang = /^(js|javascript|ts|typescript|html|htm|css)$/i.test(language);
 
   if (typeof window === "undefined") {
     return {
@@ -103,16 +105,27 @@ export async function runInBrowserSandbox(input: SandboxRunInput): Promise<Brows
     };
   }
 
-  if (!runnable) {
-    return {
-      ok: false,
-      runtime: "unavailable",
-      stdout: "",
-      stderr: `${language} is not executable in the in-browser sandbox. Use JavaScript, TypeScript-as-JS, HTML, or CSS — or attach a Vite project for preview.`,
-      logs: [],
-      durationMs: Date.now() - started,
-      error: `Unsupported sandbox language: ${language}`,
-    };
+  // Multi-language real-browser path (Python/Lua/SQL/...) with install memory
+  if (!iframeLang) {
+    const multi = await runWithBrowserRuntime(language, input.code);
+    if (multi.error !== "DEFER_IFRAME") {
+      return {
+        ok: multi.ok,
+        runtime: "iframe",
+        stdout: multi.stdout,
+        stderr: multi.stderr,
+        logs: multi.stdout
+          ? [{ level: "log" as const, text: multi.stdout }]
+          : multi.stderr
+            ? [{ level: "error" as const, text: multi.stderr }]
+            : [],
+        durationMs: multi.durationMs,
+        exitCode: multi.exitCode,
+        ...(multi.ok
+          ? {}
+          : { error: multi.error || multi.stderr || "Sandbox run failed." }),
+      };
+    }
   }
 
   const html = wrapRunnable(language === "typescript" || language === "ts" ? "javascript" : language, input.code);
