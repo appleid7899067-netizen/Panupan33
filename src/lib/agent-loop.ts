@@ -15,6 +15,7 @@ import {
   autoVerifyAfterPublish,
   type BossContext,
 } from "@/lib/boss-engine";
+import { builderPromptPrefix, looksLikeBuilderTask } from "@/lib/builder/prompt";
 
 export type AgentPhase = "plan" | "select" | "act" | "observe" | "refine" | "verify";
 export type AgentStep = { phase: AgentPhase; detail: string };
@@ -65,6 +66,7 @@ function summarizeToolNames(tools: CodingFleetTool[]): string {
 function activityLabel(toolName: string, ok: boolean): string {
   const name = toolName.toLowerCase();
   if (!ok) return "⚠️ กำลังตรวจ error จาก " + toolName;
+  if (/builder_/.test(name)) return "🏗️ Builder: " + toolName;
   if (/extract|unzip|archive|zip|upload|attachment/.test(name)) return "📦 กำลังแตก/อ่านไฟล์จากงานที่แนบ";
   if (/github.*(fetch|read)|read.*file|file.*read/.test(name)) return "📄 กำลังอ่านไฟล์จริงจาก GitHub";
   if (/github.*(write|update|create)|write.*file|edit|patch/.test(name)) return "✏️ กำลังแก้ไขไฟล์จริง";
@@ -85,7 +87,7 @@ function looksLikeVerification(prompt: string): boolean {
 }
 
 function isVerificationToolCall(name: string): boolean {
-  return /(^|_)(test|verify|verification|build|ci|check|status|health|deploy|sandbox|web|http)(_|$)/i.test(name);
+  return /(^|_)(test|verify|verification|build|ci|check|status|health|deploy|sandbox|web|http|builder_publish|builder_update_preview)(_|$)/i.test(name);
 }
 
 function verificationPassed(results: ToolExecutionResult[]): { passed: boolean; evidence: string } {
@@ -105,13 +107,13 @@ function verificationPassed(results: ToolExecutionResult[]): { passed: boolean; 
     }
     if (value && typeof value === "object") {
       const record = value as Record<string, unknown>;
-      if (record.verified === true || record.success === true) return { passed: true, evidence: `${check.name} verified` };
+      if (record.verified === true || record.success === true || record.ok === true) return { passed: true, evidence: `${check.name} verified` };
     }
   }
   return { passed: false, evidence: "verification ยังไม่ผ่านเกณฑ์" };
 }
 
-/** Plan → Select → Act → Observe → Refine → Verify + Boss Engine. */
+/** Plan → Select → Act → Observe → Refine → Verify + Boss Engine + Builder. */
 export async function runAgentLoop(prompt: string, tools: CodingFleetTool[], maxIterations = 4, authToken?: string, onStep?: (step: AgentStep) => void, model = "gpt-5.6-luna", githubToken?: string): Promise<AgentRunResult> {
   const steps: AgentStep[] = [];
   const deepReasoning = /(?:architecture|สถาปัตย์|ออกแบบ|debug|แก้บั๊ก|bug|refactor|หลายขั้น|ทั้งระบบ|ระบบ|deploy|ดีพลอย|CI|workflow|database|ฐานข้อมูล|security|ความปลอดภัย|MCP|agent|โค้ด|code)/i.test(prompt) || prompt.length > 700;
@@ -128,6 +130,10 @@ export async function runAgentLoop(prompt: string, tools: CodingFleetTool[], max
     emitStep({ phase: "plan", detail: `Boss Engine bootstrap skipped: ${e instanceof Error ? e.message : String(e)}` });
   }
 
+  if (looksLikeBuilderTask(prompt)) {
+    emitStep({ phase: "plan", detail: "🏗️ Builder mode (HeyPuter/builder capabilities)" });
+  }
+
   const initialSteps: AgentStep[] = [
     { phase: "plan", detail: "วิเคราะห์เจตนาผู้ใช้และแตกงานเป็นขั้นตอน (Codex)" },
     { phase: "select", detail: `เครื่องมือที่เปิดตามเจตนา: ${summarizeToolNames(tools) || "ไม่มี — ตอบตรง"}` },
@@ -137,9 +143,10 @@ export async function runAgentLoop(prompt: string, tools: CodingFleetTool[], max
 
   const mcp = await discoverMCPTools();
   const mcpCount = mcp.reduce((sum, item) => sum + item.tools.length, 0);
+  const builderBit = looksLikeBuilderTask(prompt) ? builderPromptPrefix() + "\n\n" : "";
   const bossPrefix = bossCtx
-    ? bossPromptPrefix(bossCtx) + "\n\n" + persistInstructions() + "\n\n"
-    : persistInstructions() + "\n\n";
+    ? bossPromptPrefix(bossCtx) + "\n\n" + persistInstructions() + "\n\n" + builderBit
+    : persistInstructions() + "\n\n" + builderBit;
   let currentPrompt = `${bossPrefix}${prompt}
 
 CODEX-STYLE AGENT PROTOCOL:
@@ -147,7 +154,7 @@ CODEX-STYLE AGENT PROTOCOL:
 2. Plan → Select 1–2 tools → Act → Observe → Refine
 3. ถ้า tool ล้มเหลว: วินิจฉัยจาก output จริง แล้วซ่อม
 4. อย่า claim สำเร็จโดยไม่มีหลักฐาน verification
-MCP tools: ${mcpCount}. Mutation: ${looksLikeMutation(prompt)}. Verify: ${looksLikeVerification(prompt)}.
+MCP tools: ${mcpCount}. Mutation: ${looksLikeMutation(prompt)}. Verify: ${looksLikeVerification(prompt)}. Builder: ${looksLikeBuilderTask(prompt)}.
 Health URL: ${prompt.match(/https:\/\/[^\s)\]}>,]+/i)?.[0] || "none"}.`;
 
   let last = "";
