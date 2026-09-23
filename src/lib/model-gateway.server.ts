@@ -195,6 +195,33 @@ export function parseToolCalls(response: unknown): GatewayToolCall[] {
   });
 }
 
+function normalizePuterGatewayMessages(messages: GatewayMessage[]): GatewayMessage[] {
+  // Puter-backed models accept only user/assistant roles. Tool results are already
+  // represented as user messages by the Boss loop. On later rounds, strip the
+  // OpenAI-style assistant tool_calls metadata because Puter rejects that shape
+  // on some providers even though the first tool-call response is valid.
+  return messages.map((message) => {
+    const role = message.role;
+    if (role !== "user" && role !== "assistant") {
+      return { role: "user", content: String(message.content ?? "") };
+    }
+    if (role !== "assistant" || !message.tool_calls) {
+      return { role, content: String(message.content ?? "") };
+    }
+    const calls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
+    const requested = calls.map((call) => {
+      if (!call || typeof call !== "object") return "";
+      const rec = call as Record<string, unknown>;
+      const fn = rec.function && typeof rec.function === "object"
+        ? rec.function as Record<string, unknown> : rec;
+      return String(fn.name ?? "").trim();
+    }).filter(Boolean);
+    const content = String(message.content ?? "").trim();
+    const note = requested.length ? `[Boss tool requests: ${requested.join(", ")}]` : "";
+    return { role: "assistant", content: [content, note].filter(Boolean).join("\n") };
+  });
+}
+
 export function createPuterCompleter(): ModelCompleter {
   return async ({ model, messages, tools, token }) => {
     const require = createRequire(import.meta.url);
@@ -204,7 +231,7 @@ export function createPuterCompleter(): ModelCompleter {
       };
     };
     const puter = init(token);
-    const resp = await puter.ai.chat(messages, {
+    const resp = await puter.ai.chat(normalizePuterGatewayMessages(messages), {
       model,
       tools: tools.length ? tools : undefined,
       stream: false,
