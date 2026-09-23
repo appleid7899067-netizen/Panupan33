@@ -91,7 +91,10 @@ export function buildAgentFoundation(goal: string, requestedBudget?: number): Ag
     budget: Math.max(1, Math.min(10, requestedBudget ?? defaultBudget)),
     priorities: TOOL_HINTS[intent],
     constraints: [
-      "Use real tool output as the source of truth.",
+      "Use current runtime/tool output as the source of truth.",
+      "Treat remembered knowledge as context only, never as proof of current state.",
+      "Never convert an old observation, cached answer, previous deployment, or remembered result into a current claim without re-checking it.",
+      "When current evidence conflicts with remembered knowledge, current evidence wins.",
       "Do not claim completion without the required evidence.",
       "After a failure, change strategy before retrying.",
       "Never repeat an identical tool call indefinitely.",
