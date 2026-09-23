@@ -104,9 +104,13 @@ export function buildModelPlan(opts: {
 
   const plan: ModelAttempt[] = [];
 
+  // Only send a model to Puter when it looks like a Puter model id.
+  // OpenRouter-style vendor/model ids must not consume Puter quota.
+  const requestedLooksOpenRouter = requested.includes("/") || requested.includes(":free");
+  const puterRequested = requestedLooksOpenRouter ? "" : requested;
   const puterModels = dedupe([
-    requested,
-    requested ? stripVendorPrefix(requested) : "",
+    puterRequested,
+    puterRequested ? stripVendorPrefix(puterRequested) : "",
     ...PUTER_FALLBACK_POOL,
   ]).slice(0, 3);
 
@@ -319,7 +323,14 @@ export async function runModelGateway(opts: GatewayRunOptions): Promise<GatewayS
   let lastError = "";
   const seenErrors = new Set<string>();
 
+  let puterQuotaExhausted = false;
+
   for (const attempt of plan) {
+    // A depleted Puter allowance cannot be repaired by trying the same account
+    // with another model. Skip the rest of the Puter pool and continue to the
+    // server OpenRouter fallback when it is configured.
+    if (puterQuotaExhausted && attempt.provider === "puter") continue;
+
     opts.onAttempt?.(attempt.label);
     attempts.push(attempt.label);
     const completer = attempt.provider === "puter" ? puter : openrouter;
@@ -333,6 +344,12 @@ export async function runModelGateway(opts: GatewayRunOptions): Promise<GatewayS
       return { ok: true, result, attempt };
     } catch (e) {
       lastError = readableError(e);
+      const lower = lastError.toLowerCase();
+      if (attempt.provider === "puter" && /no usage left|usage.*left|quota|insufficient.*usage|usage.*exhaust|credit.*exhaust|out of credits/.test(lower)) {
+        puterQuotaExhausted = true;
+        opts.onAttempt?.("Puter quota หมด → ข้าม Puter ที่เหลือ → ใช้ fallback");
+        continue;
+      }
       const fingerprint = lastError.trim().slice(0, 500);
       if (fingerprint && seenErrors.has(fingerprint)) {
         opts.onAttempt?.(`หยุด retry ซ้ำ: ${fingerprint.slice(0, 180)}`);
