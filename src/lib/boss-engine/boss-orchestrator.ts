@@ -24,7 +24,7 @@ import { createRecoveryEngine, type RecoveryEngine } from "./boss-recovery";
 import { routeToolsForTask, routerDecisionSummary, type RouterDecision } from "./boss-tool-router";
 import type { CodingFleetTool } from "@/lib/puter-tool-loader";
 import { ADAPTIVE_DATA_EXTRACTION_PROMPT, isDataExtractionTask } from "@/lib/adaptive-data-extraction";
-import { ephemeralToolInstruction } from "@/lib/ephemeral-tool-borrowing";
+import { ephemeralToolInstruction, releaseTool } from "@/lib/ephemeral-tool-borrowing";
 
 export type BossContext = {
   plan: ExecutionPlan;
@@ -93,6 +93,7 @@ export function onToolResults(
   const step = nextRunnableStep(plan);
 
   for (const r of results) {
+    releaseTool(r.name, ctx.task.threadId);
     ctx.evidence.ingestToolResult(r.name, r.ok, r.result);
     if (r.ok) {
       ctx.recovery.markResolved(r.name);
