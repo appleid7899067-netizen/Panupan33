@@ -235,10 +235,20 @@ export function recentFailures(state: AgentKernelState, min = 2): string[] {
 }
 
 /** Prevent blind loops before a tool call is made. */
+/**
+ * Pain memory gate:
+ * - If an exact action already failed, never replay that exact action.
+ * - A failed capability may still be used again, but only with a changed
+ *   route, input, or strategy.
+ * - After repeated failures, avoid the capability entirely for this run.
+ */
 export function shouldAvoidAction(state: AgentKernelState, tool: string, input?: unknown): boolean {
   const fp = actionFingerprint(tool, input);
   const same = state.actions.filter((a) => a.inputFingerprint === fp);
-  return same.length >= 2 || (state.failures[tool] ?? 0) >= 3;
+  const failedCapability = (state.failures[tool] ?? 0) >= 1;
+  const exactFailureReplay = failedCapability && same.length >= 1;
+  const exhaustedCapability = (state.failures[tool] ?? 0) >= 3;
+  return exactFailureReplay || exhaustedCapability;
 }
 
 export function missingVerification(state: AgentKernelState): string[] {
@@ -307,6 +317,8 @@ export function kernelSummary(state: AgentKernelState): string {
     `Risk: ${state.contract.risk}`,
     `Mutation: ${state.contract.mutation}`,
     `Evidence: ${hasEvidence(state) ? "yes" : "no"}`,
+    `Avoid exact failed actions: ${Object.keys(state.failures).length ? "yes" : "no"}`,
+    `Recovery rule: failed path is remembered; next action must change tool, input, or route`,
     `Next: ${decision.kind} — ${decision.reason}`,
     recent ? `Recent observations:\n${recent}` : "Recent observations: none",
   ].join("\n");
@@ -346,7 +358,8 @@ export function finalVerificationGate(state: AgentKernelState): {
  */
 export function recoveryHint(tool: string, error: string, attempt: number): string {
   const e = error.toLowerCase();
-  if (attempt >= 3) return `Stop repeating ${tool}; escalate or switch capability.`;
+  if (attempt >= 3) return `Stop repeating ${tool}; the capability is exhausted for this run. Escalate or switch capability.`;
+  if (attempt >= 1) return `Remember this failure. Do NOT replay the same ${tool} action. Change the tool, arguments, route, or verification method, then try once.`;
   if (/401|403|auth|token|permission/.test(e)) return "Check credentials/scope and use a different authenticated path.";
   if (/502|503|timeout|gateway|unavailable/.test(e)) return "Re-check service health and latest deployment before retrying.";
   if (/module not found|cannot find module|npm err|package/.test(e)) return "Inspect dependency manifest and lockfile, fix the concrete missing dependency, then rerun the smallest check.";
