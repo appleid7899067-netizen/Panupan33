@@ -13,59 +13,29 @@ import { chatWithPuter, listPuterModels, loadPuter, type PuterModel } from "@/li
 import { executeWebSearch } from "@/lib/bossnugrok/skills/web-search";
 import { compileChatContext } from "@/lib/context-compiler";
 import { DEFAULT_PUTER_MODEL, POWER_PUTER_MODEL_IDS } from "@/lib/catalog";
+import { BossLiveActivity } from "@/components/boss-live-activity";
+import { McpUiBlock, type McpUiPayload } from "@/components/mcp-ui-block";
 
-function activityMeta(step: string) {
-  const raw = step.replace(/^(?:[a-z_]+):\\s*/i, "").trim();
-  if (/error|fail|ผิดพลาด|ไม่สำเร็จ/i.test(raw)) return { icon: "×", tone: "text-red-300", dot: "bg-red-400" };
-  if (/verify|ตรวจสอบ|ผ่าน|เรียบร้อย|success/i.test(raw)) return { icon: "✓", tone: "text-emerald-300", dot: "bg-emerald-400" };
-  if (/tool|github|web|search|sandbox|อ่าน|เปิด|ค้นหา|กำลัง/i.test(raw)) return { icon: "↗", tone: "text-sky-300", dot: "bg-sky-400" };
-  if (/edit|write|แก้|สร้าง|เขียน|deploy|ดีพลอย/i.test(raw)) return { icon: "✦", tone: "text-violet-300", dot: "bg-violet-400" };
-  return { icon: "·", tone: "text-zinc-400", dot: "bg-zinc-500" };
-}
+/**
+ * MCP tools can return a structured UI payload; the agent loop forwards it as a step
+ * whose detail is `MCP_UI:{json}`. Steps arrive here prefixed with their phase
+ * (`observe: MCP_UI:{json}`), so the marker is located inside the string.
+ */
+const MCP_UI_MARKER = "MCP_UI:";
 
-function BossActivityStream({ steps, active }: { steps: string[]; active: boolean }) {
-  const visible = steps.slice(-8);
-  if (!visible.length) return null;
-
-  return (
-    <div className="mt-3 w-full pl-0.5" aria-live="polite">
-      {visible.map((step, index) => {
-        const meta = activityMeta(step);
-        const current = active && index === visible.length - 1;
-        const text = step.includes(": ") ? step.slice(step.indexOf(": ") + 2) : step;
-        return (
-          <div
-            key={step + "-" + index}
-            className="relative flex min-h-7 items-start gap-2.5 py-1.5 animate-in fade-in slide-in-from-bottom-1 duration-200"
-          >
-            {index < visible.length - 1 && (
-              <span className="absolute left-[7px] top-6 bottom-[-2px] w-px bg-zinc-800/80" />
-            )}
-            <span className={"relative z-10 mt-0.5 grid size-4 shrink-0 place-items-center text-[10px] " + meta.tone}>
-              {current ? (
-                <span className={"relative size-1.5 rounded-full " + meta.dot}>
-                  <span className={"absolute -inset-1 rounded-full opacity-30 animate-ping " + meta.dot} />
-                </span>
-              ) : meta.icon}
-            </span>
-            <span className={"min-w-0 flex-1 text-[11px] leading-5 " + (current ? "text-zinc-200" : "text-zinc-500")}>
-              {text}
-              {current && <span className="ml-1.5 inline-flex gap-0.5 align-middle">
-                <i className="size-0.5 rounded-full bg-zinc-500 animate-bounce" />
-                <i className="size-0.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:100ms]" />
-                <i className="size-0.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:200ms]" />
-              </span>}
-            </span>
-          </div>
-        );
-      })}
-      {!active && (
-        <div className="mt-1 flex items-center gap-1.5 pl-[26px] text-[10px] text-emerald-400/80">
-          <span>✓</span><span>ตรวจสอบสถานะเสร็จแล้ว</span>
-        </div>
-      )}
-    </div>
-  );
+function extractMcpUi(steps: string[]): McpUiPayload | null {
+  for (let i = steps.length - 1; i >= 0; i -= 1) {
+    const step = steps[i];
+    const at = step.indexOf(MCP_UI_MARKER);
+    if (at < 0) continue;
+    try {
+      const parsed = JSON.parse(step.slice(at + MCP_UI_MARKER.length).trim());
+      if (parsed && typeof parsed === "object") return parsed as McpUiPayload;
+    } catch {
+      // not valid JSON — keep looking at older steps
+    }
+  }
+  return null;
 }
 
 function BossMarkdown({ content, onCopyCode, onDownloadCode }: { content: string; onCopyCode?: (code: string) => void; onDownloadCode?: (code: string, language: string) => void }) {
@@ -711,10 +681,21 @@ export function SuperChat() {
               }`}>
                 <BossMarkdown content={m.content} onCopyCode={copyCode} onDownloadCode={downloadCode} />
                 {m.role === "assistant" && m.activity && m.activity.length > 0 && (
-                  <BossActivityStream
-                    steps={m.id === liveStream.id ? liveStream.steps : m.activity}
-                    active={m.id === liveStream.id && liveStream.active}
-                  />
+                  <>
+                    <BossLiveActivity
+                      steps={m.id === liveStream.id ? liveStream.steps : m.activity}
+                      active={m.id === liveStream.id && liveStream.active}
+                      verified={m.verified === true}
+                    />
+                    {(() => {
+                      const ui = extractMcpUi(m.id === liveStream.id ? liveStream.steps : m.activity);
+                      return ui ? (
+                        <div className="mt-2">
+                          <McpUiBlock payload={ui} />
+                        </div>
+                      ) : null;
+                    })()}
+                  </>
                 )}
                 {m.role === "assistant" && m.content && !liveStream.active && /กำลัง|ดำเนิน|ยังทำงานนี้ไม่สำเร็จ|ไม่สำเร็จ|ตรวจสอบ|ค้นหา|แก้|ทำงานต่อ/i.test(m.content + " " + (m.activity || []).join(" ")) && (
                   <div className="mt-3 flex flex-wrap gap-2">
