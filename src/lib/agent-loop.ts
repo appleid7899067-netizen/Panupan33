@@ -6,6 +6,8 @@
  * - Compact prompts (no tool-list spam every refine)
  * - Failure budget: stop after N consecutive hard fails
  */
+import { createEvidenceEngine, type EvidenceEngine } from "@/lib/boss-engine/boss-evidence";
+import { createRecoveryEngine, type RecoveryEngine } from "@/lib/boss-engine/boss-recovery";
 import {
   callWithFallback,
   loadCodingFleetTools,
@@ -264,6 +266,8 @@ export async function runAgentLoop(
   };
 
   const foundation = buildAgentFoundation(prompt, maxIterations);
+  const evidenceEngine: EvidenceEngine = createEvidenceEngine();
+  const recoveryEngine: RecoveryEngine = createRecoveryEngine();
   const budget = Math.min(iterationBudget(prompt, maxIterations), foundation.budget);
   const foundationMemory: AgentMemory = createAgentMemory();
   const deepReasoning = wantsDeepReasoning(prompt);
@@ -273,8 +277,10 @@ export async function runAgentLoop(
   let consecutiveFails = 0;
   const FAIL_LIMIT = 3;
 
-  emit({ phase: "plan", detail: `budget ${budget} rounds · tools ${available.length} · Puter-first` });
+  emit({ phase: "plan", detail: "🎯 Goal & Context: รับเป้าหมายและรวบรวมบริบท" });
+  emit({ phase: "plan", detail: `🗺️ Plan & Route: budget ${budget} rounds · tools ${available.length} · Puter-first` });
   emit({ phase: "plan", detail: foundationPrompt(foundation) });
+  emit({ phase: "plan", detail: "🔎 Research: เตรียมข้อมูล/หลักฐานที่จำเป็นก่อนลงมือ" });
   emit({
     phase: "select",
     detail: available
@@ -331,6 +337,9 @@ export async function runAgentLoop(
     last = result.text;
     for (const tr of result.toolResults) {
       const summary = safeText(tr.result ?? tr.error, tr.ok ? "ok" : "failed").slice(0, 800);
+      evidenceEngine.ingestToolResult(tr.name, tr.ok, tr.result);
+      if (!tr.ok) recoveryEngine.recordFailure(tr.name, safeText(tr.error ?? tr.result, "tool failed"));
+      else recoveryEngine.markResolved(tr.name);
       const evidence = tr.ok && isEvidenceTool(tr.name);
       kernel = tr.ok
         ? kernelRecordObservation(kernel, tr.name, true, summary, evidence)
@@ -398,6 +407,7 @@ export async function runAgentLoop(
     if (!result.toolCalls.length) {
       const { done, verified } = goalSatisfied(prompt, allResults, last, false);
       if (done) {
+        emit({ phase: "verify", detail: "🔬 Verify & Publish: ตรวจหลักฐานจริงก่อนยืนยันผลลัพธ์" });
         emit({ phase: "verify", detail: verified ? "✓ จบด้วยหลักฐาน" : "✓ จบ" });
         return { ok: true, text: last, steps, verified };
       }
@@ -416,6 +426,7 @@ export async function runAgentLoop(
       const { done, verified } = goalSatisfied(prompt, allResults, last, true);
       // For search-style tasks, one good evidence pass is enough
       if (done || (looksLikeSearch(prompt) && !looksLikeMutation(prompt))) {
+        emit({ phase: "verify", detail: "🔬 Verify & Publish: ตรวจหลักฐานจริงก่อนยืนยันผลลัพธ์" });
         emit({ phase: "verify", detail: "✓ ได้หลักฐานเพียงพอ — จบเร็ว" });
         // One short synthesis pass only if model gave empty text
         if (!last.trim() && i < budget - 1) {
@@ -454,6 +465,11 @@ export async function runAgentLoop(
 
     if (failed.length) {
       consecutiveFails += 1;
+      const failedTool = failed[0];
+      const recovery = recoveryEngine.decide();
+      emit({ phase: "observe", detail: `🚨 Error captured: ${safeText(failedTool?.error ?? failedTool?.result, "tool failed").slice(0, 500)}` });
+      emit({ phase: "refine", detail: `🔧 Repair Engine: ${recovery.phase} → ${recovery.instruction.slice(0, 700)}` });
+      emit({ phase: "refine", detail: `🧩 Root cause: ${recoveryEngine.summary().split("\n").slice(-1)[0] ?? "ตรวจจาก error จริง"}` });
       emit({ phase: "refine", detail: `error: ${failed.map((f) => f.name).join(", ")}` });
       if (consecutiveFails >= FAIL_LIMIT) {
         return {
@@ -463,10 +479,11 @@ export async function runAgentLoop(
           verified: hasUsefulEvidence(allResults),
         };
       }
-      const recovery = recoveryHint(failed[0]?.name ?? "tool", safeText(failed[0]?.error ?? failed[0]?.result, "tool failed"), consecutiveFails);
+      const recoveryHintText = recoveryHint(failedTool?.name ?? "tool", safeText(failedTool?.error ?? failedTool?.result, "tool failed"), consecutiveFails);
       currentPrompt = buildContinuePrompt(prompt, allResults, "retry", deepReasoning) +
-        `\n\nKERNEL:\n${kernelSummary(kernel)}\n\nRECOVERY HINT:\n${recovery}${avoidedTools.size ? `\nAVOID THESE TOOLS THIS ROUND: ${[...avoidedTools].join(", ")}` : ""}`;
+        `\n\nREPAIR ENGINE:\n${recovery.instruction}\nEVIDENCE:\n${evidenceEngine.summary()}\n\nKERNEL:\n${kernelSummary(kernel)}\n\nRECOVERY HINT:\n${recovery}${avoidedTools.size ? `\nAVOID THESE TOOLS THIS ROUND: ${[...avoidedTools].join(", ")}` : ""}`;
     } else {
+      if (result.toolCalls.length) emit({ phase: "act", detail: "🛠️ Execute & Trace: บันทึกผลการลงมือทำจาก tool จริง" });
       emit({ phase: "refine", detail: "ต่อจากผลลัพธ์" });
       currentPrompt = buildContinuePrompt(prompt, allResults, "continue", deepReasoning) +
         `\n\nKERNEL:\n${kernelSummary(kernel)}${decision.kind === "recover" ? `\n\nRECOVERY:\n${decision.reason}` : ""}`;
