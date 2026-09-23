@@ -37,9 +37,9 @@ const GITHUB_API = "https://api.github.com";
 const PUBLIC_MCP_SERVERS = ["https://api.keenable.ai/mcp"] as const;
 const TOOL_LIMIT = 20;
 const REGISTRY_CACHE_LIMIT = 80;
-const MAX_TOOL_ROUNDS = 8;
+const MAX_TOOL_ROUNDS = 5;
 const MAX_WEB_CHECKS = 2;
-const DEFAULT_MODELS = ["gpt-5.6-luna", "deepseek/deepseek-chat"] as const;
+const DEFAULT_MODELS = ["nex-agi/nex-n2.5-pro:free", "nex-agi/nex-n2.5-mini:free"] as const;
 const CODINGFLEET_BASE = "https://www.codingfleet.com/api";
 const AUTH_GITHUB = [
   "github_write_file",
@@ -802,23 +802,26 @@ export async function callWithFallback(
             if (item.name === "sandbox_run") return value?.ok === true && (value?.exitCode === undefined || value?.exitCode === 0);
             return false;
           });
-          // Use one strong model for a coherent, faster final response instead of fan-out.
-          // Tool execution stays single-threaded so mutations/deployments are never duplicated.
-          const answerModel = DEFAULT_MODELS[0];
-          onActivity?.([`🧠 กำลังสรุปผลด้วย ${answerModel}...`]);
+          // Cost guard: the tool-loop model already produced the final answer.
+          // Do not make a second LLM call just to rewrite it. This prevents
+          // doubling Puter credits on every tool task.
+          const directText = result.text.trim();
+          if (directText) {
+            return { ok: true, text: directText, model, toolCalls: [], toolResults, verified };
+          }
+          // Only retry when the model returned no usable text.
+          const answerModel = model;
+          onActivity?.([`🧠 ไม่มีคำตอบจากรอบหลัก กำลังลอง ${answerModel}...`]);
           try {
-            // Final-answer context must be provider-safe: only plain user/assistant text.
-            // Do not forward assistant tool_calls or role:"tool" messages to the final call.
             const finalMessages = normalizeAgentProviderMessages(messages).map((message) => ({
               role: message.role === "assistant" ? "assistant" : "user",
               content: typeof message.content === "string" ? message.content : safeText(message.content),
             }));
             const answer = await chatModel(finalMessages, [], answerModel, authToken);
-            return { ok: true, text: answer.text.trim() || result.text, model: answerModel, toolCalls: [], toolResults, verified };
+            return { ok: true, text: answer.text.trim(), model: answerModel, toolCalls: [], toolResults, verified };
           } catch {
-            return { ok: true, text: result.text, model, toolCalls: [], toolResults, verified };
+            return { ok: false, error: "โมเดลไม่ส่งข้อความสรุปหลังทำงานเสร็จ" };
           }
-        }
         const assistantMessage = assistantToolMessage(result.response);
         if (assistantMessage) messages.push(assistantMessage);
         for (const call of result.toolCalls) {
