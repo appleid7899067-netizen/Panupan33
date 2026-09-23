@@ -120,7 +120,7 @@ function verificationPassed(results: ToolExecutionResult[]): { passed: boolean; 
 }
 
 /** Plan → Select ONE → Act → Observe → Refine → Verify (Codex-style). */
-export async function runAgentLoop(prompt: string, tools: CodingFleetTool[], maxIterations = 4, authToken?: string, onStep?: (step: AgentStep) => void, model = "openrouter:qwen/qwen3-coder"): Promise<AgentRunResult> {
+export async function runAgentLoop(prompt: string, tools: CodingFleetTool[], maxIterations = 4, authToken?: string, onStep?: (step: AgentStep) => void, model = "gpt-5.6-luna", githubToken?: string): Promise<AgentRunResult> {
   const steps: AgentStep[] = [];
   const deepReasoning = /(?:architecture|สถาปัตย์|ออกแบบ|debug|แก้บั๊ก|bug|refactor|หลายขั้น|ทั้งระบบ|ระบบ|deploy|ดีพลอย|CI|workflow|database|ฐานข้อมูล|security|ความปลอดภัย|MCP|agent|โค้ด|code)/i.test(prompt) || prompt.length > 700;
   const emitStep = (step: AgentStep) => { steps.push(step); onStep?.(step); };
@@ -166,7 +166,7 @@ Never claim external success without tool evidence.`;
 
   for (let iteration = 0; iteration < Math.max(1, Math.min(maxIterations, 6)); iteration += 1) {
     emitStep({ phase: "act", detail: `รอบที่ ${iteration + 1}: ลงมือทำ (1–2 tool ตามเจตนา)` });
-    const result = await callWithFallback(currentPrompt, tools, [model], (activity) => activity.forEach((detail) => emitStep({ phase: "observe", detail })), authToken);
+    const result = await callWithFallback(currentPrompt, tools, [model], (activity) => activity.forEach((detail) => emitStep({ phase: "observe", detail })), authToken, githubToken);
     if (!result.ok) {
       emitStep({ phase: "observe", detail: `เครื่องมือ/โมเดลแจ้งข้อผิดพลาด: ${safeText(result.error, "ไม่ทราบรายละเอียด").slice(0, 300)}` });
       return { ok: false, text: failureText(result.error, []), steps, verified: false };
