@@ -416,9 +416,9 @@ export function SuperChat() {
     }
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || !thread) return;
-    const userText = input;
+  const handleSend = async (forcedText?: string) => {
+    const userText = (forcedText ?? input).trim();
+    if (!userText || !thread) return;
     setInput("");
     isPinnedRef.current = true;
     setIsPinnedToBottom(true);
@@ -715,6 +715,13 @@ export function SuperChat() {
                     steps={m.id === liveStream.id ? liveStream.steps : m.activity}
                     active={m.id === liveStream.id && liveStream.active}
                   />
+                )}
+                {m.role === "assistant" && m.content && !liveStream.active && /กำลัง|ดำเนิน|ยังทำงานนี้ไม่สำเร็จ|ไม่สำเร็จ|ตรวจสอบ|ค้นหา|แก้|ทำงานต่อ/i.test(m.content + " " + (m.activity || []).join(" ")) && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" onClick={() => void handleSend("ทำงานต่อจากงานล่าสุดทันที")} className="inline-flex items-center gap-1.5 rounded-xl border border-violet-400/25 bg-violet-500/10 px-3 py-2 text-[11px] font-medium text-violet-200 hover:bg-violet-500/20 transition">▶ ทำต่อ</button>
+                    <button type="button" onClick={() => void handleSend("ตรวจสอบงานล่าสุดอีกครั้ง แล้วแก้ต่อจนกว่าจะผ่าน")} className="inline-flex items-center gap-1.5 rounded-xl border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-[11px] font-medium text-sky-200 hover:bg-sky-500/20 transition">✓ ตรวจสอบต่อ</button>
+                    <button type="button" onClick={() => void handleSend("ลองวิธีอื่นต่อจากงานล่าสุด โดยไม่ทำซ้ำวิธีเดิม")} className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-950/70 px-3 py-2 text-[11px] font-medium text-zinc-300 hover:bg-zinc-800 transition">↻ ลองวิธีอื่น</button>
+                  </div>
                 )}
                 {m.role === "assistant" && m.content && (
                   <div className="mt-2 flex items-center gap-1.5 opacity-100">
