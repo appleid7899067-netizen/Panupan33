@@ -248,14 +248,23 @@ export async function callWithFallback(
     try {
       await ensurePuter();
       const toolResults: ToolExecutionResult[] = [];
-      let messages: Array<Record<string, unknown>> = [{ role: "user", content: prompt }];
+      const messages: Array<Record<string, unknown>> = [{ role: "user", content: prompt }];
       let finalText = "";
       let lastCalls: ToolCall[] = [];
 
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-        const response = await (globalThis as unknown as {
-          puter?: { ai?: { chat?: Function } };
-        }).puter?.ai?.chat?.(messages, {
+        const puterChat = (globalThis as unknown as {
+          puter?: {
+            ai?: {
+              chat?: (
+                messages: Array<Record<string, unknown>>,
+                options?: { model?: string; tools?: unknown[]; stream?: boolean },
+              ) => Promise<unknown>;
+            };
+          };
+        }).puter?.ai?.chat;
+        if (typeof puterChat !== "function") throw new Error("Puter AI chat is unavailable.");
+        const response = await puterChat(messages, {
           model,
           tools: puterTools,
           stream: false,
