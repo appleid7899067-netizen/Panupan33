@@ -96,7 +96,7 @@ export const runAgent = createServerFn({ method: "POST" })
 
     // Fewer iterations by default — Codex-like focused loops
     const iterations = data.maxIterations ?? (intent === "github" || intent === "deploy" ? 5 : 3);
-    const result = await runAgentLoop(taskPrompt, selected, iterations, data.authToken, undefined, data.model);
+    const result = await runAgentLoop(taskPrompt, selected, iterations, data.authToken, undefined, data.model, data.githubToken);
     return { ...result, steps: [registryStep, ...result.steps] };
   });
 
