@@ -442,12 +442,17 @@ export async function callWithFallback(
       try {
         completion = await winner.completer({ model: winner.model, messages, tools: puterTools, token: winner.token });
       } catch (e) {
-        const err = e instanceof Error ? e.message : String(e);
-        // One recovery pass: re-run gateway discovery (e.g. Puter outage → OpenRouter).
+        const err =
+          e instanceof Error
+            ? e.message
+            : typeof e === "object" && e !== null
+              ? JSON.stringify(e)
+              : String(e);
+        // Recovery is allowed once only, and only for a genuinely new failure.
         if (!recoveryUsed) {
           recoveryUsed = true;
           winner = null;
-          onActivity?.([`model failed: ${err.slice(0, 120)} — ลอง gateway ใหม่`]);
+          onActivity?.([`model failed: ${err.slice(0, 180)} — ลอง gateway ใหม่ 1 ครั้ง`]);
           continue;
         }
         return { ok: false, text: finalText || "", model: winner.model, provider: winner.provider, toolCalls: lastCalls, toolResults, verified: isVerified(), error: err };
