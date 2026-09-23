@@ -17,3 +17,5 @@ export * from "./github-loop-runner";
 export * from "./publisher";
 export * from "./publisher-runner";
 export * from "./autonomy";
+export * from "./task-persist";
+export * from "./post-publish";
