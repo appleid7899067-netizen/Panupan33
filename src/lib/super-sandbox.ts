@@ -267,7 +267,8 @@ ${mainFile.content}
       const cleaned = raw
         .replace(/^\\s*import\\s+React[^;]*;?/gm, "")
         .replace(/^\\s*import\\s+\\{[^}]+\\}\\s+from\\s+["']react["'];?/gm, "")
-        .replace(/^\\s*export\\s+default\\s+/gm, "");
+        .replace(/^\\s*export\\s+default\\s+function\\s+([A-Za-z0-9_$]+)/gm, "module.exports.default = function $1")
+        .replace(/^\\s*export\\s+default\\s+/gm, "module.exports.default = ");
 
       if (${JSON.stringify(isReact)}) {
         const transformed = Babel.transform(cleaned, {
