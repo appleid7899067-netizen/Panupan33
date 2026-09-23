@@ -388,7 +388,6 @@ export async function callWithFallback(
   let lastError = "";
   for (const model of models.slice(0, 3)) {
     try {
-      await ensurePuter();
       const toolResults: ToolExecutionResult[] = [];
       const messages: Array<Record<string, unknown>> = [{ role: "user", content: prompt }];
       let finalText = "";
