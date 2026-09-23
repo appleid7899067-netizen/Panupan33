@@ -57,7 +57,13 @@ type ToolCall = { id?: string; name: string; arguments: Record<string, unknown> 
 const AUTH_GITHUB = AUTH_GITHUB_FULL as unknown as string[];
 const GITHUB_API = "https://api.github.com";
 const MAX_TOOL_ROUNDS = 5;
-const DEFAULT_MODELS = ["nex-agi/nex-n2.5-pro:free", "nex-agi/nex-n2.5-mini:free"] as const;
+const DEFAULT_MODELS = [
+  "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "poolside/laguna-s-2.1:free",
+  "dots-studio/dots-3-note-preview:free",
+  "nvidia/nemotron-3.5-lightning:free",
+  "cohere/north-mini-code:free",
+] as const;
 
 function toolName(tool: CodingFleetTool) {
   return String(tool.name ?? tool.slug ?? tool.id ?? "").trim();
