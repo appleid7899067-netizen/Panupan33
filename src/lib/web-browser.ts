@@ -1,7 +1,7 @@
 /**
  * Public-internet browser for Boss tools.
  * Forces real HTTPS navigation to public hosts only (blocks private/local/metadata).
- * Used by web_search / web_browse / web_check / web_fetch.
+ * web_search uses live browser engines (Bing + Wikipedia), not private network.
  */
 
 const BROWSER_UA =
@@ -106,6 +106,37 @@ function extractTitle(html: string): string | undefined {
   return m ? stripHtml(m[1]).slice(0, 300) : undefined;
 }
 
+function unwrapBingUrl(href: string): string {
+  try {
+    const u = new URL(href.replace(/&amp;/g, "&"));
+    const payload = u.searchParams.get("u");
+    if (payload && payload.startsWith("a1")) {
+      const b64 = payload.slice(2).replace(/-/g, "+").replace(/_/g, "/");
+      const bin =
+        typeof atob === "function"
+          ? atob(b64)
+          : Buffer.from(b64, "base64").toString("binary");
+      const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+      const decoded = new TextDecoder().decode(bytes);
+      if (/^https?:\/\//i.test(decoded)) return decoded.replace(/^http:\/\//i, "https://");
+    }
+  } catch {
+    /* keep original */
+  }
+  return href.replace(/&amp;/g, "&").replace(/^http:\/\//i, "https://");
+}
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/<[^>]+>/g, "");
+}
+
 /** Navigate a public HTTPS page with browser User-Agent. */
 export async function browserNavigate(
   url: string,
@@ -129,7 +160,6 @@ export async function browserNavigate(
         "Cache-Control": "no-cache",
       },
     });
-    // Re-validate final URL after redirects
     try {
       assertPublicHttpsUrl(response.url);
     } catch (e) {
@@ -157,7 +187,7 @@ export async function browserNavigate(
       contentType,
       title: isHtml ? extractTitle(raw) : undefined,
       text,
-      htmlPreview: isHtml ? raw.slice(0, 4000) : undefined,
+      htmlPreview: isHtml ? raw.slice(0, 200_000) : undefined,
       responseTimeMs: Date.now() - started,
       via: "browser",
     };
@@ -177,103 +207,117 @@ export async function browserNavigate(
   }
 }
 
-function decodeDdEntities(s: string): string {
-  return s
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#x27;/g, "'")
-    .replace(/&#39;/g, "'")
-    .replace(/<[^>]+>/g, "");
-}
-
-/** DuckDuckGo HTML results — no API key, public browser path. */
-export async function browserSearchDuckDuckGo(
-  query: string,
-  count = 8,
-): Promise<{ ok: boolean; query: string; hits: SearchHit[]; error?: string; via: "browser" }> {
-  const q = query.trim();
-  if (!q) throw new Error("query required");
-  const n = Math.min(10, Math.max(1, count));
-  const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`;
-  const page = await browserNavigate(searchUrl, { timeoutMs: 25000 });
-  if (!page.ok && page.status === 0) {
-    return { ok: false, query: q, hits: [], error: page.error ?? "browser navigate failed", via: "browser" };
-  }
-  const html = page.htmlPreview ? await (async () => {
-    // Re-fetch with larger body for parsing results
-    const full = await browserNavigate(searchUrl, { timeoutMs: 25000, maxBytes: 800_000 });
-    return full.htmlPreview ? (full as BrowserPage & { htmlPreview: string }).htmlPreview : full.text;
-  })() : page.text;
-
-  // Prefer full HTML if we got it via a second pass
-  const fullPage = await browserNavigate(searchUrl, { timeoutMs: 25000, maxBytes: 1_000_000 });
-  const body = fullPage.htmlPreview ?? fullPage.text;
-  const hits: SearchHit[] = [];
-
-  // Classic DDG HTML result blocks
-  const resultRe =
-    /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?(?:class="result__snippet"[^>]*>([\s\S]*?)<\/a>|class="result__snippet"[^>]*>([\s\S]*?)<\/)/gi;
-  let m: RegExpExecArray | null;
-  while ((m = resultRe.exec(body)) !== null && hits.length < n) {
-    let href = decodeDdEntities(m[1]);
-    // DDG sometimes wraps redirects: //duckduckgo.com/l/?uddg=<encoded>
-    const uddg = href.match(/[?&]uddg=([^&]+)/);
-    if (uddg) {
+async function searchWikipedia(query: string, count: number): Promise<SearchHit[]> {
+  const url = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=${count}&namespace=0&format=json`;
+  const page = await browserNavigate(url, { timeoutMs: 15000, maxBytes: 200_000 });
+  if (!page.ok) return [];
+  try {
+    const data = JSON.parse(page.text) as [string, string[], string[], string[]];
+    const titles = data[1] ?? [];
+    const descs = data[2] ?? [];
+    const links = data[3] ?? [];
+    const hits: SearchHit[] = [];
+    for (let i = 0; i < Math.min(count, titles.length); i++) {
+      const href = String(links[i] ?? "").replace(/^http:\/\//i, "https://");
+      if (!href) continue;
       try {
-        href = decodeURIComponent(uddg[1]);
-      } catch {
-        /* keep */
-      }
-    }
-    if (!/^https?:\/\//i.test(href)) continue;
-    try {
-      assertPublicHttpsUrl(href.replace(/^http:\/\//i, "https://"));
-    } catch {
-      continue;
-    }
-    hits.push({
-      title: decodeDdEntities(m[2]).slice(0, 200),
-      url: href.replace(/^http:\/\//i, "https://"),
-      snippet: decodeDdEntities(m[3] || m[4] || "").slice(0, 400),
-    });
-  }
-
-  // Fallback looser pattern
-  if (!hits.length) {
-    const loose = /href="(https?:\/\/[^"\s]+)"[^>]*>([^<]{5,120})/gi;
-    const seen = new Set<string>();
-    while ((m = loose.exec(body)) !== null && hits.length < n) {
-      let href = m[1];
-      if (/duckduckgo\.com|javascript:/i.test(href)) continue;
-      if (seen.has(href)) continue;
-      seen.add(href);
-      try {
-        assertPublicHttpsUrl(href.replace(/^http:\/\//i, "https://"));
+        assertPublicHttpsUrl(href);
       } catch {
         continue;
       }
       hits.push({
-        title: decodeDdEntities(m[2]).slice(0, 200),
-        url: href.replace(/^http:\/\//i, "https://"),
-        snippet: "",
+        title: String(titles[i] ?? ""),
+        url: href,
+        snippet: String(descs[i] ?? ""),
       });
     }
+    return hits;
+  } catch {
+    return [];
+  }
+}
+
+async function searchBing(query: string, count: number): Promise<SearchHit[]> {
+  const searchUrl = `https://www.bing.com/search?q=${encodeURIComponent(query)}&setlang=en`;
+  const page = await browserNavigate(searchUrl, { timeoutMs: 25000, maxBytes: 1_500_000 });
+  if (!page.ok && page.status === 0) return [];
+  const body = page.htmlPreview ?? page.text;
+  const hits: SearchHit[] = [];
+  const seen = new Set<string>();
+
+  const re = /<h2[^>]*>\s*<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>\s*<\/h2>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body)) !== null && hits.length < count) {
+    let href = unwrapBingUrl(decodeEntities(m[1]));
+    if (/javascript:/i.test(href)) continue;
+    if (/bing\.com\/(search|ck|account|maps)/i.test(href)) continue;
+    if (seen.has(href)) continue;
+    try {
+      assertPublicHttpsUrl(href);
+    } catch {
+      continue;
+    }
+    seen.add(href);
+    hits.push({
+      title: decodeEntities(m[2]).slice(0, 200),
+      url: href,
+      snippet: "",
+    });
+  }
+
+  if (hits.length) {
+    const citeRe = /class="b_caption"[\s\S]*?<p>([\s\S]*?)<\/p>/gi;
+    let i = 0;
+    while ((m = citeRe.exec(body)) !== null && i < hits.length) {
+      hits[i].snippet = decodeEntities(m[1]).slice(0, 400);
+      i += 1;
+    }
+  }
+  return hits;
+}
+
+/** Multi-engine public browser search. */
+export async function browserSearchDuckDuckGo(
+  query: string,
+  count = 8,
+): Promise<{ ok: boolean; query: string; hits: SearchHit[]; error?: string; via: "browser"; engines?: string[] }> {
+  const q = query.trim();
+  if (!q) throw new Error("query required");
+  const n = Math.min(10, Math.max(1, count));
+  const engines: string[] = [];
+  const merged: SearchHit[] = [];
+  const seen = new Set<string>();
+
+  const wiki = await searchWikipedia(q, Math.min(5, n));
+  if (wiki.length) engines.push("wikipedia");
+  for (const h of wiki) {
+    if (seen.has(h.url)) continue;
+    seen.add(h.url);
+    merged.push(h);
+  }
+
+  const bing = await searchBing(q, n);
+  if (bing.length) engines.push("bing");
+  for (const h of bing) {
+    if (seen.has(h.url)) continue;
+    seen.add(h.url);
+    merged.push(h);
+    if (merged.length >= n) break;
   }
 
   return {
-    ok: hits.length > 0,
+    ok: merged.length > 0,
     query: q,
-    hits,
-    ...(hits.length ? {} : { error: "No public results parsed from browser search" }),
+    hits: merged.slice(0, n),
+    engines,
+    ...(merged.length ? {} : { error: "No public results from browser engines" }),
     via: "browser",
   };
 }
 
 /**
  * Forced public browser search:
- * 1) DuckDuckGo HTML via browser UA
+ * 1) Wikipedia + Bing via browser UA
  * 2) Optionally open top hits and extract page text
  */
 export async function browserWebSearch(
@@ -285,6 +329,7 @@ export async function browserWebSearch(
   hits: SearchHit[];
   pages?: Array<{ url: string; title?: string; text: string; status: number }>;
   via: "browser";
+  engines?: string[];
   error?: string;
 }> {
   const count = Math.min(10, Math.max(1, Number(opts?.count ?? 8)));
@@ -308,6 +353,7 @@ export async function browserWebSearch(
     ok: true,
     query: search.query,
     hits: search.hits,
+    engines: search.engines,
     ...(pages.length ? { pages } : {}),
     via: "browser",
   };
