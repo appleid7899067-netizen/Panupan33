@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { unzipSync, strFromU8 } from "fflate";
-import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X, Copy, Check, Square, Github, KeyRound, Eye } from "lucide-react";
+import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X, Copy, Check, Download, Square, Github, KeyRound, Eye } from "lucide-react";
 import { useFleet } from "@/lib/store";
 import { runAgent, runAgentSandbox, runAgentStream } from "@/lib/agent.functions";
 import { chatWithPuter, listPuterModels, loadPuter, type PuterModel } from "@/lib/puter";
@@ -262,7 +262,29 @@ export function SuperChat() {
   const isPinnedRef = useRef(true);
 
   const copyMessage = async (messageId: string, content: string) => {
-    try { await navigator.clipboard.writeText(content); setCopiedMessage(messageId); window.setTimeout(() => setCopiedMessage(null), 1400); } catch { setCopiedMessage(null); }
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedMessage(messageId);
+      window.setTimeout(() => setCopiedMessage(null), 1400);
+    } catch {
+      setCopiedMessage(null);
+    }
+  };
+
+  const downloadMessage = (messageId: string, content: string) => {
+    try {
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "bossnu-response-" + messageId.slice(0, 8) + ".txt";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      // Browser download is best-effort and must never interrupt the chat.
+    }
   };
 
   const toggleVoice = () => {
@@ -671,7 +693,8 @@ export function SuperChat() {
                 )}
                 {m.role === "assistant" && m.content && (
                   <div className="mt-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <button type="button" onClick={() => copyMessage(m.id, m.content)} className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" aria-label="คัดลอกคำตอบ">{copiedMessage === m.id ? <Check className="size-3.5 text-emerald-400" /> : <Copy className="size-3.5" />}</button>
+                    <button type="button" onClick={() => copyMessage(m.id, m.content)} className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" aria-label="คัดลอกคำตอบ" title="คัดลอกคำตอบ">{copiedMessage === m.id ? <Check className="size-3.5 text-emerald-400" /> : <Copy className="size-3.5" />}</button>
+                    <button type="button" onClick={() => downloadMessage(m.id, m.content)} className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" aria-label="ดาวน์โหลดคำตอบ" title="ดาวน์โหลดคำตอบ"><Download className="size-3.5" /></button>
                   </div>
                 )}
               </div>
