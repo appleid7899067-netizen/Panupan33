@@ -140,7 +140,7 @@ export class SuperSandbox {
       // 4. รันโค้ดจริงใน hidden iframe (ใช้ background-sandbox logic)
       const mainFile = input.files[0];
       if (mainFile) {
-        const previewHtml = this.buildPreviewHtml(mainFile, input.files);
+        const previewHtml = this.buildPreviewHtml(mainFile, input.files, id);
         result.previewHtml = previewHtml;
         
         // สร้าง preview URL แบบ blob
@@ -156,13 +156,8 @@ export class SuperSandbox {
         // จำลองการรัน
         await new Promise(r => setTimeout(r, 200 + Math.random() * 400));
 
-        // Do not invent runtime failures. A sandbox failure must come from an actual exception/runtime result.
-        result.status = "success";
-        result.logs.push({
-          type: "console-log",
-          message: `✓ Preview ready (${result.previewMode})`,
-          timestamp: Date.now(),
-        });
+        // Preview is asynchronous. Keep the run truthful until the iframe reports done/error.
+        result.status = "running";
       }
 
       result.durationMs = Date.now() - start;
@@ -196,38 +191,121 @@ export class SuperSandbox {
     return result;
   }
 
-  private buildPreviewHtml(mainFile: SandboxFile, allFiles: SandboxFile[]): string {
-    if (mainFile.language === "html") return mainFile.content;
-    
-    const cssFiles = allFiles.filter(f => f.language === "css").map(f => f.content).join("\n");
-    const jsFiles = allFiles.filter(f => f.language === "javascript" || f.language === "typescript").map(f => f.content).join("\n");
+  private buildPreviewHtml(mainFile: SandboxFile, allFiles: SandboxFile[], runId?: string): string {
+    const cssFiles = allFiles
+      .filter(f => f.language === "css")
+      .map(f => f.content)
+      .join("\n");
+
+    const escapedId = JSON.stringify(runId || "preview");
+    const css = cssFiles.replace(/<\\/style/gi, "<\\\\/style");
+
+    if (mainFile.language === "html") {
+      return `<!doctype html>
+<html><head><meta charset="utf-8"><style>${css}</style></head>
+<body>
+${mainFile.content}
+<script>
+(function(){
+  const RUN_ID = ${escapedId};
+  const send = (type, payload) => parent.postMessage({source:"super-sandbox", runId:RUN_ID, type, payload}, "*");
+  window.addEventListener("error", e => send("error", e.error?.stack || e.message));
+  window.addEventListener("unhandledrejection", e => send("error", String(e.reason)));
+  const log = console.log, warn = console.warn, error = console.error;
+  console.log = (...a) => { log(...a); send("log", a.map(v => typeof v === "string" ? v : JSON.stringify(v)).join(" ")); };
+  console.warn = (...a) => { warn(...a); send("warn", a.map(String).join(" ")); };
+  console.error = (...a) => { error(...a); send("error", a.map(String).join(" ")); };
+  send("done", {ok:true});
+})();
+</script>
+</body></html>`;
+    }
 
     if (mainFile.language === "css") {
-      return `<!doctype html><html><head><style>${mainFile.content}</style></head><body><div>CSS Preview</div></body></html>`;
+      return `<!doctype html><html><head><meta charset="utf-8"><style>${mainFile.content}</style></head>
+<body><div style="padding:2rem;font-family:system-ui">CSS Preview</div></body></html>`;
     }
+
+    const isReact = mainFile.framework === "react" || mainFile.path.endsWith(".tsx") || mainFile.path.endsWith(".jsx");
+    const source = JSON.stringify(mainFile.content);
+    const fallbackJs = allFiles
+      .filter(f => f.path !== mainFile.path && (f.language === "javascript" || f.language === "typescript"))
+      .map(f => f.content)
+      .join("\n");
 
     return `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
-  <style>${cssFiles}</style>
+  <style>${css}</style>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body>
   <div id="root"></div>
   <script>
-    const send = (type, payload) => parent.postMessage({ source: "super-sandbox", type, payload }, "*");
-    const origLog = console.log;
-    console.log = (...args) => { origLog(...args); send("log", args.map(String).join(" ")); };
-    console.error = (...args) => { send("error", args.map(String).join(" ")); };
+  (async function(){
+    const RUN_ID = ${escapedId};
+    const send = (type, payload) => parent.postMessage({source:"super-sandbox", runId:RUN_ID, type, payload}, "*");
+    const stringify = value => {
+      try { return typeof value === "string" ? value : JSON.stringify(value); }
+      catch { return String(value); }
+    };
+
+    window.addEventListener("error", e => send("error", e.error?.stack || e.message));
+    window.addEventListener("unhandledrejection", e => send("error", stringify(e.reason)));
+
+    const original = { log: console.log, warn: console.warn, error: console.error };
+    console.log = (...args) => { original.log(...args); send("log", args.map(stringify).join(" ")); };
+    console.warn = (...args) => { original.warn(...args); send("warn", args.map(stringify).join(" ")); };
+    console.error = (...args) => { original.error(...args); send("error", args.map(stringify).join(" ")); };
+
     try {
-      ${mainFile.content}
-      ${jsFiles}
-      send("done", { ok: true });
-    } catch(e) {
-      send("error", e.stack || e.message);
-      send("done", { ok: false });
+      const raw = ${source};
+      const cleaned = raw
+        .replace(/^\\s*import\\s+React[^;]*;?/gm, "")
+        .replace(/^\\s*import\\s+\\{[^}]+\\}\\s+from\\s+["']react["'];?/gm, "")
+        .replace(/^\\s*export\\s+default\\s+/gm, "");
+
+      if (${JSON.stringify(isReact)}) {
+        const transformed = Babel.transform(cleaned, {
+          presets: [
+            ["env", { modules: "commonjs" }],
+            "react",
+            "typescript"
+          ]
+        }).code;
+
+        const module = { exports: {} };
+        const require = (name) => {
+          if (name === "react") return React;
+          if (name === "react-dom") return ReactDOM;
+          if (name === "react-dom/client") return ReactDOM;
+          throw new Error("Unsupported sandbox import: " + name);
+        };
+
+        new Function("require","module","exports", transformed)(require, module, module.exports);
+        const App = module.exports.default || module.exports.App || window.App;
+        if (typeof App !== "function") throw new Error("React preview could not find an App component.");
+        ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+      } else {
+        const transformed = Babel.transform(cleaned, {
+          presets: [["env", { modules: "commonjs" }], "typescript"]
+        }).code;
+        const module = { exports: {} };
+        const require = () => { throw new Error("Imports are not available for this sandbox preview."); };
+        new Function("require","module","exports", transformed)(require, module, module.exports);
+      }
+
+      ${JSON.stringify(fallbackJs)}
+      send("done", {ok:true});
+    } catch (e) {
+      send("error", e?.stack || e?.message || String(e));
+      send("done", {ok:false});
     }
+  })();
   </script>
 </body>
 </html>`;
