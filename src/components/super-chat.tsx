@@ -68,7 +68,7 @@ function BossActivityStream({ steps, active }: { steps: string[]; active: boolea
   );
 }
 
-function BossMarkdown({ content }: { content: string }) {
+function BossMarkdown({ content, onCopyCode, onDownloadCode }: { content: string; onCopyCode?: (code: string) => void; onDownloadCode?: (code: string, language: string) => void }) {
   const fence = String.fromCharCode(96, 96, 96);
   const parts = content.split(fence);
   return (
@@ -81,7 +81,13 @@ function BossMarkdown({ content }: { content: string }) {
           const isHtml = /^(html|htm|xhtml)$/i.test(language);
           return (
             <div key={i} className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/90">
-              {language && <div className="border-b border-zinc-800 px-3 py-1.5 text-[10px] uppercase tracking-wider text-zinc-500">{isHtml ? "HTML Preview" : language}</div>}
+              <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-1.5">
+                <span className="text-[10px] uppercase tracking-wider text-zinc-500">{isHtml ? "HTML Preview" : language || "CODE"}</span>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={() => onCopyCode?.(code)} className="rounded-md px-2 py-1 text-[10px] text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" title="คัดลอกโค้ด">คัดลอก</button>
+                  <button type="button" onClick={() => onDownloadCode?.(code, language)} className="rounded-md px-2 py-1 text-[10px] text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" title="ดาวน์โหลดโค้ด">ดาวน์โหลด</button>
+                </div>
+              </div>
               {isHtml && (
                 <div className="bg-white">
                   <iframe
@@ -260,6 +266,25 @@ export function SuperChat() {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [isPinnedToBottom, setIsPinnedToBottom] = useState(true);
   const isPinnedRef = useRef(true);
+
+  const copyCode = async (code: string) => {
+    try { await navigator.clipboard.writeText(code); } catch { /* best effort */ }
+  };
+
+  const downloadCode = (code: string, language: string) => {
+    try {
+      const ext = ({ ts: "ts", tsx: "tsx", js: "js", jsx: "jsx", html: "html", css: "css", json: "json", py: "py" } as Record<string, string>)[language.toLowerCase()] || "txt";
+      const blob = new Blob([code], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "bossnu-code." + ext;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { /* best effort */ }
+  };
 
   const copyMessage = async (messageId: string, content: string) => {
     try {
@@ -684,7 +709,7 @@ export function SuperChat() {
                   ? "bg-white text-black"
                   : "bg-zinc-900/80 border border-zinc-800 text-zinc-100"
               }`}>
-                <BossMarkdown content={m.content} />
+                <BossMarkdown content={m.content} onCopyCode={copyCode} onDownloadCode={downloadCode} />
                 {m.role === "assistant" && m.activity && m.activity.length > 0 && (
                   <BossActivityStream
                     steps={m.id === liveStream.id ? liveStream.steps : m.activity}
