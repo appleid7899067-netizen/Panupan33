@@ -10,6 +10,7 @@ import {
   callWithFallback,
   loadCodingFleetTools,
   type CodingFleetTool,
+  type PublishCtx,
   type ToolExecutionResult,
 } from "@/lib/puter-tool-loader";
 import { runInSandbox, type SandboxResult } from "@/lib/sandbox";
@@ -230,6 +231,9 @@ export async function runAgentLoop(
   onStep?: (step: AgentStep) => void,
   model = "gpt-5.6-luna",
   githubToken?: string,
+  publishCtx?: PublishCtx,
+  /** Called after every round with real tool results — used to accumulate TaskState. */
+  onToolResults?: (results: ToolExecutionResult[]) => void,
 ): Promise<AgentRunResult> {
   const steps: AgentStep[] = [];
   const emit = (step: AgentStep) => {
@@ -275,6 +279,7 @@ export async function runAgentLoop(
       (lines) => lines.forEach((d) => emit({ phase: "observe", detail: d })),
       authToken,
       githubToken,
+      publishCtx,
     );
 
     if (!result.ok) {
@@ -296,6 +301,21 @@ export async function runAgentLoop(
     last = result.text;
     lastResults = result.toolResults;
     allResults = allResults.concat(result.toolResults);
+
+    // Accumulate task memory + surface publish auto-verification as a step.
+    if (result.toolResults.length) {
+      onToolResults?.(result.toolResults);
+      for (const tr of result.toolResults) {
+        const rec = tr.result && typeof tr.result === "object" ? (tr.result as Record<string, unknown>) : null;
+        const av = rec?.autoVerify as { url?: string; ok?: boolean; httpStatus?: number } | undefined;
+        if (av?.url) {
+          emit({
+            phase: "observe",
+            detail: `${av.ok ? "✓" : "✗"} auto-verify preview ${av.url}${av.httpStatus != null ? ` (HTTP ${av.httpStatus})` : ""}`,
+          });
+        }
+      }
+    }
 
     // Duplicate-call detection
     let duplicateOnly = result.toolCalls.length > 0;
@@ -355,6 +375,7 @@ export async function runAgentLoop(
             undefined,
             authToken,
             githubToken,
+            publishCtx,
           );
           if (synth.ok && synth.text.trim()) last = synth.text;
           else last = summarizeResults(allResults, 6);

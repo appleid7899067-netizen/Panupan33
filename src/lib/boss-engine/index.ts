@@ -14,6 +14,7 @@ export * from "./coding-deps";
 export * from "./coding-diff";
 export * from "./github-loop";
 export * from "./github-loop-runner";
+export * from "./github-loop-driver";
 export * from "./publisher";
 export * from "./publisher-runner";
 export * from "./autonomy";

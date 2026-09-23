@@ -5,7 +5,6 @@
  * Web: forced public browser (Bing+Wikipedia+navigate); private hosts blocked.
  * Sandbox: multi-language real browser + install memory (2nd run never misses).
  */
-import { extractText } from "@/lib/puter";
 import { runInSandbox } from "@/lib/sandbox";
 import { executeAuthenticatedGitHubTool } from "@/lib/github-tool-bridge";
 import { executeGithubWithPat } from "@/lib/github-pat";
@@ -15,6 +14,17 @@ import { executeBuilderTool } from "@/lib/builder/execute";
 import { callMCPTool, discoverMCPTools } from "@/lib/mcp";
 import { browserWebSearch, browserNavigate, assertPublicHttpsUrl } from "@/lib/web-browser";
 import { installRuntime, installAllRuntimes, getRuntimeMemory, SUPPORTED_LANGUAGES } from "@/lib/browser-runtimes";
+import { autoVerifyAfterPublish, extractPublishUrl } from "@/lib/boss-engine/post-publish";
+import {
+  createOpenRouterCompleter,
+  createPuterCompleter,
+  runModelGateway,
+  type CompletionResult,
+  type ModelCompleter,
+} from "@/lib/model-gateway.server";
+
+/** Context for auto-verification after publish/hosting tools (puter_hosting_create etc.). */
+export type PublishCtx = { projectId?: string; threadId?: string };
 
 export type CodingFleetTool = {
   name?: string;
@@ -58,17 +68,6 @@ function toolParameters(tool: CodingFleetTool): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : { type: "object", properties: {} };
-}
-
-function parseArguments(value: unknown): Record<string, unknown> {
-  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
-  if (typeof value !== "string" || !value.trim()) return {};
-  try {
-    const parsed = JSON.parse(value);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
 }
 
 function nativeSandboxTools(): CodingFleetTool[] {
@@ -299,6 +298,7 @@ async function executeTool(
   args: Record<string, unknown>,
   authToken?: string,
   githubToken?: string,
+  publishCtx?: PublishCtx,
 ): Promise<unknown> {
   const name = toolName(tool);
   if (tool.mcpServer && tool.mcpToolName) {
@@ -335,7 +335,34 @@ async function executeTool(
   if (name === "web_search") return executeWebSearch(args);
   if (name === "web_browse" || name === "web_check" || name === "web_fetch") return executeWeb(name, args);
   if (isBuilderTool(name) || tool.builderSource) {
-    return executeBuilderTool(name, args, { authToken });
+    const result = await executeBuilderTool(name, args, { authToken });
+    // Auto-verify after publish/hosting (puter_hosting_create / builder_publish_site):
+    // fetch the public URL, check HTTP + runtime HTML, merge evidence into the result.
+    try {
+      const auto = await autoVerifyAfterPublish(name, result, {
+        projectId: publishCtx?.projectId ?? "default",
+        threadId: publishCtx?.threadId,
+      });
+      if (auto) {
+        const url = extractPublishUrl(result);
+        const base =
+          result && typeof result === "object" && !Array.isArray(result)
+            ? (result as Record<string, unknown>)
+            : { result };
+        return {
+          ...base,
+          autoVerify: {
+            url,
+            ok: auto.ok,
+            httpStatus: auto.http?.status,
+            detail: auto.detail,
+          },
+        };
+      }
+    } catch {
+      /* verification is best-effort — never fail the publish itself */
+    }
+    return result;
   }
   if (tool.githubSource && isGithubAuthTool(name)) {
     try {
@@ -360,20 +387,13 @@ function toPuterTools(tools: CodingFleetTool[]) {
   }));
 }
 
-function extractToolCalls(response: unknown): ToolCall[] {
-  const message = (response as { message?: { tool_calls?: unknown } })?.message;
-  const raw = message?.tool_calls;
-  if (!Array.isArray(raw)) return [];
-  return raw.flatMap((item) => {
-    if (!item || typeof item !== "object") return [];
-    const rec = item as Record<string, unknown>;
-    const fn = (rec.function ?? rec) as Record<string, unknown>;
-    const name = String(fn.name ?? "").trim();
-    if (!name) return [];
-    return [{ id: rec.id ? String(rec.id) : undefined, name, arguments: parseArguments(fn.arguments ?? fn.input) }];
-  });
-}
 
+
+/**
+ * Run one task through the model gateway (Puter-first, OpenRouter fallback)
+ * and drive the tool loop on the server — Boss keeps control of messages,
+ * tools, retries and verification; the model only answers each round.
+ */
 export async function callWithFallback(
   prompt: string,
   tools: CodingFleetTool[],
@@ -381,96 +401,100 @@ export async function callWithFallback(
   onActivity?: (lines: string[]) => void,
   authToken?: string,
   githubToken?: string,
-): Promise<{ ok: boolean; text: string; model?: string; toolCalls: ToolCall[]; toolResults: ToolExecutionResult[]; verified?: boolean; error?: string }> {
+  publishCtx?: PublishCtx,
+): Promise<{ ok: boolean; text: string; model?: string; provider?: "puter" | "openrouter"; toolCalls: ToolCall[]; toolResults: ToolExecutionResult[]; verified?: boolean; error?: string }> {
   const availableTools = tools.length ? tools : await loadCodingFleetTools();
   const puterTools = toPuterTools(availableTools);
   const toolMap = new Map(availableTools.map((t) => [toolName(t), t]));
-  let lastError = "";
-  for (const model of models.slice(0, 3)) {
-    try {
-      const toolResults: ToolExecutionResult[] = [];
-      const messages: Array<Record<string, unknown>> = [{ role: "user", content: prompt }];
-      let finalText = "";
-      let lastCalls: ToolCall[] = [];
 
-      for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-        const apiKey = process.env.OPENROUTER_API_KEY?.trim();
-        if (!apiKey) {
-          throw new Error("Server model provider is not configured. Set OPENROUTER_API_KEY on Render.");
-        }
-        const httpResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": process.env.OPENROUTER_SITE_URL ?? "https://panupanboss.onrender.com",
-            "X-Title": "Bossnu SlieLo",
-          },
-          body: JSON.stringify({
-            model,
-            messages,
-            tools: puterTools.length ? puterTools : undefined,
-            tool_choice: puterTools.length ? "auto" : undefined,
-          }),
-        });
-        const raw = await httpResponse.text();
-        if (!httpResponse.ok) {
-          throw new Error(`OpenRouter HTTP ${httpResponse.status}: ${raw.slice(0, 700)}`);
-        }
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(raw);
-        } catch {
-          throw new Error(`OpenRouter returned invalid JSON: ${raw.slice(0, 700)}`);
-        }
-        const choice = (parsed as { choices?: Array<{ message?: unknown }> })?.choices?.[0];
-        const modelResponse = choice?.message ? { message: choice.message } : parsed;
-        const text = extractText(modelResponse) || "";
-        const calls = extractToolCalls(modelResponse);
-        lastCalls = calls;
-        if (!calls.length) {
-          finalText = text;
-          break;
-        }
-        onActivity?.(calls.map((c) => `tool:${c.name}`));
-        messages.push({
-          role: "assistant",
-          content: text || null,
-          tool_calls: calls.map((c) => ({
-            id: c.id ?? c.name,
-            type: "function",
-            function: { name: c.name, arguments: JSON.stringify(c.arguments) },
-          })),
-        });
-        for (const call of calls) {
-          const tool = toolMap.get(call.name);
-          try {
-            if (!tool) throw new Error(`Unknown tool ${call.name}`);
-            const result = await executeTool(tool, call.arguments, authToken, githubToken);
-            toolResults.push({ name: call.name, ok: true, result });
-            messages.push({ role: "user", content: `[TOOL RESULT: ${call.name}]\n${JSON.stringify(result).slice(0, 50000)}` });
-          } catch (e) {
-            const err = e instanceof Error ? e.message : String(e);
-            toolResults.push({ name: call.name, ok: false, error: err });
-            messages.push({ role: "user", content: `[TOOL ERROR: ${call.name}]\n${JSON.stringify({ error: err })}` });
-          }
-        }
+  const toolResults: ToolExecutionResult[] = [];
+  const messages: Array<Record<string, unknown>> = [{ role: "user", content: prompt }];
+  let finalText = "";
+  let lastCalls: ToolCall[] = [];
+  let winner: { completer: ModelCompleter; model: string; token: string; provider: "puter" | "openrouter" } | null = null;
+  let recoveryUsed = false;
+
+  const isVerified = () =>
+    toolResults.some((t) => t.ok && /web_check|web_browse|web_search|sandbox_|wait_for_workflow|actions|builder_publish/i.test(t.name));
+
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    let completion: CompletionResult;
+    if (!winner) {
+      // First contact = gateway discovery: Puter (main) → OpenRouter (fallback).
+      const gateway = await runModelGateway({
+        messages,
+        tools: puterTools,
+        requestedModel: models[0],
+        puterToken: authToken,
+        onAttempt: (label) => onActivity?.([`gateway: ${label}`]),
+      });
+      if (!gateway.ok) {
+        return { ok: false, text: finalText || "", model: undefined, provider: undefined, toolCalls: lastCalls, toolResults, verified: isVerified(), error: gateway.error };
       }
-
-      return {
-        ok: true,
-        text: finalText || toolResults.map((t) => (t.ok ? `${t.name}: ok` : `${t.name}: ${t.error}`)).join("\n"),
-        model,
-        toolCalls: lastCalls,
-        toolResults,
-        verified: toolResults.some((t) => t.ok && /web_check|web_browse|web_search|sandbox_|wait_for_workflow|actions|builder_publish/i.test(t.name)),
+      winner = {
+        completer: gateway.result.provider === "puter" ? createPuterCompleter() : createOpenRouterCompleter(),
+        model: gateway.result.model,
+        token: gateway.attempt.token,
+        provider: gateway.result.provider,
       };
-    } catch (e) {
-      lastError = e instanceof Error ? e.message : String(e);
-      onActivity?.([`model ${model} failed: ${lastError.slice(0, 120)}`]);
+      completion = gateway.result;
+    } else {
+      try {
+        completion = await winner.completer({ model: winner.model, messages, tools: puterTools, token: winner.token });
+      } catch (e) {
+        const err = e instanceof Error ? e.message : String(e);
+        // One recovery pass: re-run gateway discovery (e.g. Puter outage → OpenRouter).
+        if (!recoveryUsed) {
+          recoveryUsed = true;
+          winner = null;
+          onActivity?.([`model failed: ${err.slice(0, 120)} — ลอง gateway ใหม่`]);
+          continue;
+        }
+        return { ok: false, text: finalText || "", model: winner.model, provider: winner.provider, toolCalls: lastCalls, toolResults, verified: isVerified(), error: err };
+      }
+    }
+
+    const text = completion.text;
+    const calls = completion.toolCalls as ToolCall[];
+    lastCalls = calls;
+    if (!calls.length) {
+      finalText = text;
+      break;
+    }
+    onActivity?.(calls.map((c) => `tool:${c.name}`));
+    messages.push({
+      role: "assistant",
+      content: text || null,
+      tool_calls: calls.map((c) => ({
+        id: c.id ?? c.name,
+        type: "function",
+        function: { name: c.name, arguments: JSON.stringify(c.arguments) },
+      })),
+    });
+    for (const call of calls) {
+      const tool = toolMap.get(call.name);
+      try {
+        if (!tool) throw new Error(`Unknown tool ${call.name}`);
+        const result = await executeTool(tool, call.arguments, authToken, githubToken, publishCtx);
+        toolResults.push({ name: call.name, ok: true, result });
+        messages.push({ role: "user", content: `[TOOL RESULT: ${call.name}]\n${JSON.stringify(result).slice(0, 50000)}` });
+      } catch (e) {
+        const err = e instanceof Error ? e.message : String(e);
+        toolResults.push({ name: call.name, ok: false, error: err });
+        messages.push({ role: "user", content: `[TOOL ERROR: ${call.name}]\n${JSON.stringify({ error: err })}` });
+      }
     }
   }
-  return { ok: false, text: "", toolCalls: [], toolResults: [], error: lastError || "All models failed" };
+
+  return {
+    ok: true,
+    text: finalText || toolResults.map((t) => (t.ok ? `${t.name}: ok` : `${t.name}: ${t.error}`)).join("\n"),
+    model: winner?.model,
+    provider: winner?.provider,
+    toolCalls: lastCalls,
+    toolResults,
+    verified: isVerified(),
+  };
 }
 
 export { AUTH_GITHUB, isGithubAuthTool, isBuilderTool };
