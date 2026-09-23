@@ -35,8 +35,8 @@ type ToolDef = {
   };
 };
 
-const MODELS = ["gpt-5.6-luna", "claude-sonnet-4-6", "gemini-3.1-flash-lite"] as const;
-const MAX_ROUNDS = 12;
+const MODELS = ["gpt-5.6-luna", "deepseek/deepseek-chat"] as const;
+const MAX_ROUNDS = 8;
 const FAST_MAX_ROUNDS = 4;
 
 const TOOLS: ToolDef[] = [
