@@ -68,6 +68,25 @@ function dedupe(values: string[]): string[] {
   return Array.from(new Set(values.filter((v) => v.trim())));
 }
 
+function readableError(value: unknown): string {
+  if (value instanceof Error) return value.message;
+  if (typeof value === "string") return value;
+  if (value == null) return "Unknown model gateway error";
+  if (typeof value === "object") {
+    const rec = value as Record<string, unknown>;
+    for (const key of ["message", "error", "detail", "reason", "statusText"]) {
+      const nested = readableError(rec[key]);
+      if (nested && nested !== "Unknown model gateway error") return nested;
+    }
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "Unknown model gateway error";
+    }
+  }
+  return String(value);
+}
+
 /** "openai/gpt-5.6-luna" → "gpt-5.6-luna" (Puter ids have no vendor prefix). */
 export function stripVendorPrefix(modelId: string): string {
   const idx = modelId.lastIndexOf("/");
@@ -279,7 +298,7 @@ export async function runModelGateway(opts: GatewayRunOptions): Promise<GatewayS
       const result = await completer({ model: attempt.model, messages: opts.messages, tools: opts.tools, token: attempt.token });
       return { ok: true, result, attempt };
     } catch (e) {
-      lastError = e instanceof Error ? e.message : String(e);
+      lastError = readableError(e);
     }
   }
   return { ok: false, error: `ทุก model gateway ล้มเหลว (ลอง ${attempts.length} ครั้ง) — สกัดหลังสุด: ${lastError.slice(0, 300)}`, attempts };
