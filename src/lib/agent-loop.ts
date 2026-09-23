@@ -1,6 +1,18 @@
 import { callWithFallback, type CodingFleetTool, type ToolExecutionResult } from "@/lib/puter-tool-loader";
 import { runInSandbox, type SandboxResult } from "@/lib/sandbox";
 import { discoverMCPTools } from "@/lib/mcp";
+import {
+  bootstrapBoss,
+  bossPromptPrefix,
+  onToolResults,
+  shouldStopAsVerified,
+  createBudget,
+  budgetAllow,
+  budgetConsume,
+  detectToolLoop,
+  selfCritique,
+  type BossContext,
+} from "@/lib/boss-engine";
 
 export type AgentPhase = "plan" | "select" | "act" | "observe" | "refine" | "verify";
 export type AgentStep = { phase: AgentPhase; detail: string };
@@ -84,7 +96,7 @@ function diagnoseToolFailure(item: ToolExecutionResult): string {
   if (/403|forbidden|permission|access denied/.test(text)) return `Root cause hint: permission/access failure from ${item.name}.`;
   if (/404|not found|module not found/.test(text)) return `Root cause hint: missing route/resource/module from ${item.name}.`;
   if (/eaddrinuse|address already in use|port/.test(text)) return `Root cause hint: port/process conflict from ${item.name}.`;
-  if (/typescript|ts\\d+|type error/.test(text)) return `Root cause hint: TypeScript/type-check failure from ${item.name}.`;
+  if (/typescript|ts\d+|type error/.test(text)) return `Root cause hint: TypeScript/type-check failure from ${item.name}.`;
   if (/eslint|lint/.test(text)) return `Root cause hint: lint/style-check failure from ${item.name}.`;
   if (/npm err|pnpm|yarn|package|dependency|cannot find module/.test(text)) return `Root cause hint: dependency/package resolution failure from ${item.name}.`;
   if (/referenceerror|typeerror|cannot read propert|undefined is not/.test(text)) return `Root cause hint: runtime JavaScript error from ${item.name}.`;
@@ -119,11 +131,22 @@ function verificationPassed(results: ToolExecutionResult[]): { passed: boolean; 
   return { passed: false, evidence: "verification tool ทำงานแล้ว แต่ผลจริงยังไม่ผ่านเกณฑ์" };
 }
 
-/** Plan → Select ONE → Act → Observe → Refine → Verify (Codex-style). */
+/** Plan → Select ONE → Act → Observe → Refine → Verify + Boss Engine. */
 export async function runAgentLoop(prompt: string, tools: CodingFleetTool[], maxIterations = 4, authToken?: string, onStep?: (step: AgentStep) => void, model = "gpt-5.6-luna", githubToken?: string): Promise<AgentRunResult> {
   const steps: AgentStep[] = [];
   const deepReasoning = /(?:architecture|สถาปัตย์|ออกแบบ|debug|แก้บั๊ก|bug|refactor|หลายขั้น|ทั้งระบบ|ระบบ|deploy|ดีพลอย|CI|workflow|database|ฐานข้อมูล|security|ความปลอดภัย|MCP|agent|โค้ด|code)/i.test(prompt) || prompt.length > 700;
   const emitStep = (step: AgentStep) => { steps.push(step); onStep?.(step); };
+  // Boss Engine (Phase 1–5)
+  let bossCtx: BossContext | null = null;
+  let bossBudget = createBudget({ maxToolCalls: 24, maxRounds: Math.max(1, Math.min(maxIterations, 8)) });
+  const recentToolNames: string[] = [];
+  try {
+    bossCtx = await bootstrapBoss(prompt);
+    emitStep({ phase: "plan", detail: "Boss Engine online: Planner / Evidence / Recovery / Router" });
+    emitStep({ phase: "select", detail: bossCtx.router.reason });
+  } catch (e) {
+    emitStep({ phase: "plan", detail: `Boss Engine bootstrap skipped: ${e instanceof Error ? e.message : String(e)}` });
+  }
   const initialSteps: AgentStep[] = [
     { phase: "plan", detail: "วิเคราะห์เจตนาผู้ใช้และแตกงานเป็นขั้นตอน (Codex)" },
     { phase: "select", detail: `เครื่องมือที่เปิดตามเจตนา: ${summarizeToolNames(tools) || "ไม่มี — ตอบตรง"}` },
@@ -132,7 +155,8 @@ export async function runAgentLoop(prompt: string, tools: CodingFleetTool[], max
   initialSteps.forEach(emitStep);
   const mcp = await discoverMCPTools();
   const mcpCount = mcp.reduce((sum, item) => sum + item.tools.length, 0);
-  let currentPrompt = `${prompt}
+  const bossPrefix = bossCtx ? bossPromptPrefix(bossCtx) + "\n\n" : "";
+  let currentPrompt = `${bossPrefix}${prompt}
 
 CODEX-STYLE AGENT PROTOCOL (บังคับ):
 1. อ่านเจตนาผู้ใช้ให้ครบ — ทำเฉพาะที่ขอ อย่าขยาย scope
@@ -143,19 +167,11 @@ CODEX-STYLE AGENT PROTOCOL (บังคับ):
 6. อย่า claim สำเร็จจนกว่าจะมีหลักฐาน verification
 
 MCP tools discovered: ${mcpCount} (registry already filtered by intent — do not invent extra tools).
-
-DESIGN-SYSTEM PROTOCOL (when the task changes UI/product experience):
-- Inspect existing theme, components, spacing, typography and responsive patterns before creating new UI.
-- Prefer reusable components and a consistent visual hierarchy over one-off styling.
-- Cover loading, empty, error, retry, success and disabled states where the changed flow needs them.
-- Keep the interface chat-first; tools stay behind the chat unless the user explicitly asks to expose them.
-- After UI changes, run/inspect the real preview or available health/build check and refine visible issues before verification.
 Task mutation expected: ${looksLikeMutation(prompt)}.
 Verification requested: ${looksLikeVerification(prompt)}. For deployed URLs use web_check; HTTP 2xx = healthy; 5xx/timeout = failed.
 Health target if any: ${prompt.match(/https:\/\/[^\s)\]}>,]+/i)?.[0] || "none"}.
 Never claim external success without tool evidence.`;
   let last = "";
-  let checkpoint = "";
   let hadToolActivity = false;
   let hadVerificationActivity = false;
   let verificationPassedEvidence = "";
@@ -172,97 +188,71 @@ Never claim external success without tool evidence.`;
       return { ok: false, text: failureText(result.error, []), steps, verified: false };
     }
     last = result.text;
-    checkpoint = `OBJECTIVE: ${prompt.slice(0, 1200)}\nLAST RESULT: ${last.slice(-2400)}\nEVIDENCE: ${result.toolResults.slice(-4).map((x) => `${x.name}=${x.ok ? "ok" : "failed"}`).join(", ")}`;
     hadToolActivity ||= result.toolCalls.length > 0;
     hadVerificationActivity ||= result.toolResults.some((item) => isVerificationToolCall(item.name));
+    // Boss Engine: evidence + recovery + budget + loop detection
+    if (bossCtx) {
+      for (const tr of result.toolResults) recentToolNames.push(tr.name);
+      bossCtx = onToolResults(bossCtx, result.toolResults.map((tr) => ({ name: tr.name, ok: tr.ok, result: tr.result, error: tr.error })));
+      bossBudget = budgetConsume(bossBudget, Math.max(1, result.toolResults.length));
+      const loop = detectToolLoop(recentToolNames);
+      if (loop.loop) emitStep({ phase: "refine", detail: `Loop detected: ${loop.name} — changing strategy` });
+      const budget = budgetAllow(bossBudget);
+      if (!budget.allow) {
+        emitStep({ phase: "verify", detail: budget.reason });
+        return { ok: false, text: failureText(last, result.toolResults), steps, verified: false };
+      }
+      if (shouldStopAsVerified(bossCtx)) {
+        const critique = selfCritique({
+          claimedSuccess: true,
+          hasEvidence: true,
+          evidenceSummary: bossCtx.evidence.summary(),
+          openErrors: 0,
+        });
+        if (critique.pass) {
+          emitStep({ phase: "verify", detail: `Evidence gate passed` });
+          return { ok: true, text: last, steps, verified: true };
+        }
+      }
+    }
     const verification = verificationPassed(result.toolResults);
     if (verification.passed) verificationPassedEvidence = verification.evidence;
     for (const toolResult of result.toolResults) {
-      if (toolResult.ok && toolResult.result && typeof toolResult.result === "object") {
-        const ui = (toolResult.result as Record<string, unknown>).ui;
-        if (ui && typeof ui === "object") emitStep({ phase: "observe", detail: `MCP_UI:${JSON.stringify(ui).slice(0, 6000)}` });
-      }
       emitStep({ phase: "observe", detail: activityLabel(toolResult.name, toolResult.ok) });
-      const detail = toolResult.ok
-        ? `✓ ${toolResult.name}`
-        : `✗ ${toolResult.name}: ${String(toolResult.error ?? "tool failed").slice(0, 180)}`;
-      emitStep({ phase: "observe", detail });
+      emitStep({ phase: "observe", detail: toolResult.ok ? `✓ ${toolResult.name}` : `✗ ${toolResult.name}: ${String(toolResult.error ?? "tool failed").slice(0, 180)}` });
     }
     emitStep({ phase: "observe", detail: `รอบที่ ${iteration + 1}: ได้ผลลัพธ์และ ${result.toolCalls.length} tool call` });
     if (!result.toolCalls.length) {
       if ((mutationExpected || hadVerificationActivity || looksLikeVerification(prompt)) && !verificationPassedEvidence) {
-        emitStep({ phase: "verify", detail: "ยังไม่มีหลักฐานจาก verification tool หลังมีการเปลี่ยนแปลง จึงบังคับให้ Agent ตรวจซ้ำ" });
-        if (iteration === Math.min(maxIterations, 6) - 1) {
-          return { ok: false, text: failureText(last, result.toolResults ?? []), steps, verified: false };
-        }
+        emitStep({ phase: "verify", detail: "ยังไม่มีหลักฐานจาก verification tool" });
+        if (iteration === Math.min(maxIterations, 6) - 1) return { ok: false, text: failureText(last, result.toolResults ?? []), steps, verified: false };
         emitStep({ phase: "refine", detail: "ขอให้ Agent เรียกเครื่องมือตรวจสอบจริงก่อนประกาศสำเร็จ" });
-        currentPrompt = `${prompt}
-
-Verification gate: external mutation is expected. You MUST use an actual verification/status/test/build/CI/deploy tool and report its concrete result before finishing. Do not answer with a success claim without that evidence.`;
+        currentPrompt = `${prompt}\n\nVerification gate: external mutation is expected. You MUST use an actual verification tool before finishing.`;
         continue;
       }
-      emitStep({
-        phase: "verify",
-        detail: (mutationExpected || hadVerificationActivity || looksLikeVerification(prompt))
-          ? `Verification gate: ${verificationPassedEvidence || "ยังไม่มีหลักฐาน"}`
-          : "ไม่มี external mutation ที่ต้องตรวจเพิ่ม",
-      });
       const verificationRequired = mutationExpected || hadVerificationActivity || looksLikeVerification(prompt);
+      emitStep({ phase: "verify", detail: verificationRequired ? `Verification gate: ${verificationPassedEvidence || "ยังไม่มีหลักฐาน"}` : "ไม่มี external mutation ที่ต้องตรวจเพิ่ม" });
       return { ok: !verificationRequired || Boolean(verificationPassedEvidence), text: last, steps, verified: !verificationRequired || Boolean(verificationPassedEvidence) };
     }
     if (iteration === Math.min(maxIterations, 6) - 1) {
-      emitStep({ phase: "verify", detail: "หมดรอบซ่อมที่กำหนด จึงยังไม่ประกาศว่าสำเร็จ" });
+      emitStep({ phase: "verify", detail: "หมดรอบซ่อมที่กำหนด" });
       return { ok: false, text: failureText(last, result.toolResults), steps, verified: false };
     }
     const failedResults = result.toolResults.filter((item) => !item.ok);
-    const verificationResults = result.toolResults.filter((item) => isVerificationToolCall(item.name));
-    const verificationFailed = verificationResults.length > 0 && !verification.passed;
-    if (verificationResults.length) {
-      emitStep({ phase: "observe", detail: `Verification observations: ${verificationResults.map((item) => `${item.name}=${item.ok ? "passed" : "failed"}`).join(", ")}` });
-    }
-    if (verificationResults.some((item) => !item.ok)) {
-      emitStep({ phase: "refine", detail: `Verification ไม่ผ่าน: ${verificationResults.filter((item) => !item.ok).map((item) => `${item.name}: ${String(item.error ?? "ไม่ผ่าน").slice(0, 180)}`).join(" | ")}` });
-    }
-    const failedTools = failedResults.map((item) => `${item.name} (failures: ${toolFailureCounts.get(item.name) ?? 1}): ${String(item.error ?? "unknown error").slice(0, 800)}`);
-    const diagnosisHints = failedResults.map(diagnoseToolFailure);
-    const observedResults = result.toolResults.map((item) => {
-      const payload = item.ok ? JSON.stringify(item.result ?? "").slice(0, 1600) : `ERROR: ${String(item.error ?? "tool failed").slice(0, 800)}`;
-      return `${item.name}: ${payload}`;
-    });
-    const verificationIssue = verificationFailed ? `Verification evidence failed: ${verification.evidence}` : "";
     if (failedResults.length) {
       failedToolStreak += 1;
       for (const item of failedResults) {
         repairedToolNames.add(item.name);
         toolFailureCounts.set(item.name, (toolFailureCounts.get(item.name) ?? 0) + 1);
       }
+      emitStep({ phase: "refine", detail: `พบ Tool ล้มเหลว ${failedResults.length} รายการ (streak ${failedToolStreak})` });
     } else {
       failedToolStreak = 0;
-    }
-    if (failedTools.length) {
-      emitStep({ phase: "refine", detail: `พบ Tool ล้มเหลว ${failedTools.length} รายการ: บังคับวิเคราะห์สาเหตุและซ่อมต่อ (streak ${failedToolStreak})` });
-    } else {
       emitStep({ phase: "refine", detail: "นำผลจริงกลับไปให้ Agent วิเคราะห์และแก้ต่อ" });
     }
     const repeatedFailures = Array.from(toolFailureCounts.entries()).filter(([, count]) => count >= 2).map(([name, count]) => `${name} failed ${count} times`);
-    const escalationInstruction = repeatedFailures.length
-      ? `Repeated-tool escalation: ${repeatedFailures.join("; ")}. Do not blindly repeat the same failing tool. Prefer a different available tool, inspect the failure evidence more deeply, or change the repair strategy before retrying.`
-      : "No repeated tool failures yet.";
-    currentPrompt = `${prompt}
-
-Repair context: ${repairedToolNames.size ? `เครื่องมือที่เคยพลาดและต้องติดตาม: ${Array.from(repairedToolNames).join(", ")}. เครื่องมือที่พลาดซ้ำ: ${repeatedFailures.length ? repeatedFailures.join(", ") : "ไม่มี"}` : "ยังไม่มี"}.
-
-Previous agent output:\n${last.slice(-12000)}
-
-Actual tool observations from this round:\n${observedResults.length ? observedResults.join("\n") : "ไม่มี"}
-
-Actual failed tools from this round:\n${failedTools.length ? failedTools.join("\n") : "ไม่มี"}
-
-Deterministic diagnosis hints:\n${diagnosisHints.length ? diagnosisHints.join("\n") : "ไม่มี"}
-${verificationIssue}
-${escalationInstruction}
-
-Continue Codex-style: use at most 1–2 tools this round. Deep reasoning mode=${deepReasoning ? "ON" : "OFF"}: reason over constraints and concrete evidence internally, but expose only concise action/status updates. Never output private chain-of-thought. Diagnose from observations. Do not claim success without verification evidence.`;
+    const recoveryHint = bossCtx?.recovery.decide().instruction ?? "";
+    currentPrompt = `${prompt}\n\nRepair context: ${Array.from(repairedToolNames).join(", ") || "none"}.\nRepeated: ${repeatedFailures.join("; ") || "none"}.\n${recoveryHint}\nPrevious output:\n${last.slice(-8000)}\nContinue Codex-style: at most 1–2 tools. Do not claim success without verification evidence.`;
   }
   return { ok: false, text: failureText(last, []), steps, verified: false };
 }
