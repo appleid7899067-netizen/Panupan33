@@ -651,7 +651,7 @@ async function executeNativePuterTool(name: string, args: Record<string, unknown
   throw new Error("Unknown native Puter tool: " + name);
 }
 
-async function executeTool(tool: CodingFleetTool, args: Record<string, unknown>, authToken?: string): Promise<unknown> {
+async function executeTool(tool: CodingFleetTool, args: Record<string, unknown>, authToken?: string, githubToken?: string): Promise<unknown> {
   const name = toolName(tool);
   if (name.startsWith("puter_")) return executeNativePuterTool(name, args, authToken);
   if (name === "sandbox_run") return executeSandboxTool(args);
@@ -822,7 +822,7 @@ export async function callWithFallback(
             continue;
           }
           try {
-            const output = await executeTool(tool, call.arguments, authToken);
+            const output = await executeTool(tool, call.arguments, authToken, githubToken);
             toolResults.push({ name: call.name, ok: true, result: output });
             onActivity?.([`✓ ${call.name} เสร็จแล้ว`, `📡 กำลังอ่านผลลัพธ์และตรวจหลักฐาน...`]);
             messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify({ ok: true, result: output }) });
@@ -841,7 +841,7 @@ export async function callWithFallback(
           const target = roundToolResults.filter((item) => item.ok).map((item) => extractPublicHttpsUrl(item.result)).find(Boolean) ?? extractPublicHttpsUrl(prompt);
           if (target) {
             try {
-              const output = await executeTool(healthTool, { url: target }, authToken);
+              const output = await executeTool(healthTool, { url: target }, authToken, githubToken);
               toolResults.push({ name: "web_check", ok: true, result: output });
               onActivity?.([`ตรวจสุขภาพเว็บ: ${target}`, `Observe: web_check ${String((output as Record<string, unknown>)?.status ?? "")}`]);
               messages.push({ role: "tool", tool_call_id: `forced-web-check-${round}`, content: JSON.stringify({ ok: true, result: output }) });
