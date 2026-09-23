@@ -3,6 +3,7 @@
  * GitHub: any owner/repo when user provides token; no pre-bound connection required.
  * Builder: ported from https://github.com/HeyPuter/builder (Apache-2.0)
  * Web: forced public browser (Bing+Wikipedia+navigate); private hosts blocked.
+ * Sandbox: multi-language real browser + install memory (2nd run never misses).
  */
 import { ensurePuter, extractText } from "@/lib/puter";
 import { runInSandbox } from "@/lib/sandbox";
@@ -13,6 +14,7 @@ import { nativeBuilderTools, isBuilderTool } from "@/lib/builder/tools";
 import { executeBuilderTool } from "@/lib/builder/execute";
 import { callMCPTool, discoverMCPTools } from "@/lib/mcp";
 import { browserWebSearch, browserNavigate, assertPublicHttpsUrl } from "@/lib/web-browser";
+import { installRuntime, installAllRuntimes, getRuntimeMemory, SUPPORTED_LANGUAGES } from "@/lib/browser-runtimes";
 
 export type CodingFleetTool = {
   name?: string;
@@ -70,21 +72,43 @@ function parseArguments(value: unknown): Record<string, unknown> {
 }
 
 function nativeSandboxTools(): CodingFleetTool[] {
-  return [{
-    name: "sandbox_run",
-    description: "Run JS/HTML/CSS in sandbox; return stdout/stderr/errors.",
-    sandboxSource: true,
-    inputSchema: {
-      type: "object",
-      properties: {
-        language: { type: "string" },
-        code: { type: "string" },
-        timeoutMs: { type: "integer" },
+  return [
+    {
+      name: "sandbox_run",
+      description:
+        "Run code in the REAL browser sandbox. Languages: javascript, typescript, html, css, python (Pyodide), lua, sql, ruby/php lite, shell subset, json. Auto-installs runtime and remembers success so the 2nd run never misses install.",
+      sandboxSource: true,
+      inputSchema: {
+        type: "object",
+        properties: {
+          language: { type: "string" },
+          code: { type: "string" },
+          timeoutMs: { type: "integer" },
+        },
+        required: ["language", "code"],
+        additionalProperties: false,
       },
-      required: ["language", "code"],
-      additionalProperties: false,
     },
-  }];
+    {
+      name: "sandbox_install",
+      description: "Install a browser language runtime (or language=all). Idempotent — remembered in localStorage.",
+      sandboxSource: true,
+      inputSchema: {
+        type: "object",
+        properties: {
+          language: { type: "string", description: "python|lua|sql|ruby|php|all|..." },
+        },
+        required: ["language"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "sandbox_languages",
+      description: "List supported browser languages and install/memory status.",
+      sandboxSource: true,
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    },
+  ];
 }
 
 function nativeWebTools(): CodingFleetTool[] {
@@ -223,7 +247,6 @@ async function executePublicGitHub(name: string, args: Record<string, unknown>):
 async function executeWebSearch(args: Record<string, unknown>): Promise<unknown> {
   const query = String(args.query ?? "").trim();
   if (!query) throw new Error("web_search requires query");
-  // Forced public browser — real HTTPS navigation only (no private hosts)
   return browserWebSearch(query, {
     count: Number(args.count ?? 8),
     openTop: Number(args.openTop ?? 0),
@@ -290,6 +313,24 @@ async function executeTool(
       code: String(args.code ?? ""),
       timeoutMs: args.timeoutMs ? Number(args.timeoutMs) : undefined,
     });
+  }
+  if (name === "sandbox_install") {
+    const lang = String(args.language ?? "").trim().toLowerCase();
+    if (lang === "all") return { ok: true, results: await installAllRuntimes() };
+    return { ok: true, result: await installRuntime(lang || "javascript") };
+  }
+  if (name === "sandbox_languages") {
+    const mem = getRuntimeMemory();
+    return {
+      ok: true,
+      languages: SUPPORTED_LANGUAGES.map((item) => ({
+        ...item,
+        installed: Boolean(mem.installs[item.id]?.ok),
+        runs: mem.runCount[item.id] ?? 0,
+        lastError: mem.installs[item.id]?.error,
+      })),
+      memory: mem,
+    };
   }
   if (name === "web_search") return executeWebSearch(args);
   if (name === "web_browse" || name === "web_check" || name === "web_fetch") return executeWeb(name, args);
@@ -408,7 +449,7 @@ export async function callWithFallback(
         model,
         toolCalls: lastCalls,
         toolResults,
-        verified: toolResults.some((t) => t.ok && /web_check|web_browse|web_search|wait_for_workflow|actions|builder_publish/i.test(t.name)),
+        verified: toolResults.some((t) => t.ok && /web_check|web_browse|web_search|sandbox_|wait_for_workflow|actions|builder_publish/i.test(t.name)),
       };
     } catch (e) {
       lastError = e instanceof Error ? e.message : String(e);
