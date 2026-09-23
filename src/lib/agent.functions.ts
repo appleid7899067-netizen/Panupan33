@@ -23,7 +23,7 @@ export const runAgent = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const taskPrompt = data.context ? `${data.context}\n\nCurrent user request:\n${data.prompt}` : data.prompt;
     const intent = inferTaskIntent(data.prompt);
-    // Codex-style: only tools for this intent (max 3)
+    // focused: only tools for this intent (max 3)
     const selected = await selectToolsForTask(taskPrompt, 3);
     const selectedNames = selected.slice(0, 8).map((tool) => String(tool.name ?? "")).filter(Boolean);
     const registryStep = {
