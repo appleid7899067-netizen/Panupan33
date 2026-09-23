@@ -38,7 +38,7 @@ const PUBLIC_MCP_SERVERS = ["https://api.keenable.ai/mcp"] as const;
 const TOOL_LIMIT = 20;
 const REGISTRY_CACHE_LIMIT = 80;
 const MAX_TOOL_ROUNDS = 12;
-const DEFAULT_MODELS = ["gpt-5-nano", "gpt-5.6-luna", "deepseek/deepseek-chat"] as const;
+const DEFAULT_MODELS = ["gpt-5.6-luna", "deepseek/deepseek-chat"] as const;
 const CODINGFLEET_BASE = "https://www.codingfleet.com/api";
 const AUTH_GITHUB = [
   "github_write_file",
@@ -791,25 +791,16 @@ export async function callWithFallback(
             if (item.name === "sandbox_run") return value?.ok === true && (value?.exitCode === undefined || value?.exitCode === 0);
             return false;
           });
-          // Final answer fan-out: three models answer from the exact same verified context.
+          // Use one strong model for a coherent, faster final response instead of fan-out.
           // Tool execution stays single-threaded so mutations/deployments are never duplicated.
-          const answerModels = Array.from(new Set([...DEFAULT_MODELS]));
-          onActivity?.(["🧠 กำลังขอคำตอบจาก 3 โมเดลพร้อมกัน..."]);
-          const answerResults = await Promise.allSettled(
-            answerModels.map(async (answerModel) => {
-              const answer = await chatModel(messages, [], answerModel, authToken);
-              return { model: answerModel, text: answer.text };
-            }),
-          );
-          const answers = answerResults.flatMap((entry) => {
-            if (entry.status !== "fulfilled" || !entry.value.text.trim()) return [];
-            return [entry.value];
-          });
-          onActivity?.([`✓ ได้คำตอบจาก ${answers.length}/${answerModels.length} โมเดล`]);
-          const combinedText = answers.length
-            ? answers.map((answer) => `### ${answer.model}\n${answer.text.trim()}`).join("\n\n---\n\n")
-            : result.text;
-          return { ok: true, text: combinedText, model: answers.map((answer) => answer.model).join(" + ") || model, toolCalls: [], toolResults, verified };
+          const answerModel = DEFAULT_MODELS[0];
+          onActivity?.([`🧠 กำลังสรุปผลด้วย ${answerModel}...`]);
+          try {
+            const answer = await chatModel(messages, [], answerModel, authToken);
+            return { ok: true, text: answer.text.trim() || result.text, model: answerModel, toolCalls: [], toolResults, verified };
+          } catch {
+            return { ok: true, text: result.text, model, toolCalls: [], toolResults, verified };
+          }
         }
         const assistantMessage = assistantToolMessage(result.response);
         if (assistantMessage) messages.push(assistantMessage);
