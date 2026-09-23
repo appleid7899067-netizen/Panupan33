@@ -4,6 +4,7 @@
  */
 
 export * from "./boss-planner";
+export * from "./agent-kernel";
 export * from "./boss-task-state";
 export * from "./boss-evidence";
 export * from "./boss-recovery";
