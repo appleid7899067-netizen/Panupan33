@@ -85,11 +85,7 @@ function nativeSandboxTools(): CodingFleetTool[] {
 }
 
 function nativeWebTools(): CodingFleetTool[] {
-  const url = { type: "string", minLength: 8 };
-  return [
-    { name: "web_check", webSource: true, description: "HTTPS status + body preview", inputSchema: { type: "object", properties: { url, timeoutMs: { type: "integer" } }, required: ["url"], additionalProperties: false } },
-    { name: "web_fetch", webSource: true, description: "Fetch HTTPS URL", inputSchema: { type: "object", properties: { url, timeoutMs: { type: "integer" } }, required: ["url"], additionalProperties: false } },
-  ];
+  return [];
 }
 
 function nativeAuthenticatedGitHubTools(): CodingFleetTool[] {
