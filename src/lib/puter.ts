@@ -189,9 +189,29 @@ export async function currentPuterUser(): Promise<PuterUser | null> {
   }
 }
 
-function isModelError(err: unknown): boolean {
+function isRetryableError(err: unknown): boolean {
   const raw = friendlyError(err).toLowerCase();
-  return /model_not_found|model not found|invalid model|unknown model|does not exist|404/.test(raw);
+  return /timeout|timed out|rate.?limit|429|500|502|503|504|network|fetch|temporar|overload|capacity|unavailable|model_not_found|model not found|invalid model|unknown model|does not exist/.test(raw);
+}
+
+function rankModel(model: PuterModel): number {
+  const text = `${model.id} ${model.name ?? ""} ${model.provider ?? ""}`.toLowerCase();
+  if (/deepseek.*(v4|reason|pro)|grok.*(4|reason)|claude.*(sonnet|opus)|gemini.*(pro|flash)|gpt-/.test(text)) return 80;
+  if (/deepseek|qwen|glm|kimi|mistral|llama/.test(text)) return 60;
+  return 40;
+}
+
+function costScore(model: PuterModel): number {
+  return Number(model.cost?.input ?? 0) + Number(model.cost?.output ?? 0);
+}
+
+export function buildPuterModelPool(models: PuterModel[], preferred: string): string[] {
+  const unique = new Map<string, PuterModel>();
+  for (const model of models) if (model.id && !unique.has(model.id)) unique.set(model.id, model);
+  const ranked = [...unique.values()]
+    .filter((model) => model.id !== preferred)
+    .sort((a, b) => (rankModel(b) - rankModel(a)) || (costScore(a) - costScore(b)));
+  return [preferred, ...ranked.map((model) => model.id).slice(0, 5)];
 }
 
 // Puter-compatible message normalization:
@@ -226,51 +246,41 @@ function normalizePuterMessages(messages: ChatTurn[]): Array<{ role: "user" | "a
   return normalized;
 }
 
-export async function chatWithPuter(opts: { messages: ChatTurn[]; model: string; onDelta?: (full: string) => void }): Promise<ChatResult> {
+export async function chatWithPuter(opts: { messages: ChatTurn[]; model: string; fallbackModels?: string[]; onDelta?: (full: string) => void }): Promise<ChatResult> {
   let puter: PuterAPI;
   try { puter = await ensurePuter(); } catch (err) { return { ok: false, error: friendlyError(err) }; }
   if (!puter.auth.isSignedIn()) return { ok: false, error: "Puter ยังไม่ได้เข้าสู่ระบบ กรุณากด Sign in with Puter ก่อน แล้วจึงลองส่งอีกครั้ง" };
   try {
     const user = await puter.auth.getUser();
-    if (user.requires_phone_verification) {
-      return { ok: false, error: "Puter บัญชีนี้ยังมีสถานะต้องยืนยันเบอร์โทร แม้เพิ่งยืนยันแล้ว ให้กด Sign in with Puter อีกครั้งเพื่อรีเฟรชเซสชัน" };
-    }
-  } catch {
-    return { ok: false, error: "Puter session ยังไม่พร้อม กรุณากด Sign in with Puter อีกครั้ง" };
-  }
+    if (user.requires_phone_verification) return { ok: false, error: "Puter session ต้องยืนยันเบอร์โทร กรุณา sign in ใหม่" };
+  } catch { return { ok: false, error: "Puter session ยังไม่พร้อม กรุณากด Sign in with Puter อีกครั้ง" }; }
+
   const payload = normalizePuterMessages(withCredentialPolicy(opts.messages));
-  const run = async (stream: boolean) => {
-    const resp = await puter.ai.chat(payload, { model: opts.model, stream });
-    if (stream && resp && typeof resp === "object" && Symbol.asyncIterator in (resp as object)) {
-      let full = "";
-      for await (const part of resp as AsyncIterable<PuterChatPart | string>) { const piece = typeof part === "string" ? part : extractText(part); if (!piece) continue; full += piece; opts.onDelta?.(full); }
-      return full;
-    }
-    const text = extractText(resp); if (text) opts.onDelta?.(text); return text;
-  };
-  try {
-    const text = await run(true);
-    if (!text.trim()) return { ok: false, error: "Empty response from the model." };
-    return { ok: true, text, model: opts.model, verified: false };
-  } catch (err) {
-    // Puter can return structured objects for model errors. Retry once with the
-    // catalog's known default instead of surfacing "[object Object]".
-    if (isModelError(err) && opts.model !== "gpt-5-nano") {
-      try {
-        const fallbackText = await puter.ai.chat(payload, { model: "gpt-5-nano", stream: false });
-        const normalized = extractText(fallbackText);
-        if (normalized.trim()) return { ok: true, text: normalized, model: "gpt-5-nano", verified: false };
-      } catch { /* intentionally ignored */ }
-    }
+  const catalog = await listPuterModels().catch(() => []);
+  const pool = Array.from(new Set([opts.model, ...(opts.fallbackModels ?? []), ...buildPuterModelPool(catalog, opts.model)])).slice(0, 7);
+
+  let lastError = "Unknown error";
+  for (const model of pool) {
     try {
-      const text = await run(false);
-      if (!text.trim()) return { ok: false, error: friendlyError(err) };
-      return { ok: true, text, model: opts.model };
-    } catch (err2) {
-      const detail = friendlyError(err2);
-      return { ok: false, error: detail === "[object object]" ? friendlyError(err) : detail };
+      const resp = await puter.ai.chat(payload, { model, stream: true, normalize: true });
+      if (resp && typeof resp === "object" && Symbol.asyncIterator in (resp as object)) {
+        let full = "";
+        for await (const part of resp as AsyncIterable<PuterChatPart | string>) {
+          const piece = typeof part === "string" ? part : extractText(part);
+          if (!piece) continue;
+          full += piece;
+          opts.onDelta?.(full);
+        }
+        if (full.trim()) return { ok: true, text: full, model, verified: false };
+      } else {
+        const text = extractText(resp);
+        if (text.trim()) { opts.onDelta?.(text); return { ok: true, text, model, verified: false }; }
+      }
+      lastError = `Empty response from ${model}`;
+    } catch (err) {
+      lastError = friendlyError(err);
+      if (!isRetryableError(err)) break;
     }
   }
+  return { ok: false, error: lastError };
 }
-
-
