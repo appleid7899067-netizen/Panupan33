@@ -3,33 +3,37 @@
 อัปเดต: 2026-09-23
 
 ```
-PHASE 1 Core Engine           ✅ modules + orchestrator
+PHASE 1 Core Engine           ✅ modules + orchestrator + agent-loop wire
 PHASE 2 Coding Intelligence   ✅ modules
-PHASE 3 GitHub Autonomous     ✅ modules (github-loop.ts)
-PHASE 4 Publisher / Preview   ✅ modules (publisher.ts)
-PHASE 5 Autonomy              ✅ modules (autonomy.ts)
-
-ค้างร่วม: ผูกทุก module เข้า agent-loop runtime + wire GitHub/Puter tools จริง
+PHASE 3 GitHub Autonomous     ✅ modules
+PHASE 4 Publisher / Preview   ✅ modules
+PHASE 5 Autonomy              ✅ modules + budget/loop/critique in agent-loop
 ```
 
-## ไฟล์หลัก `src/lib/boss-engine/`
+## Runtime integration
 
-| Phase | Files |
-|-------|--------|
-| 1 | planner, task-state, evidence, recovery, tool-router, orchestrator |
-| 2 | coding-repo, coding-deps, coding-diff |
-| 3 | github-loop |
-| 4 | publisher |
-| 5 | autonomy |
+`src/lib/agent-loop.ts` now:
 
-## Render
+- `bootstrapBoss(prompt)` at start
+- injects `bossPromptPrefix` into model context
+- `onToolResults` for Evidence + Task memory
+- `budgetAllow` / `budgetConsume` (Phase 5)
+- `detectToolLoop` (Phase 5)
+- `shouldStopAsVerified` + `selfCritique` before claiming done
 
-- Live: https://panupanboss.onrender.com/ (ตรวจล่าสุด HTTP 200)
-- คู่มือซ่อมเมื่อล่ม: `docs/RENDER_RECOVERY.md`
-- Blueprint: `render.yaml`
+## Render fixes
 
-## Next runtime work
+1. postinstall no longer runs vite build (`scripts/render-build.mjs`)
+2. `puter-tool-loader.ts` regex `/\/$/` fixed on main (Unexpected flag $)
 
-1. `agent-loop.ts` เรียก `bootstrapBoss` + `onToolResults` + budget/selfCritique
-2. GitHub tools เดินตาม `createGitHubLoop` phases
-3. Preview path ใช้ `evaluateHttp` + `bindPreview`
+After deploy: Clear build cache on Render if still red.
+
+## Live
+
+https://panupanboss.onrender.com/
+
+## Next hardening
+
+- Wire GitHub tools to `createGitHubLoop` phases end-to-end
+- Wire Puter publish to `publisher.ts` bindPreview + evaluateHttp
+- Persist TaskState across chat sessions (KV/DB)
