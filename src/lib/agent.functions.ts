@@ -6,7 +6,7 @@ import { executeAgentCode, runAgentLoop } from "@/lib/agent-loop";
 
 const loopSchema = z.object({
   prompt: z.string().min(1).max(60_000),
-  maxIterations: z.number().int().min(1).max(8).optional(),
+  maxIterations: z.number().int().min(1).max(10).optional(),
   authToken: z.string().min(20).max(10000).optional(),
   githubToken: z.string().min(20).max(10000).optional(),
   context: z.string().max(45_000).optional(),
@@ -23,20 +23,20 @@ export const runAgent = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const taskPrompt = data.context ? `${data.context}\n\nCurrent user request:\n${data.prompt}` : data.prompt;
     const intent = inferTaskIntent(data.prompt);
-    // focused: only tools for this intent (max 3)
-    const selected = await selectToolsForTask(taskPrompt, 3);
-    const selectedNames = selected.slice(0, 8).map((tool) => String(tool.name ?? "")).filter(Boolean);
+    // tools selected by intent (up to 24 — do not starve the agent)
+    const selected = await selectToolsForTask(taskPrompt, 24);
+    const selectedNames = selected.slice(0, 12).map((tool) => String(tool.name ?? "")).filter(Boolean);
     const registryStep = {
       phase: "plan" as const,
       detail: `Intent: ${intent} · tools (${selectedNames.length}): ${selectedNames.join(", ") || "ไม่มี — ตอบตรงเจตนา"}`,
     };
 
-    // Pure chat intent → no agent loop
-    if (intent === "chat" || selected.length === 0) {
+    // Pure greeting chat only → no agent loop
+    if (intent === "chat") {
       return {
         ok: true,
         text: "",
-        steps: [registryStep, { phase: "verify" as const, detail: "ไม่เปิด toolbox — ตอบตามเจตนาผู้ใช้" }],
+        steps: [registryStep, { phase: "verify" as const, detail: "ไม่เปิด toolbox — ทักทายสั้น" }],
         verified: true,
         skipAgent: true as const,
       };
@@ -73,8 +73,7 @@ export const runAgent = createServerFn({ method: "POST" })
       };
     }
 
-    // Fewer iterations by default with focused loops
-    const iterations = data.maxIterations ?? (intent === "github" || intent === "deploy" ? 5 : 3);
+    const iterations = data.maxIterations ?? (intent === "github" || intent === "deploy" ? 8 : 6);
     const result = await runAgentLoop(taskPrompt, selected, iterations, data.authToken, undefined, data.model, data.githubToken);
     return { ...result, steps: [registryStep, ...result.steps] };
   });
@@ -92,15 +91,15 @@ export const runAgentStream = createServerFn({ method: "POST" })
   .handler(async function* ({ data }) {
     const taskPrompt = data.context ? `${data.context}\n\nCurrent user request:\n${data.prompt}` : data.prompt;
     const intent = inferTaskIntent(data.prompt);
-    const selected = await selectToolsForTask(taskPrompt, 3);
-    const selectedNames = selected.slice(0, 8).map((tool) => String(tool.name ?? "")).filter(Boolean);
+    const selected = await selectToolsForTask(taskPrompt, 24);
+    const selectedNames = selected.slice(0, 12).map((tool) => String(tool.name ?? "")).filter(Boolean);
     const registryStep = {
       phase: "plan" as const,
       detail: `Intent: ${intent} · tools (${selectedNames.length}): ${selectedNames.join(", ") || "ไม่มี"}`,
     };
     yield { type: "step", step: registryStep };
 
-    if (intent === "chat" || selected.length === 0) {
+    if (intent === "chat") {
       yield {
         type: "done",
         result: {
@@ -111,11 +110,6 @@ export const runAgentStream = createServerFn({ method: "POST" })
         },
       };
       return;
-    }
-
-    // IMPORTANT: streamed chat must use the same authenticated GitHub path as runAgent.
-    if (prefersCodex && !hasServerCodexCredential()) {
-      yield { type: "step", step: { phase: "act", detail: "🧠 ไม่มี Codex API credential บน Render → ใช้ Puter + โมเดลที่เลือกเป็น Agent driver แทน" } };
     }
 
     const registryHasGitHub = selected.some((tool) => String(tool.name ?? "").toLowerCase().includes("github"));
@@ -177,7 +171,7 @@ export const runAgentStream = createServerFn({ method: "POST" })
       wake = null;
     };
 
-    const iterations = data.maxIterations ?? (intent === "github" || intent === "deploy" ? 5 : 3);
+    const iterations = data.maxIterations ?? (intent === "github" || intent === "deploy" ? 8 : 6);
     const runner = runAgentLoop(
       taskPrompt,
       selected,
