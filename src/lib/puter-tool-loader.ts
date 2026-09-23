@@ -85,7 +85,22 @@ function nativeSandboxTools(): CodingFleetTool[] {
 }
 
 function nativeWebTools(): CodingFleetTool[] {
-  return [];
+  return [{
+    name: "web_search",
+    webSource: true,
+    description: "Real Internet web search. Uses Brave Search when BRAVE_SEARCH_API_KEY is configured, with DuckDuckGo HTML as a keyless fallback.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", minLength: 2, maxLength: 600 },
+        count: { type: "integer", minimum: 1, maximum: 10 },
+        country: { type: "string" },
+        search_lang: { type: "string" },
+      },
+      required: ["query"],
+      additionalProperties: false,
+    },
+  }];
 }
 
 function nativeAuthenticatedGitHubTools(): CodingFleetTool[] {
@@ -153,6 +168,65 @@ async function executePublicGitHub(name: string, args: Record<string, unknown>):
   throw new Error(`Unsupported public GitHub tool: ${name}`);
 }
 
+async function executeWebSearch(args: Record<string, unknown>): Promise<unknown> {
+  const query = String(args.query ?? "").trim();
+  if (!query) throw new Error("web_search requires query");
+  const count = Math.min(10, Math.max(1, Number(args.count ?? 8)));
+  const braveKey = String(process.env.BRAVE_SEARCH_API_KEY ?? "").trim();
+
+  if (braveKey) {
+    const url = new URL("https://api.search.brave.com/res/v1/web/search");
+    url.searchParams.set("q", query);
+    url.searchParams.set("count", String(count));
+    url.searchParams.set("country", String(args.country ?? "TH"));
+    url.searchParams.set("search_lang", String(args.search_lang ?? "th"));
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "X-Subscription-Token": braveKey,
+      },
+    });
+    if (!response.ok) throw new Error(`Brave Search HTTP ${response.status}`);
+    const data = await response.json() as { web?: { results?: Array<{ title?: string; url?: string; description?: string; page_age?: string }> } };
+    return {
+      provider: "brave",
+      query,
+      results: (data.web?.results ?? []).slice(0, count).map((item) => ({
+        title: item.title ?? "",
+        url: item.url ?? "",
+        snippet: item.description ?? "",
+        age: item.page_age ?? null,
+      })),
+    };
+  }
+
+  const url = new URL("https://html.duckduckgo.com/html/");
+  url.searchParams.set("q", query);
+  const response = await fetch(url, {
+    headers: {
+      Accept: "text/html,application/xhtml+xml",
+      "User-Agent": "Bossnu-WebSearch/1.0",
+    },
+  });
+  if (!response.ok) throw new Error(`DuckDuckGo Search HTTP ${response.status}`);
+  const html = await response.text();
+  const results: Array<{ title: string; url: string; snippet: string }> = [];
+  const re = /<a[^>]+class=["']result__a["'][^>]+href=["']([^"']+)["'][^>]*>([\\s\\S]*?)<\\/a>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(html)) && results.length < count) {
+    const rawTitle = match[2].replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
+    let resultUrl = match[1];
+    try {
+      const parsed = new URL(resultUrl, "https://html.duckduckgo.com");
+      const target = parsed.searchParams.get("uddg");
+      if (target) resultUrl = decodeURIComponent(target);
+    } catch {}
+    results.push({ title: rawTitle, url: resultUrl, snippet: "" });
+  }
+  if (!results.length) throw new Error("Web search returned no results");
+  return { provider: "duckduckgo", query, results };
+}
+
 async function executeWeb(name: string, args: Record<string, unknown>): Promise<unknown> {
   const rawUrl = String(args.url ?? "").trim();
   if (!/^https:\/\//i.test(rawUrl)) throw new Error("HTTPS only");
@@ -187,7 +261,7 @@ async function executeTool(
       timeoutMs: args.timeoutMs ? Number(args.timeoutMs) : undefined,
     });
   }
-  if (name === "web_check" || name === "web_fetch") return executeWeb(name, args);
+  if (name === "web_search") return executeWebSearch(args);
   if (isBuilderTool(name) || tool.builderSource) {
     return executeBuilderTool(name, args, { authToken });
   }
