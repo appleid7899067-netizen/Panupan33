@@ -156,23 +156,13 @@ export class SuperSandbox {
         // จำลองการรัน
         await new Promise(r => setTimeout(r, 200 + Math.random() * 400));
 
-        // สุ่ม success/fail (90% success)
-        if (Math.random() > 0.1) {
-          result.status = "success";
-          result.logs.push({
-            type: "console-log",
-            message: `✓ Preview ready (${result.previewMode})`,
-            timestamp: Date.now(),
-          });
-        } else {
-          result.status = "failed";
-          result.error = "Simulated error in background - พังในที่ลับไม่เป็นไร";
-          result.logs.push({
-            type: "runtime-error",
-            message: result.error,
-            timestamp: Date.now(),
-          });
-        }
+        // Do not invent runtime failures. A sandbox failure must come from an actual exception/runtime result.
+        result.status = "success";
+        result.logs.push({
+          type: "console-log",
+          message: `✓ Preview ready (${result.previewMode})`,
+          timestamp: Date.now(),
+        });
       }
 
       result.durationMs = Date.now() - start;
