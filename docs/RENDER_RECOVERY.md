@@ -1,37 +1,34 @@
 # Render Recovery — panupanboss.onrender.com
 
-## สถานะที่ตรวจล่าสุด (2026-09-23)
+## อาการล่าสุด (2026-09-23) — 2 รอบติด
 
-- `GET /` → **HTTP 200** (ขึ้นแล้ว)
-- `/api/health` → 404 (ยังไม่มี health API แยก — ใช้ `/` เป็น healthCheckPath)
-- Assets JS/CSS โหลดได้
-
-## ทำไมถึง “ล่ม” บ่อยบน Render Free
-
-1. **Spin down** — Free plan ปิด service หลังไม่ใช้งาน ~15 นาที ครั้งถัดไป cold start ช้า/timeout
-2. **Build fail** หลัง push ใหม่ → service ค้างเวอร์ชันเก่าหรือ 502
-3. **OOM / memory** ตอน build ใหญ่
-4. **Wrong start command** — ต้องเป็น `npm start` (= `node .output/server/index.mjs`) หลัง `vite build`
-
-## วิธีซ่อมเร็ว
-
-1. เปิด [Render Dashboard](https://dashboard.render.com) → service **panupanboss**
-2. ดู **Events / Logs** ว่าแดงตรง Build หรือ Runtime
-3. กด **Manual Deploy → Clear build cache & deploy**
-4. ตรวจ Start Command = `npm start`
-5. ตรวจ Build Command = `npm install && npm run build`
-6. ตั้ง Health Check Path = `/`
-7. ถ้า Free spin-down รบกวน: อัปเกรด Starter หรือยิง cron ทุก 10 นาทีเข้า `https://panupanboss.onrender.com/`
-
-## ใน repo
-
-- `render.yaml` — blueprint แนะนำ
-- `scripts/render-build.mjs` — postinstall build เมื่อ `RENDER=true`
-- `package.json` → `"start": "node .output/server/index.mjs"`
-
-## ตรวจหลังซ่อม
-
-```bash
-curl -sS -o /dev/null -w "%{http_code}\n" https://panupanboss.onrender.com/
-# ควรได้ 200
 ```
+Exited with status 1 while building your code.
+npm error command failed
+npm error command sh -c node scripts/render-build.mjs
+Source: b212954
+```
+
+**สาเหตุ:** `postinstall` → `scripts/render-build.mjs` รัน `vite build` ระหว่าง `npm install` บน Render → พัง status 1
+
+**แก้แล้ว:** `render-build.mjs` **ไม่รัน vite build ใน postinstall** แล้ว (exit 0) — build จริงอยู่ที่ Build Command เท่านั้น
+
+## ตั้งค่า Dashboard
+
+| ช่อง | ค่า |
+|------|-----|
+| **Build Command** | `npm install && npm run build` |
+| **Start Command** | `npm start` |
+| **Health Check Path** | `/` |
+| **Node** | `22` |
+
+## หลังมี commit แก้ postinstall
+
+1. Manual Deploy → **Clear build cache & deploy**
+2. Logs ควรเห็น: `[render-build] ... skipping vite build in postinstall`
+3. จากนั้นขั้น `npm run build` ต้องเขียว
+4. เปิด https://panupanboss.onrender.com/ ได้ 200
+
+## Free plan spin-down
+
+Cold start ช้าหลังไม่ใช้ ~15 นาที — ไม่ใช่ build fail คนละอาการ
