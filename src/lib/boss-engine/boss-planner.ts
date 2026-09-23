@@ -74,9 +74,9 @@ export function decomposeGoal(goal: string): PlanStep[] {
   if (needsCode) {
     push("Plan code changes", ["code"], [lastId], "Multi-file change plan with dependencies");
     lastId = steps[steps.length - 1].id;
-    push("Write / edit code", ["code", "sandbox"], [lastId]);
+    push("Write / edit code in repository", ["code", "github"], [lastId], "Apply changes directly to the target repository; do not create a replacement app in the sandbox.");
     lastId = steps[steps.length - 1].id;
-    push("Run & observe", ["sandbox"], [lastId]);
+    push("Observe repository checks", ["github", "ci", "verify"], [lastId], "Use repository CI/build/test evidence when available; sandbox is not the source of truth for repository changes.");
     lastId = steps[steps.length - 1].id;
   }
 
@@ -86,7 +86,7 @@ export function decomposeGoal(goal: string): PlanStep[] {
   }
 
   if (needsDeploy || needsCode) {
-    push("Build artifact", ["sandbox", "verify"], [lastId]);
+    push("Build / verify repository", ["github", "ci", "verify"], [lastId], "Prefer the repository's own build, tests and CI over creating a separate sandbox app.");
     lastId = steps[steps.length - 1].id;
   }
 
