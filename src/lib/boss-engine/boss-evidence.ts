@@ -85,14 +85,34 @@ export class EvidenceEngine {
     const missing: string[] = [];
     const { mutationExpected, verificationRequested, deployRequested, previewRequested } = opts;
 
-    if (mutationExpected && !this.hasKind("file_mutated") && !this.hasKind("sandbox_ok") && !this.hasKind("build_ok")) {
-      missing.push("code/sandbox mutation evidence");
+    // A mutation must have a concrete mutation artifact. A build/sandbox pass alone
+    // proves execution, not that the requested repository change actually happened.
+    if (mutationExpected && !this.hasKind("file_mutated")) {
+      missing.push("mutation evidence (file/commit change)");
     }
-    if ((verificationRequested || mutationExpected) && !this.hasKind("http_ok") && !this.hasKind("build_ok") && !this.hasKind("ci_ok") && !this.hasKind("test_ok") && !this.hasKind("sandbox_ok")) {
-      missing.push("verification (build/test/http/ci)");
+
+    // Mutation and explicit verification requests require a real verification result.
+    // Do not treat a generic "tool ok" or mutation itself as verification.
+    if ((verificationRequested || mutationExpected) &&
+        !this.hasKind("http_ok") &&
+        !this.hasKind("build_ok") &&
+        !this.hasKind("ci_ok") &&
+        !this.hasKind("test_ok") &&
+        !this.hasKind("sandbox_ok")) {
+      missing.push("verification (build/test/http/ci/sandbox)");
     }
-    if (deployRequested && !this.hasKind("deploy_ok") && !this.hasKind("preview_ok")) {
+
+    // A deploy is not verified until the deployment is both reported successful
+    // and reachable/previewable from the outside.
+    if (deployRequested &&
+        !this.hasKind("deploy_ok") &&
+        !this.hasKind("preview_ok")) {
       missing.push("deploy/preview success evidence");
+    }
+    if (deployRequested &&
+        (this.hasKind("deploy_ok") || this.hasKind("preview_ok")) &&
+        !this.hasKind("http_ok")) {
+      missing.push("live HTTP verification after deploy");
     }
     if (previewRequested && !this.hasKind("preview_ok") && !this.hasKind("http_ok")) {
       missing.push("preview HTTP evidence");
