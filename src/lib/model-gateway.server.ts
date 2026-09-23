@@ -290,6 +290,7 @@ export async function runModelGateway(opts: GatewayRunOptions): Promise<GatewayS
 
   const attempts: string[] = [];
   let lastError = "";
+  const seenErrors = new Set<string>();
   for (const attempt of plan) {
     opts.onAttempt?.(attempt.label);
     attempts.push(attempt.label);
@@ -299,7 +300,13 @@ export async function runModelGateway(opts: GatewayRunOptions): Promise<GatewayS
       return { ok: true, result, attempt };
     } catch (e) {
       lastError = readableError(e);
+      const fingerprint = lastError.trim().slice(0, 500);
+      if (fingerprint && seenErrors.has(fingerprint)) {
+        opts.onAttempt?.(`หยุด retry ซ้ำ: ${fingerprint.slice(0, 180)}`);
+        break;
+      }
+      if (fingerprint) seenErrors.add(fingerprint);
     }
   }
-  return { ok: false, error: `ทุก model gateway ล้มเหลว (ลอง ${attempts.length} ครั้ง) — สกัดหลังสุด: ${lastError.slice(0, 300)}`, attempts };
+  return { ok: false, error: `ทุก model gateway ล้มเหลว (ลอง ${attempts.length} ครั้ง) — สาเหตุจริง: ${lastError.slice(0, 500)}`, attempts };
 }
