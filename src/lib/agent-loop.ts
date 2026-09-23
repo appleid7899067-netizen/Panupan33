@@ -165,7 +165,7 @@ Health URL: ${prompt.match(/https:\/\/[^\s)\]}>,]+/i)?.[0] || "none"}.`;
   const toolFailureCounts = new Map<string, number>();
   const mutationExpected = looksLikeMutation(prompt);
 
-  for (let iteration = 0; iteration < Math.max(1, Math.min(maxIterations, 6)); iteration += 1) {
+  const maxRounds = 4;\n  for (let iteration = 0; iteration < maxRounds; iteration += 1) {
     emitStep({ phase: "act", detail: `รอบที่ ${iteration + 1}: ลงมือทำ (1–2 tool ตามเจตนา)` });
     const result = await callWithFallback(currentPrompt, tools, [model], (activity) => activity.forEach((detail) => emitStep({ phase: "observe", detail })), authToken, githubToken);
     if (!result.ok) {
@@ -218,7 +218,7 @@ Health URL: ${prompt.match(/https:\/\/[^\s)\]}>,]+/i)?.[0] || "none"}.`;
 
     if (!result.toolCalls.length) {
       if ((mutationExpected || hadVerificationActivity || looksLikeVerification(prompt)) && !verificationPassedEvidence) {
-        if (iteration === Math.min(maxIterations, 6) - 1) return { ok: false, text: failureText(last, result.toolResults ?? []), steps, verified: false };
+        if (iteration === maxRounds - 1) return { ok: false, text: failureText(last, result.toolResults ?? []), steps, verified: false };
         emitStep({ phase: "refine", detail: "ต้องมี verification tool ก่อนจบ" });
         currentPrompt = `${prompt}\n\nVerification gate: use a real verification tool before finishing.`;
         continue;
