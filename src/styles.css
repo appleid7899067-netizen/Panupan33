@@ -134,3 +134,47 @@
 .boss-avatar-working{animation:boss-avatar-glow 1.8s ease-in-out infinite}
 .boss-activity-surface{background:linear-gradient(90deg,transparent 0%,color-mix(in oklab,var(--color-primary) 5%,transparent) 50%,transparent 100%);background-size:220% 100%;animation:boss-status-shimmer 2.2s linear infinite}
 .boss-activity-row{animation:boss-message-in 180ms cubic-bezier(.22,1,.36,1) both}
+
+
+/* Bossnu visual refresh: softer brand mark + premium primary actions */
+.boss-primary-cta{
+  position:relative;
+  isolation:isolate;
+  overflow:hidden;
+  border:1px solid color-mix(in oklab,#a78bfa 38%,transparent);
+  background:linear-gradient(135deg,#67c8d6 0%,#8b7cf6 52%,#d56be8 100%);
+  color:#081016;
+  box-shadow:0 10px 30px -12px rgba(139,92,246,.55),0 0 0 1px rgba(255,255,255,.08) inset;
+  transition:transform 180ms cubic-bezier(.22,1,.36,1),box-shadow 180ms ease,filter 180ms ease;
+}
+.boss-primary-cta::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  background:linear-gradient(105deg,transparent 20%,rgba(255,255,255,.38) 48%,transparent 72%);
+  transform:translateX(-120%);
+  transition:transform 650ms cubic-bezier(.22,1,.36,1);
+}
+.boss-primary-cta:hover{
+  transform:translateY(-2px);
+  filter:saturate(1.08);
+  box-shadow:0 16px 36px -12px rgba(139,92,246,.65),0 0 0 1px rgba(255,255,255,.12) inset;
+}
+.boss-primary-cta:hover::before{transform:translateX(120%)}
+.boss-primary-cta:active{transform:translateY(0) scale(.985)}
+.boss-header-action{
+  background:linear-gradient(145deg,#71c9d4,#8b7cf6);
+  color:#071015;
+  box-shadow:0 8px 24px -12px rgba(111,190,214,.75),0 0 0 1px rgba(255,255,255,.10) inset;
+  transition:transform 180ms ease,box-shadow 180ms ease,filter 180ms ease;
+}
+.boss-header-action:hover{
+  transform:translateY(-1px);
+  filter:saturate(1.08);
+  box-shadow:0 12px 28px -12px rgba(139,92,246,.7),0 0 0 1px rgba(255,255,255,.14) inset;
+}
+@media (prefers-reduced-motion:reduce){
+  .boss-primary-cta,.boss-header-action{transition:none!important;transform:none!important}
+  .boss-primary-cta::before{display:none}
+}
