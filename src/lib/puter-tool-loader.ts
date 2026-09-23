@@ -37,7 +37,8 @@ const GITHUB_API = "https://api.github.com";
 const PUBLIC_MCP_SERVERS = ["https://api.keenable.ai/mcp"] as const;
 const TOOL_LIMIT = 20;
 const REGISTRY_CACHE_LIMIT = 80;
-const MAX_TOOL_ROUNDS = 12;
+const MAX_TOOL_ROUNDS = 8;
+const MAX_WEB_CHECKS = 2;
 const DEFAULT_MODELS = ["gpt-5.6-luna", "deepseek/deepseek-chat"] as const;
 const CODINGFLEET_BASE = "https://www.codingfleet.com/api";
 const AUTH_GITHUB = [
@@ -752,8 +753,17 @@ export async function callWithFallback(
   for (const model of modelQueue) {
     try {
       const availableTools = tools.slice(0, TOOL_LIMIT);
-      const system = ["You are Bossnu SlieLo Agent. Use available tools when they materially improve the answer. Never claim an external action succeeded unless the tool returned success.", "Available tools:", toolSummary(availableTools)].join("\n");
+      const system = [
+        "You are Bossnu SlieLo Agent.",
+        "Use a tool only when it materially improves the answer or is required to perform the user's requested action.",
+        "For normal conversation, answer directly without tools.",
+        "For web_check: maximum 2 checks per user task. Never repeat the same URL check; reuse the previous result. Once sufficient evidence is available, stop checking and answer.",
+        "Never claim an external action succeeded unless the tool returned success.",
+        "Available tools:",
+        toolSummary(availableTools),
+      ].join("\n");
       const toolResults: ToolExecutionResult[] = [];
+      const webCheckKeys = new Set<string>();
       const messages: Array<Record<string, unknown>> = [
         { role: "system", content: system },
         { role: "user", content: prompt },
@@ -822,6 +832,23 @@ export async function callWithFallback(
             continue;
           }
           try {
+            if (call.name === "web_check") {
+              const normalizedUrl = String(call.arguments.url ?? "").trim().replace(/\\/$/, "");
+              const key = normalizedUrl.toLowerCase();
+              if (!key) throw new Error("web_check ต้องมี URL");
+              if (webCheckKeys.has(key)) {
+                const previous = [...toolResults].reverse().find((item) => item.name === "web_check" && item.ok && String((item.result as Record<string, unknown>)?.finalUrl ?? "").replace(/\\/$/, "").toLowerCase() === key);
+                onActivity?.([`↩️ ใช้ผล web_check เดิม: ${normalizedUrl}`]);
+                messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify({ ok: true, reused: true, result: previous?.result ?? { ok: false, error: "ไม่มีผลเดิมให้ใช้" } }) });
+                continue;
+              }
+              if (webCheckKeys.size >= MAX_WEB_CHECKS) {
+                onActivity?.([`⏹️ web_check ครบ ${MAX_WEB_CHECKS} ครั้งแล้ว ใช้หลักฐานที่มี`]);
+                messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify({ ok: false, stopped: true, error: `web_check limit reached: ${MAX_WEB_CHECKS}` }) });
+                continue;
+              }
+              webCheckKeys.add(key);
+            }
             const output = await executeTool(tool, call.arguments, authToken, githubToken);
             toolResults.push({ name: call.name, ok: true, result: output });
             onActivity?.([`✓ ${call.name} เสร็จแล้ว`, `📡 กำลังอ่านผลลัพธ์และตรวจหลักฐาน...`]);
