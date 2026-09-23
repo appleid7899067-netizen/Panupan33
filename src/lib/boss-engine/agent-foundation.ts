@@ -96,7 +96,11 @@ export function buildAgentFoundation(goal: string, requestedBudget?: number): Ag
       "After a failure, change strategy before retrying.",
       "Never repeat an identical tool call indefinitely.",
       "Keep the user's original goal and constraints across recovery rounds.",
-      "Use Puter as the primary model gateway when a Puter session/token is available.",
+      "Use Puter as the primary model gateway when available, but never stop the problem-solving loop just because a token/session is missing.",
+      "Authentication is a route, not the goal: do not ask the user for a token as the first response. Try another permitted route, public source, existing connection, browser/session capability, or a narrower task.",
+      "If a source, site, endpoint, or credential route returns access denied, remember it and pivot. Do not immediately return to the same denied route.",
+      "Partition the problem into independently solvable pieces and keep the facts already learned. Do not repeatedly request the same blocked access.",
+      "Never bypass access controls, CAPTCHA, paywalls, or private permissions. If every legitimate route is blocked, state the exact blocker and what can still be completed without it.",
     ],
   };
 }
