@@ -659,7 +659,7 @@ async function executeTool(tool: CodingFleetTool, args: Record<string, unknown>,
   if (name === "web_open") return executeWebOpen(args);
   if (name === "web_fetch") return executeWebFetch(args);
   if (name === "web_trace") return executeWebTrace(args);
-  if (tool.githubSource && AUTH_GITHUB.includes(name)) return executeAuthenticatedGithub(name, args, authToken);
+  if (tool.githubSource && AUTH_GITHUB.includes(name)) return executeAuthenticatedGithub(name, args, githubToken);
   if (tool.githubSource) return executeGitHubTool(tool, args);
   if (tool.mcpServer) return callPublicMcpTool(tool, args);
   if (tool.pluginSource) return executePluginTool(tool, args);
@@ -745,6 +745,7 @@ export async function callWithFallback(
   models: readonly string[] = DEFAULT_MODELS,
   onActivity?: (activity: string[]) => void,
   authToken?: string,
+  githubToken?: string,
 ): Promise<{ ok: true; text: string; model: string; toolCalls: ToolCall[]; toolResults: ToolExecutionResult[]; verified: boolean } | { ok: false; error: string }> {
   let lastError = "No model succeeded.";
   const modelQueue = Array.from(new Set([...models, ...DEFAULT_MODELS]));
