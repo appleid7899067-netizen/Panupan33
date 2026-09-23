@@ -484,6 +484,10 @@ function findHeadClose(buf) {
  */
 export function createHeadInjector(ctx = {}) {
   const normalized = normalizeHeadContext(ctx);
+  // Tests and embedded callers may provide an explicit appName. In that case
+  // it must not be shadowed by a baked site title from the workspace snapshot.
+  const hasExplicitAppName = String(ctx.appName ?? "").trim().length > 0;
+  const effectiveSite = hasExplicitAppName && ctx.site === undefined ? {} : normalized.site;
 
   /** @type {Buffer[]} */
   let pending = [];
@@ -491,13 +495,13 @@ export function createHeadInjector(ctx = {}) {
 
   const apply = (html) =>
     injectGrokPwaHead(html, {
-      appName: normalized.appName,
+      appName: hasExplicitAppName ? ctx.appName : normalized.appName,
       projectId: normalized.projectId,
       creator: normalized.creator,
       creatorId: normalized.creatorId,
       host: normalized.host,
       cwd: normalized.cwd,
-      site: normalized.site,
+      site: effectiveSite,
     });
 
   return {
