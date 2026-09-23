@@ -118,3 +118,13 @@
   background-size: 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }
+
+@keyframes boss-message-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@keyframes boss-caret-blink{0%,45%{opacity:1}46%,100%{opacity:0}}
+@keyframes boss-status-sheen{0%{background-position:180% 0}100%{background-position:-80% 0}}
+.boss-message-in{animation:boss-message-in 180ms cubic-bezier(.22,1,.36,1) both}
+.boss-stream-caret{display:inline-block;width:2px;height:1.05em;margin-left:3px;vertical-align:-.12em;border-radius:999px;background:currentColor;animation:boss-caret-blink 780ms steps(1,end) infinite}
+.boss-status-live{background-image:linear-gradient(90deg,currentColor 0%,rgba(255,255,255,.28) 48%,currentColor 72%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:boss-status-sheen 1.7s linear infinite}
+.boss-nav-item{transition:color 160ms ease,background-color 160ms ease,transform 160ms ease}
+.boss-nav-item:hover{transform:translateY(-1px)}
+@media (prefers-reduced-motion:reduce){.boss-message-in,.boss-stream-caret,.boss-status-live,.boss-nav-item{animation:none!important;transition:none!important;transform:none!important}}
