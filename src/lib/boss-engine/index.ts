@@ -1,6 +1,6 @@
 /**
  * Boss Engine — full roadmap modules
- * Phase 1 Core · Phase 2 Coding · Phase 3 GitHub · Phase 4 Publisher · Phase 5 Autonomy
+ * Phase 1–5 + Mini RAG + Prompt Vote + MLP
  */
 
 export * from "./boss-planner";
@@ -19,3 +19,6 @@ export * from "./publisher-runner";
 export * from "./autonomy";
 export * from "./task-persist";
 export * from "./post-publish";
+export * from "./mini-rag";
+export * from "./prompt-vote";
+export * from "./mlp";
