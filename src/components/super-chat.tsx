@@ -12,7 +12,7 @@ import { runAgent, runAgentSandbox, runAgentStream } from "@/lib/agent.functions
 import { chatWithPuter, listPuterModels, loadPuter, type PuterModel } from "@/lib/puter";
 import { executeWebSearch } from "@/lib/bossnugrok/skills/web-search";
 import { compileChatContext } from "@/lib/context-compiler";
-import { DEFAULT_PUTER_MODEL, POWER_PUTER_MODEL_IDS } from "@/lib/catalog";
+import { DEFAULT_PUTER_MODEL } from "@/lib/catalog";
 import { BossLiveActivity } from "@/components/boss-live-activity";
 import { McpUiBlock, type McpUiPayload } from "@/components/mcp-ui-block";
 
@@ -182,19 +182,20 @@ export function SuperChat() {
     provider: "puter",
   };
 
+  // Fallbacks are only used if Puter catalog loading fails. The live catalog is
+  // authoritative and can expose hundreds of current models/providers.
   const modelFallbacks: PuterModel[] = [
-    { id: "nex-agi/nex-n2.5-pro:free", name: "Nex N2.5 Pro (ฟรี)", provider: "nex-agi" },
-    { id: "dots-studio/dots-3-note-preview:free", name: "Dots 3 Note Preview (ฟรี)", provider: "dots-studio" },
-    { id: "inclusionai/ling-3.0-flash-sante:free", name: "Ling 3.0 Flash Sante (ฟรี)", provider: "inclusionai" },
-    { id: "nex-agi/nex-n2.5-mini:free", name: "Nex N2.5 Mini (ฟรี)", provider: "nex-agi" },
-    { id: "upstage/solar-pro-4", name: "Solar Pro 4", provider: "upstage" },
-    { id: "qwen/qwen3.7-flash", name: "Qwen 3.7 Flash", provider: "qwen" },
-    { id: "deepseek/deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash", provider: "deepseek" },
+    { id: "gpt-5.6-luna", name: "GPT-5.6 Luna", provider: "openai" },
+    { id: "openai/gpt-5.5", name: "GPT-5.5", provider: "openai" },
+    { id: "anthropic/claude-opus-5", name: "Claude Opus 5", provider: "anthropic" },
+    { id: "google/gemini-3.8-flash", name: "Gemini 3.8 Flash", provider: "google" },
+    { id: "x-ai/grok-4.6", name: "Grok 4.6", provider: "x-ai" },
+    { id: "deepseek/deepseek-v4-pro", name: "DeepSeek V4 Pro", provider: "deepseek" },
     { id: "deepseek/deepseek-v4-flash", name: "DeepSeek V4 Flash", provider: "deepseek" },
-    { id: "google/gemini-3.1-flash-lite", name: "Gemini 3.1 Flash Lite", provider: "google" },
-    { id: "openai/gpt-5.6-luna", name: "GPT-5.6 Luna", provider: "openai" },
-    { id: "openai/gpt-5.6-luna-pro", name: "GPT-5.6 Luna Pro", provider: "openai" },
-    { id: "x-ai/grok-4-20-reasoning", name: "Grok 4.20 Reasoning", provider: "x-ai" },
+    { id: "qwen/qwen3.5-flash", name: "Qwen 3.5 Flash", provider: "qwen" },
+    { id: "z-ai/glm-5.3", name: "GLM 5.3", provider: "z-ai" },
+    { id: "xiaomi/mimo-v2.6-flash", name: "MiMo V2.6 Flash", provider: "xiaomi" },
+    { id: "xiaomi/mimo-v2.6-pro", name: "MiMo V2.6 Pro", provider: "xiaomi" },
   ];
 
   useEffect(() => {
@@ -204,12 +205,24 @@ export function SuperChat() {
       .then((items) => {
         if (cancelled) return;
         const liveModels = items
-          .filter((m) => !/image|audio|video|embedding|rerank|moderation/i.test(m.id))
-          .filter((m) => POWER_PUTER_MODEL_IDS.includes(m.id as (typeof POWER_PUTER_MODEL_IDS)[number]));
+          // Chat selector should expose the actual current Puter catalog instead
+          // of a stale hand-maintained whitelist. Keep non-chat modalities out.
+          .filter((m) => !/image|audio|video|embedding|rerank|moderation|tts|speech/i.test(
+            `${m.id} ${m.name ?? ""} ${m.provider ?? ""}`,
+          ))
+          .filter((m) => Boolean(m.id));
         const byId = new Map<string, PuterModel>();
         for (const model of modelFallbacks) byId.set(model.id, model);
         for (const model of liveModels) byId.set(model.id, model);
-        const chatModels = [...byId.values()];
+        const chatModels = [...byId.values()].sort((a, b) => {
+          const rank = (m: PuterModel) => {
+            const t = `${m.id} ${m.name ?? ""} ${m.provider ?? ""}`.toLowerCase();
+            if (/gpt-6|claude-opus|claude-sonnet|grok-4|gemini-3|deepseek.*v4.*pro|mimo-v2.6-pro|glm-5/.test(t)) return 100;
+            if (/gpt|claude|gemini|grok|deepseek|qwen|mimo|glm/.test(t)) return 80;
+            return 50;
+          };
+          return rank(b) - rank(a) || a.id.localeCompare(b.id);
+        });
         setModels(chatModels);
         if (chatModels.length && !chatModels.some((m) => m.id === selectedModel)) {
           const preferred = chatModels.find((m) => m.id === DEFAULT_PUTER_MODEL) ?? chatModels[0];
