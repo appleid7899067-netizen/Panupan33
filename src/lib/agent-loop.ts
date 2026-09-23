@@ -179,7 +179,16 @@ export async function runAgentLoop(
     });
   }
 
-  const updatedBossContext = onToolResults(bossContext, result.toolResults.map((r) => ({\n    name: r.name,\n    ok: r.ok,\n    result: r.result,\n    error: r.error,\n  })));\n  const verified =\n    hasSuccessfulVerification(result.toolResults) ||\n    Boolean(result.verified) ||\n    shouldStopAsVerified(updatedBossContext);
+  const updatedBossContext = onToolResults(bossContext, result.toolResults.map((r) => ({
+    name: r.name,
+    ok: r.ok,
+    result: r.result,
+    error: r.error,
+  })));
+  const verified =
+    hasSuccessfulVerification(result.toolResults) ||
+    Boolean(result.verified) ||
+    shouldStopAsVerified(updatedBossContext);
   const needsVerification = mutation || verificationRequested;
 
   if (needsVerification && !verified) {
