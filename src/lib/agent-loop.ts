@@ -44,7 +44,7 @@ function summarizeFailure(results: ToolExecutionResult[]): string {
 }
 
 function isVerificationTool(name: string): boolean {
-  return /test|verify|build|lint|typecheck|ci|workflow|health|http|status|deploy|sandbox_run/i.test(name);
+  return /test|verify|build|lint|typecheck|ci|workflow|health|http|status|deploy|sandbox_run|web_check|web_search/i.test(name);
 }
 
 function hasSuccessfulVerification(results: ToolExecutionResult[]): boolean {
@@ -53,20 +53,16 @@ function hasSuccessfulVerification(results: ToolExecutionResult[]): boolean {
     if (!r.result || typeof r.result !== "object") return true;
     const record = r.result as Record<string, unknown>;
     return record.ok === true || record.success === true || record.verified === true ||
-      (typeof record.status === "number" && record.status >= 200 && record.status < 300) ||
-      (typeof record.exitCode === "number" && record.exitCode === 0);
+      (typeof record.status === "number" && record.status >= 200 && record.status < 400);
   });
 }
 
 function activityLabel(name: string, ok: boolean): string {
-  if (!ok) return `⚠️ ตรวจ error จาก ${name}`;
-  const n = name.toLowerCase();
-  if (/search|web/.test(n)) return "🔎 ค้นข้อมูลจริง";
-  if (/github.*(get|list|search)|read.*file/.test(n)) return "📄 อ่านข้อมูลจริงจาก GitHub";
-  if (/write|create|update|delete|edit/.test(n)) return "✏️ แก้ไขข้อมูลจริง";
-  if (/sandbox|run|exec|command/.test(n)) return "▶️ ลงมือรันจริง";
-  if (/test|build|lint|typecheck|ci|workflow/.test(n)) return "🧪 ตรวจผลจริง";
-  if (/deploy|publish|render|vercel|netlify/.test(n)) return "🚀 ตรวจ/ทำ deployment";
+  if (!ok) return `⚠️ error จาก ${name}`;
+  if (/builder_/.test(name)) return `🏗️ Builder: ${name}`;
+  if (/web_search|web_browse|web_/.test(name)) return `🌐 Web: ${name}`;
+  if (/sandbox/.test(name)) return `▶️ Sandbox: ${name}`;
+  if (/github/.test(name)) return `📦 GitHub: ${name}`;
   return `⚙️ ${name}`;
 }
 
@@ -103,112 +99,85 @@ OPERATING RULES:
 11. Never invent files, URLs, commits, test results, HTTP statuses, search results, deployments, or successful actions.
 12. Do not stop merely because one route failed. If another legitimate available route exists, try it.
 13. Do not ask the user to perform a tool operation that you can perform with the available tools.
-14. Keep tool use economical. Do not call a model or tool again when the existing result is already sufficient.
-15. If the task is simple and can be answered without tools, answer directly.
-16. If the task changes code or deployment, success requires real verification. If verification is unavailable, say so explicitly.
-17. When the goal is completed, return a concise factual result with what actually happened and the evidence. If it is not completed, state exactly what failed and what remains.
-
-IMPORTANT:
-- You control the tool sequence.
-- Results are evidence.
-- The user should only need to state WHAT they want.
-- Do not expose internal planning jargon unless useful to explain an actual blocker.
-=== END BOSS AUTONOMOUS AGENT ===
+14. Keep tool use economical, but do not starve yourself of needed tools.
+15. Only skip tools for pure greetings. Factual, code, web, or action tasks MUST use tools when available — never invent results.
 `;
 }
 
 export async function runAgentLoop(
   prompt: string,
   tools: CodingFleetTool[],
-  _maxIterations = 4,
+  _maxIterations = 6,
   authToken?: string,
   onStep?: (step: AgentStep) => void,
   model = "gpt-5.6-luna",
   githubToken?: string,
 ): Promise<AgentRunResult> {
   const steps: AgentStep[] = [];
-  const emit = (step: AgentStep) => {
-    steps.push(step);
-    onStep?.(step);
-  };
+  const emit = (step: AgentStep) => { steps.push(step); onStep?.(step); };
+  const maxIterations = Math.max(1, Math.min(_maxIterations, 10));
 
+  let bossCtx = null as Awaited<ReturnType<typeof bootstrapBoss>> | null;
+  try {
+    bossCtx = await bootstrapBoss(prompt);
+    emit({ phase: "plan", detail: "Boss Engine online" });
+  } catch {
+    /* optional */
+  }
+
+  const available = tools.length ? tools : await loadCodingFleetTools();
+  emit({ phase: "select", detail: `tools: ${available.slice(0, 12).map((t) => t.name).filter(Boolean).join(", ")}` });
+
+  const prefix = bossCtx ? bossPromptPrefix(bossCtx) + "\n\n" : "";
+  let currentPrompt = `${prefix}${buildAutonomousPrompt(prompt, available)}`;
+  let last = "";
+  let lastResults: ToolExecutionResult[] = [];
   const mutation = looksLikeMutation(prompt);
-  const verificationRequested = looksLikeVerification(prompt);
-  const bossContext = await bootstrapBoss(prompt);
+  const needVerify = looksLikeVerification(prompt) || mutation;
 
-  // Refresh the complete tool registry at the execution boundary so MCP,
-  // GitHub, web search, sandbox and builder tools are available without
-  // requiring the user to select a channel manually.
-  const discoveredTools = await loadCodingFleetTools(true);
-  const supplied = new Map(tools.map((tool) => [String(tool.name ?? tool.slug ?? tool.id ?? ""), tool]));
-  for (const tool of discoveredTools) supplied.set(String(tool.name ?? tool.slug ?? tool.id ?? ""), tool);
-  const effectiveTools = Array.from(supplied.values());
+  for (let i = 0; i < maxIterations; i++) {
+    emit({ phase: "act", detail: `รอบ ${i + 1}/${maxIterations}` });
+    const result = await callWithFallback(
+      currentPrompt,
+      available,
+      [model],
+      (lines) => lines.forEach((d) => emit({ phase: "observe", detail: d })),
+      authToken,
+      githubToken,
+    );
+    if (!result.ok) {
+      emit({ phase: "observe", detail: safeText(result.error, "model failed") });
+      return { ok: false, text: safeText(result.error, summarizeFailure(lastResults)), steps, verified: false };
+    }
+    last = result.text;
+    lastResults = result.toolResults;
+    if (bossCtx) bossCtx = onToolResults(bossCtx, result.toolResults.map((tr) => ({ name: tr.name, ok: tr.ok, result: tr.result, error: tr.error })));
 
-  emit({ phase: "plan", detail: "เข้าใจเป้าหมายจากภาษาคน แล้วให้ Agent เลือกวิธีทำเอง" });
-  emit({ phase: "select", detail: effectiveTools.length ? `เปิดเครื่องมือ ${effectiveTools.length} ตัวให้ Agent ตัดสินใจเอง` : "ไม่มีเครื่องมือที่จำเป็น จึงตอบตรง" });
+    for (const tr of result.toolResults) {
+      emit({ phase: "observe", detail: activityLabel(tr.name, tr.ok) });
+    }
 
-  const autonomousPrompt = `${buildAutonomousPrompt(prompt, effectiveTools)}\n\n${bossPromptPrefix(bossContext)}`;
-  let activityCount = 0;
-
-  const result = await callWithFallback(
-    autonomousPrompt,
-    effectiveTools,
-    [model],
-    (lines) => {
-      for (const detail of lines) {
-        activityCount += 1;
-        emit({ phase: "act", detail: `[${activityCount}] ${detail}` });
+    if (!result.toolCalls.length) {
+      const verified = !needVerify || hasSuccessfulVerification(lastResults) || (bossCtx ? shouldStopAsVerified(bossCtx) : false);
+      emit({ phase: "verify", detail: verified ? "✓ มีหลักฐานจาก tool/runtime" : "ยังต้องการ verification" });
+      if (!verified && i < maxIterations - 1) {
+        currentPrompt = `${prompt}\n\nVerification required: call a real verification or search tool before finishing.`;
+        continue;
       }
-    },
-    authToken,
-    githubToken,
-  );
+      return { ok: verified || !needVerify, text: last, steps, verified };
+    }
 
-  if (!result.ok) {
-    emit({ phase: "observe", detail: `Agent เรียกใช้ไม่ได้: ${safeText(result.error, "unknown error").slice(0, 500)}` });
-    return { ok: false, text: safeText(result.error, "Agent ทำงานไม่สำเร็จ"), steps, verified: false };
+    const failed = result.toolResults.filter((r) => !r.ok);
+    if (failed.length) {
+      emit({ phase: "refine", detail: `ซ่อมจาก error: ${failed.map((f) => f.name).join(", ")}` });
+      currentPrompt = `${prompt}\n\nPrevious tool errors:\n${summarizeFailure(result.toolResults)}\n\nDiagnose and retry with a different approach.`;
+    } else {
+      emit({ phase: "refine", detail: "ต่อจากผล tool ล่าสุด" });
+      currentPrompt = `${prompt}\n\nLast tool results:\n${summarizeFailure(result.toolResults)}\n\nContinue toward the user goal.`;
+    }
   }
 
-  for (const toolResult of result.toolResults) {
-    emit({ phase: "observe", detail: activityLabel(toolResult.name, toolResult.ok) });
-    emit({
-      phase: "observe",
-      detail: toolResult.ok
-        ? `✓ ${toolResult.name}`
-        : `✗ ${toolResult.name}: ${safeText(toolResult.error ?? toolResult.result, "failed").slice(0, 240)}`,
-    });
-  }
-
-  const updatedBossContext = onToolResults(bossContext, result.toolResults.map((r) => ({
-    name: r.name,
-    ok: r.ok,
-    result: r.result,
-    error: r.error,
-  })));
-  const verified =
-    hasSuccessfulVerification(result.toolResults) ||
-    Boolean(result.verified) ||
-    shouldStopAsVerified(updatedBossContext);
-  const needsVerification = mutation || verificationRequested;
-
-  if (needsVerification && !verified) {
-    emit({ phase: "verify", detail: "ยังไม่มีหลักฐาน verification จาก tool จริง" });
-    emit({ phase: "refine", detail: "Agent จบโดยไม่มีหลักฐานผ่าน จึงไม่อ้างว่าสำเร็จ" });
-    return {
-      ok: false,
-      text: result.text || summarizeFailure(result.toolResults),
-      steps,
-      verified: false,
-    };
-  }
-
-  emit({ phase: "verify", detail: verified ? "✓ มีหลักฐานจาก tool/runtime" : "✓ งานนี้ไม่ต้องมี verification เพิ่ม" });
-  return {
-    ok: true,
-    text: result.text || summarizeFailure(result.toolResults),
-    steps,
-    verified,
-  };
+  return { ok: false, text: last || summarizeFailure(lastResults), steps, verified: hasSuccessfulVerification(lastResults) };
 }
 
 export async function executeAgentCode(language: string, code: string) {
