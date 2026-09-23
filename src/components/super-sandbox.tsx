@@ -80,7 +80,7 @@ export function SuperSandbox() {
         borrowTools: [],
       });
       setCurrentRun(result);
-      setView(result?.status === "success" ? "preview" : "logs");
+      setView(result?.status === "failed" ? "logs" : "preview");
     } finally {
       setBusy(false);
     }
@@ -94,6 +94,54 @@ export function SuperSandbox() {
   };
 
   useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || data.source !== "super-sandbox") return;
+
+      setCurrentRun((prev: any) => {
+        if (!prev || data.runId !== prev.id) return prev;
+
+        const message = typeof data.payload === "string"
+          ? data.payload
+          : data.payload ? JSON.stringify(data.payload) : "";
+
+        if (data.type === "log" || data.type === "warn" || data.type === "error") {
+          const type = data.type === "log" ? "console-log" : data.type === "warn" ? "console-warn" : "runtime-error";
+          const nextLogs = [...(prev.logs || []), { type, message, timestamp: Date.now() }];
+          return {
+            ...prev,
+            logs: nextLogs,
+            status: data.type === "error" ? "failed" : prev.status,
+            error: data.type === "error" ? message : prev.error,
+          };
+        }
+
+        if (data.type === "done") {
+          const ok = data.payload?.ok !== false;
+          return {
+            ...prev,
+            status: ok ? "success" : "failed",
+            error: ok ? undefined : prev.error,
+            logs: [
+              ...(prev.logs || []),
+              {
+                type: ok ? "console-log" : "runtime-error",
+                message: ok ? "✓ Preview runtime verified" : "✗ Preview runtime failed",
+                timestamp: Date.now(),
+              },
+            ],
+          };
+        }
+
+        return prev;
+      });
+    };
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
+
     void run();
     // Initial preview only. Do not create a second sandbox or duplicate tool run.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -121,7 +169,7 @@ export function SuperSandbox() {
             title={currentRun?.status || "idle"}
           />
           <span className="hidden text-[11px] text-zinc-500 sm:inline">
-            {currentRun?.status === "success" ? "Ready" : currentRun?.status === "failed" ? "Needs repair" : "Idle"}
+            {currentRun?.status === "success" ? "Verified" : currentRun?.status === "failed" ? "Needs repair" : currentRun?.status === "running" ? "Running" : "Idle"}
           </span>
         </div>
       </header>
