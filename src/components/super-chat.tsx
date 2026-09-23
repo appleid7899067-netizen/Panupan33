@@ -684,7 +684,7 @@ export function SuperChat() {
           {thread?.messages.map((m) => (
             <div key={m.id} className={`group flex gap-3 boss-message-in ${m.role === "user" ? "justify-end" : ""}`}>
               {m.role === "assistant" && (
-                <div className="size-7 rounded-full bg-zinc-800 border border-zinc-700 grid place-items-center shrink-0 mt-0.5">
+                <div className={`size-7 rounded-full bg-zinc-800 border border-zinc-700 grid place-items-center shrink-0 mt-0.5 ${m.id === liveStream.id && liveStream.active ? "boss-avatar-working" : ""}`}>
                   <span className="text-[11px]">B</span>
                 </div>
               )}
