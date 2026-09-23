@@ -57,12 +57,12 @@ type ToolCall = { id?: string; name: string; arguments: Record<string, unknown> 
 const AUTH_GITHUB = AUTH_GITHUB_FULL as unknown as string[];
 const GITHUB_API = "https://api.github.com";
 const MAX_TOOL_ROUNDS = 5;
+// Puter is the default authority for model access. Qualified model IDs are
+// also passed to Puter first because Puter can route across many vendors.
 const DEFAULT_MODELS = [
-  "nvidia/nemotron-3-ultra-550b-a55b:free",
-  "poolside/laguna-s-2.1:free",
-  "dots-studio/dots-3-note-preview:free",
-  "nvidia/nemotron-3.5-lightning:free",
-  "cohere/north-mini-code:free",
+  "gpt-5.6-luna",
+  "claude-opus-4-8",
+  "gemini-3.1-flash-lite",
 ] as const;
 
 function toolName(tool: CodingFleetTool) {
@@ -426,7 +426,7 @@ export async function callWithFallback(
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     let completion: CompletionResult;
     if (!winner) {
-      // First contact = gateway discovery: Puter (main) → OpenRouter (fallback).
+      // First contact = gateway discovery: Puter (PRIMARY) → OpenRouter (LAST-RESORT fallback).
       const gateway = await runModelGateway({
         messages,
         tools: puterTools,
