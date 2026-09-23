@@ -4,7 +4,7 @@
  */
 
 export const AUTH_GITHUB_FULL: string[] = [
-  "github_me", "github_get_user", "github_list_repos", "github_request",
+  "github_request",
   "github_get_repo", "github_get_file", "github_list_dir", "github_list_commits",
   "github_list_branches", "github_list_pulls", "github_list_issues",
   "github_get_pull", "github_get_issue", "github_merge_pull",
@@ -26,9 +26,6 @@ export function nativeFullGitHubTools(): Array<Record<string, unknown>> {
   const repo = { owner: str, repo: str };
   const mark = { githubSource: true as const };
   return [
-    { name: "github_me", description: "Authenticated user. No repo required.", inputSchema: { type: "object", properties: {}, additionalProperties: false }, ...mark },
-    { name: "github_get_user", description: "Get user profile.", inputSchema: { type: "object", properties: { username: str }, required: ["username"], additionalProperties: false }, ...mark },
-    { name: "github_list_repos", description: "List repos (token user or username). No pre-bound repo.", inputSchema: { type: "object", properties: { username: str, per_page: { type: "integer" } }, additionalProperties: false }, ...mark },
     { name: "github_request", description: "Any GitHub API path (user-allowed). path must start with /.", inputSchema: { type: "object", properties: { method: str, path: str, body: { type: "object" } }, required: ["path"], additionalProperties: false }, ...mark },
     { name: "github_get_repo", description: "Repo metadata for any owner/repo.", inputSchema: { type: "object", properties: repo, required: ["owner", "repo"], additionalProperties: false }, ...mark },
     { name: "github_get_file", description: "Read file from any accessible repo.", inputSchema: { type: "object", properties: { ...repo, path: str, ref: str }, required: ["owner", "repo", "path"], additionalProperties: false }, ...mark },
