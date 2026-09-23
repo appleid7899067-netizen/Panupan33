@@ -53,6 +53,9 @@ export function Logo({ compact = false }: { compact?: boolean }) {
           <span className="bg-gradient-to-r from-sky-300 via-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
             SlieLo
           </span>
+          <span className="ml-1 hidden text-[9px] font-medium tracking-[0.08em] text-subtle sm:inline">
+            · ภาณุพันธ์
+          </span>
         </span>
       )}
     </Link>
