@@ -24,7 +24,7 @@ import { createRecoveryEngine, type RecoveryEngine } from "./boss-recovery";
 import { routeToolsForTask, routerDecisionSummary, type RouterDecision } from "./boss-tool-router";
 import type { CodingFleetTool } from "@/lib/puter-tool-loader";
 import { ADAPTIVE_DATA_EXTRACTION_PROMPT, isDataExtractionTask } from "@/lib/adaptive-data-extraction";
-import { ephemeralToolInstruction, releaseTool } from "@/lib/ephemeral-tool-borrowing";
+import { borrowTool, ephemeralToolInstruction, releaseTool } from "@/lib/ephemeral-tool-borrowing";
 
 export type BossContext = {
   plan: ExecutionPlan;
@@ -125,7 +125,16 @@ export function shouldStopAsVerified(ctx: BossContext): boolean {
 }
 
 export function selectToolsFromRouter(ctx: BossContext): CodingFleetTool[] {
-  return ctx.router.selected as CodingFleetTool[];
+  const selected = ctx.router.selected as CodingFleetTool[];
+  for (const tool of selected) {
+    borrowTool(
+      tool.name,
+      String(tool.description ?? tool.name),
+      tool.webSource ? "web" : tool.sandboxSource ? "sandbox" : tool.githubSource ? "github" : tool.mcpServer ? "mcp" : "other",
+      ctx.task.threadId,
+    );
+  }
+  return selected;
 }
 
 export function resumeBoss(ctx: BossContext): BossContext {
