@@ -14,6 +14,17 @@ import {
   type ToolExecutionResult,
 } from "@/lib/puter-tool-loader";
 import { runInSandbox, type SandboxResult } from "@/lib/sandbox";
+import {
+  createAgentKernel,
+  recordAction as kernelRecordAction,
+  recordObservation as kernelRecordObservation,
+  recordFailure as kernelRecordFailure,
+  decideNext as kernelDecideNext,
+  kernelSummary,
+  recoveryHint,
+  shouldAvoidAction,
+  type AgentKernelState,
+} from "@/lib/boss-engine/agent-kernel";
 
 export type AgentPhase = "plan" | "select" | "act" | "observe" | "refine" | "verify";
 export type AgentStep = { phase: AgentPhase; detail: string };
@@ -245,6 +256,7 @@ export async function runAgentLoop(
   const deepReasoning = wantsDeepReasoning(prompt);
   const available = tools.length ? tools : await loadCodingFleetTools();
   const seenCalls = new Set<string>();
+  let kernel: AgentKernelState = createAgentKernel(prompt);
   let consecutiveFails = 0;
   const FAIL_LIMIT = 3;
 
@@ -264,7 +276,7 @@ export async function runAgentLoop(
     });
   }
 
-  let currentPrompt = buildKickoffPrompt(prompt, available);
+  let currentPrompt = buildKickoffPrompt(prompt, available) + `\n\nAGENT KERNEL:\n${kernelSummary(kernel)}`;
   let last = "";
   let lastResults: ToolExecutionResult[] = [];
   let allResults: ToolExecutionResult[] = [];
@@ -272,6 +284,7 @@ export async function runAgentLoop(
   for (let i = 0; i < budget; i++) {
     emit({ phase: "act", detail: `รอบ ${i + 1}/${budget}` });
 
+    kernel = kernelRecordAction(kernel, "act", "model_round", { round: i + 1, prompt: currentPrompt.slice(-2000) });
     const result = await callWithFallback(
       currentPrompt,
       available,
@@ -283,6 +296,8 @@ export async function runAgentLoop(
     );
 
     if (!result.ok) {
+      kernel = kernelRecordFailure(kernel, "model_round");
+      kernel = kernelRecordObservation(kernel, "model_round", false, safeText(result.error, "model failed"), false);
       consecutiveFails += 1;
       emit({ phase: "observe", detail: safeText(result.error, "model failed") });
       if (consecutiveFails >= FAIL_LIMIT) {
@@ -293,12 +308,21 @@ export async function runAgentLoop(
           verified: hasUsefulEvidence(allResults),
         };
       }
-      currentPrompt = buildContinuePrompt(prompt, allResults, "retry", deepReasoning);
+      const hint = recoveryHint("model_round", safeText(result.error, "model failed"), consecutiveFails);
+      currentPrompt = buildContinuePrompt(prompt, allResults, "retry", deepReasoning) + `\n\nKERNEL RECOVERY:\n${hint}\n${kernelSummary(kernel)}`;
       continue;
     }
 
     consecutiveFails = 0;
     last = result.text;
+    for (const tr of result.toolResults) {
+      const summary = safeText(tr.result ?? tr.error, tr.ok ? "ok" : "failed").slice(0, 800);
+      const evidence = tr.ok && isEvidenceTool(tr.name);
+      kernel = tr.ok
+        ? kernelRecordObservation(kernel, tr.name, true, summary, evidence)
+        : kernelRecordFailure(kernel, tr.name);
+      if (!tr.ok) kernel = kernelRecordObservation(kernel, tr.name, false, summary, false);
+    }
     lastResults = result.toolResults;
     allResults = allResults.concat(result.toolResults);
 
@@ -350,7 +374,7 @@ export async function runAgentLoop(
       }
       if (i < budget - 1 && (looksLikeMutation(prompt) || looksLikeVerification(prompt))) {
         emit({ phase: "refine", detail: "ขอ verification เพิ่ม" });
-        currentPrompt = buildContinuePrompt(prompt, allResults, "verify", deepReasoning);
+        currentPrompt = buildContinuePrompt(prompt, allResults, "verify", deepReasoning) + `\n\nKERNEL:\n${kernelSummary(kernel)}`;
         continue;
       }
       emit({ phase: "verify", detail: verified ? "✓" : "จบแบบมีหลักฐานจำกัด" });
@@ -400,10 +424,10 @@ export async function runAgentLoop(
           verified: hasUsefulEvidence(allResults),
         };
       }
-      currentPrompt = buildContinuePrompt(prompt, allResults, "retry", deepReasoning);
+      currentPrompt = buildContinuePrompt(prompt, allResults, "retry", deepReasoning) + `\n\nKERNEL:\n${kernelSummary(kernel)}`;
     } else {
       emit({ phase: "refine", detail: "ต่อจากผลลัพธ์" });
-      currentPrompt = buildContinuePrompt(prompt, allResults, "continue", deepReasoning);
+      currentPrompt = buildContinuePrompt(prompt, allResults, "continue", deepReasoning) + `\n\nKERNEL:\n${kernelSummary(kernel)}`;
     }
   }
 
