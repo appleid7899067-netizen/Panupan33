@@ -244,7 +244,18 @@ Health URL: ${prompt.match(/https:\/\/[^\s)\]}>,]+/i)?.[0] || "none"}.`;
     }
     const repeated = Array.from(toolFailureCounts.entries()).filter(([, c]) => c >= 2).map(([n, c]) => `${n}x${c}`);
     const recoveryHint = bossCtx?.recovery.decide().instruction ?? "";
-    currentPrompt = `${prompt}\n\nRepair: ${Array.from(repairedToolNames).join(", ") || "none"}. Repeated: ${repeated.join(", ") || "none"}.\n${recoveryHint}\nLast:\n${last.slice(-8000)}\nContinue: 1–2 tools max. No success claim without evidence.`;
+    currentPrompt = `${prompt}\n\n=== AGGRESSIVE RECOVERY / FOUR-ROUND RULE ===
+Round ${iteration + 1}: do not give up. Actively try another legitimate route to obtain the requested result.
+Switch tools, search providers, repositories, URLs, APIs, MCP tools, sandbox methods, or implementation paths when available and authorized.
+Do not repeat the same failed route without changing the approach.
+Never bypass authentication, permissions, rate limits, paywalls, security controls, or access restrictions.
+If direct access fails, find an accessible authoritative alternative and record the actual reason for failure.
+You have at most four execution rounds. Continue until success is evidenced or reasonable available routes are exhausted.
+Repair: ${Array.from(repairedToolNames).join(", ") || "none"}. Repeated: ${repeated.join(", ") || "none"}.
+${recoveryHint}
+Last:
+${last.slice(-8000)}
+Continue with the next best route. No success claim without evidence.`;
   }
   return { ok: false, text: failureText(last, []), steps, verified: false };
 }
