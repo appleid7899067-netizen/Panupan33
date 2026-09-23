@@ -481,7 +481,7 @@ export async function runAgentLoop(
       }
       const recoveryHintText = recoveryHint(failedTool?.name ?? "tool", safeText(failedTool?.error ?? failedTool?.result, "tool failed"), consecutiveFails);
       currentPrompt = buildContinuePrompt(prompt, allResults, "retry", deepReasoning) +
-        `\n\nREPAIR ENGINE:\n${recovery.instruction}\nEVIDENCE:\n${evidenceEngine.summary()}\n\nKERNEL:\n${kernelSummary(kernel)}\n\nRECOVERY HINT:\n${recovery}${avoidedTools.size ? `\nAVOID THESE TOOLS THIS ROUND: ${[...avoidedTools].join(", ")}` : ""}`;
+        `\n\nREPAIR ENGINE:\n${recovery.instruction}\nEVIDENCE:\n${evidenceEngine.summary()}\n\nKERNEL:\n${kernelSummary(kernel)}\n\nRECOVERY HINT:\n${recovery}${avoidedTools.size ? `\nAVOID THESE TOOLS THIS ROUND: ${[...avoidedTools].join(", ")}` : ""}\n\nPAIN MEMORY: The failed path is remembered. Do not replay the same failed action. You must change the tool, arguments, route, or verification method before the next attempt.`;
     } else {
       if (result.toolCalls.length) emit({ phase: "act", detail: "🛠️ Execute & Trace: บันทึกผลการลงมือทำจาก tool จริง" });
       emit({ phase: "refine", detail: "ต่อจากผลลัพธ์" });
