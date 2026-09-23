@@ -223,6 +223,7 @@ export const runAgentStream = createServerFn({ method: "POST" })
       data.authToken,
       (step) => push({ type: "step", step }),
       data.model,
+      data.githubToken,
     ).then((result) => {
       finalResult = { ...result, steps: [registryStep, ...result.steps] };
       finished = true;
