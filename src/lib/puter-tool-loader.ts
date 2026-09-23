@@ -333,11 +333,11 @@ export async function callWithFallback(
             if (!tool) throw new Error(`Unknown tool ${call.name}`);
             const result = await executeTool(tool, call.arguments, authToken, githubToken);
             toolResults.push({ name: call.name, ok: true, result });
-            messages.push({ role: "tool", tool_call_id: call.id ?? call.name, content: JSON.stringify(result).slice(0, 50000) });
+            messages.push({ role: "user", content: `[TOOL RESULT: ${call.name}]\\n${JSON.stringify(result).slice(0, 50000)}` });
           } catch (e) {
             const err = e instanceof Error ? e.message : String(e);
             toolResults.push({ name: call.name, ok: false, error: err });
-            messages.push({ role: "tool", tool_call_id: call.id ?? call.name, content: JSON.stringify({ error: err }) });
+            messages.push({ role: "user", content: `[TOOL ERROR: ${call.name}]\\n${JSON.stringify({ error: err })}` });
           }
         }
       }
