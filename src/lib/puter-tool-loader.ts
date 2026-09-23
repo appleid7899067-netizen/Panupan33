@@ -598,9 +598,9 @@ async function executePluginTool(tool: CodingFleetTool, args: Record<string, unk
   }
 }
 
-async function executeAuthenticatedGithub(name: string, args: Record<string, unknown>): Promise<unknown> {
+async function executeAuthenticatedGithub(name: string, args: Record<string, unknown>, githubToken?: string): Promise<unknown> {
   try {
-    return await executeAuthenticatedGitHubTool({ data: { toolName: name, args } });
+    return await executeAuthenticatedGitHubTool({ data: { toolName: name, args, ...(githubToken ? { githubToken } : {}) } });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (/Missing GITHUB_APP|environment variable|GitHub App/i.test(message)) {
@@ -659,7 +659,7 @@ async function executeTool(tool: CodingFleetTool, args: Record<string, unknown>,
   if (name === "web_open") return executeWebOpen(args);
   if (name === "web_fetch") return executeWebFetch(args);
   if (name === "web_trace") return executeWebTrace(args);
-  if (tool.githubSource && AUTH_GITHUB.includes(name)) return executeAuthenticatedGithub(name, args);
+  if (tool.githubSource && AUTH_GITHUB.includes(name)) return executeAuthenticatedGithub(name, args, authToken);
   if (tool.githubSource) return executeGitHubTool(tool, args);
   if (tool.mcpServer) return callPublicMcpTool(tool, args);
   if (tool.pluginSource) return executePluginTool(tool, args);
