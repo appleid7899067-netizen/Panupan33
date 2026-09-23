@@ -16,8 +16,8 @@ export function BossLiveActivity({ steps, active = false, verified = false, comp
   if (!visible.length && !active) return null;
   return (<div className={compact ? "mt-2" : "mt-3"} aria-live="polite">
 
-    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/55 px-3 py-2.5 shadow-inner">
-      <div className="flex items-center gap-2 text-[11px] text-zinc-500"><span className={active ? "boss-pulse text-zinc-200" : "text-zinc-500"}>✦</span><span className={active ? "boss-status-live" : ""}>{active ? `Boss กำลังทำงาน${".".repeat(pulse % 4)}` : verified ? "ตรวจสอบแล้ว" : "สรุปการทำงาน"}</span></div>
-      <div className="mt-2 space-y-1.5">{visible.map((step, index) => { const last = index === visible.length - 1; return (<div key={`${step}-${index}`} className="flex items-center gap-2 text-[11px] leading-5 text-zinc-400"><span className={`grid size-4 shrink-0 place-items-center rounded-full border border-zinc-800 bg-zinc-900 text-[9px] ${active && last ? "text-zinc-100" : "text-zinc-500"}`}>{iconFor(step)}</span><span className={active && last ? "text-zinc-200" : ""}>{step}</span></div>); })}</div>
+    <div className={`boss-activity-surface rounded-xl border border-zinc-800/80 bg-zinc-950/55 px-3 py-2.5 shadow-inner ${active ? "border-primary/20" : ""}`}>
+      <div className="flex items-center gap-2 text-[11px] text-zinc-500"><span className={active ? "boss-pulse text-zinc-200" : "text-zinc-500"} aria-hidden="true">✦</span><span className={active ? "boss-status-live" : ""}>{active ? `Boss กำลังทำงาน${".".repeat(pulse % 4)}` : verified ? "ตรวจสอบแล้ว" : "สรุปการทำงาน"}</span></div>
+      <div className="mt-2 space-y-1.5">{visible.map((step, index) => { const last = index === visible.length - 1; return (<div key={`${step}-${index}`} className="boss-activity-row flex items-center gap-2 text-[11px] leading-5 text-zinc-400"><span className={`grid size-4 shrink-0 place-items-center rounded-full border border-zinc-800 bg-zinc-900 text-[9px] ${active && last ? "text-zinc-100" : "text-zinc-500"}`}>{iconFor(step)}</span><span className={active && last ? "text-zinc-200" : ""}>{step}</span></div>); })}</div>
     </div></div>);
 }
