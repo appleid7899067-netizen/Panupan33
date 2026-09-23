@@ -3,7 +3,6 @@ import { z } from "zod";
 import { selectToolsForTask, inferTaskIntent } from "@/lib/tool-registry";
 import { runGitHubAgent } from "@/lib/github-agent-tools.server";
 import { executeAgentCode, runAgentLoop } from "@/lib/agent-loop";
-import { runCodexAgent } from "@/lib/codex-runner.server";
 
 const loopSchema = z.object({
   prompt: z.string().min(1).max(60_000),
@@ -17,10 +16,6 @@ const codeSchema = z.object({ language: z.string().min(1).max(40), code: z.strin
 
 function prefersAuthenticatedGitHub(prompt: string): boolean {
   return /github|repository|repo|pull request|branch|commit|workflow|actions|502|500|503|bug|error|debug|deploy|ดีพลอย|แก้โค้ด|แก้ไฟล์|ล่ม/.test(prompt.toLowerCase());
-}
-
-function hasServerCodexCredential(): boolean {
-  return Boolean(process.env.CODEX_ACCESS_TOKEN || process.env.CODEX_API_KEY || process.env.OPENAI_API_KEY);
 }
 
 export const runAgent = createServerFn({ method: "POST" })
@@ -45,22 +40,6 @@ export const runAgent = createServerFn({ method: "POST" })
         verified: true,
         skipAgent: true as const,
       };
-    }
-
-    const prefersCodex = /แก้|เขียน|สร้าง|fix|bug|debug|repair|refactor|typescript|runtime|error|code|โค้ด|taskContext|deploy/i.test(data.prompt);
-    if (prefersCodex && hasServerCodexCredential()) {
-      const result = await runCodexAgent(taskPrompt, data.githubToken, data.authToken, (detail) => undefined);
-      if (result.ok) {
-        return {
-          ok: true,
-          text: result.text,
-          steps: [registryStep, { phase: "act" as const, detail: "🤖 Codex เป็น coding agent หลักและลงมือใน workspace จริง" }, { phase: "verify" as const, detail: result.evidence || "Codex verification ผ่าน" }],
-          verified: result.verified,
-        };
-      }
-      if (/Missing CODEX_API_KEY|OPENAI_API_KEY/.test(result.error || "")) {
-        return { ok: false, text: result.text, steps: [registryStep, { phase: "verify" as const, detail: "Codex ยังไม่มี server API key จึงหยุดโดยไม่แอบอ้างว่าสำเร็จ" }], verified: false };
-      }
     }
 
     const registryHasGitHub = selected.some((tool) => String(tool.name ?? "").toLowerCase().includes("github"));
@@ -94,7 +73,7 @@ export const runAgent = createServerFn({ method: "POST" })
       };
     }
 
-    // Fewer iterations by default — Codex-like focused loops
+    // Fewer iterations by default with focused loops
     const iterations = data.maxIterations ?? (intent === "github" || intent === "deploy" ? 5 : 3);
     const result = await runAgentLoop(taskPrompt, selected, iterations, data.authToken, undefined, data.model, data.githubToken);
     return { ...result, steps: [registryStep, ...result.steps] };
@@ -134,28 +113,11 @@ export const runAgentStream = createServerFn({ method: "POST" })
       return;
     }
 
-    const prefersCodex = /แก้|เขียน|สร้าง|fix|bug|debug|repair|refactor|typescript|runtime|error|code|โค้ด|taskContext|deploy/i.test(data.prompt);
-    if (prefersCodex && hasServerCodexCredential()) {
-      yield { type: "step", step: { phase: "act", detail: "🤖 Codex กำลังเข้าประจำการเป็น coding agent หลัก..." } };
-      const result = await runCodexAgent(taskPrompt, data.githubToken, data.authToken, (detail) => {
-        // Keep the server generator valid; detailed subprocess output is handled by the runner.
-      });
-      if (result.ok) {
-        yield { type: "step", step: { phase: "verify", detail: result.evidence || "✓ Codex verification ผ่าน" } };
-      } else {
-        yield { type: "step", step: { phase: "observe", detail: "⚠️ Codex: " + result.text.slice(0, 500) } };
-      }
-      yield { type: "done", result: { ok: result.ok, text: result.text, steps: [registryStep, { phase: "act", detail: "🤖 Codex coding agent" }, { phase: result.ok ? "verify" : "observe", detail: result.evidence || result.error || "Codex จบการทำงาน" }], verified: result.verified } };
-      return;
-    }
-
     // IMPORTANT: streamed chat must use the same authenticated GitHub path as runAgent.
     if (prefersCodex && !hasServerCodexCredential()) {
       yield { type: "step", step: { phase: "act", detail: "🧠 ไม่มี Codex API credential บน Render → ใช้ Puter + โมเดลที่เลือกเป็น Agent driver แทน" } };
     }
 
-    // Otherwise requests such as "เปิด repo แบบ Codex" fall back to the generic Puter
-    // tool loop, which may expose tools but cannot actually open the user's repository.
     const registryHasGitHub = selected.some((tool) => String(tool.name ?? "").toLowerCase().includes("github"));
     if (registryHasGitHub && prefersAuthenticatedGitHub(data.prompt)) {
       yield {
