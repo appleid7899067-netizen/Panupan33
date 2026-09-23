@@ -1,4 +1,4 @@
-import { callWithFallback, type CodingFleetTool, type ToolExecutionResult } from "@/lib/puter-tool-loader";
+import { callWithFallback, loadCodingFleetTools, type CodingFleetTool, type ToolExecutionResult } from "@/lib/puter-tool-loader";
 import { runInSandbox, type SandboxResult } from "@/lib/sandbox";
 
 export type AgentPhase = "plan" | "select" | "act" | "observe" | "refine" | "verify";
@@ -134,15 +134,23 @@ export async function runAgentLoop(
   const mutation = looksLikeMutation(prompt);
   const verificationRequested = looksLikeVerification(prompt);
 
-  emit({ phase: "plan", detail: "เข้าใจเป้าหมายจากภาษาคน แล้วให้ Agent เลือกวิธีทำเอง" });
-  emit({ phase: "select", detail: tools.length ? `เปิดเครื่องมือ ${tools.length} ตัวให้ Agent ตัดสินใจเอง` : "ไม่มีเครื่องมือที่จำเป็น จึงตอบตรง" });
+  // Refresh the complete tool registry at the execution boundary so MCP,
+  // GitHub, web search, sandbox and builder tools are available without
+  // requiring the user to select a channel manually.
+  const discoveredTools = await loadCodingFleetTools(true);
+  const supplied = new Map(tools.map((tool) => [String(tool.name ?? tool.slug ?? tool.id ?? ""), tool]));
+  for (const tool of discoveredTools) supplied.set(String(tool.name ?? tool.slug ?? tool.id ?? ""), tool);
+  const effectiveTools = Array.from(supplied.values());
 
-  const autonomousPrompt = buildAutonomousPrompt(prompt, tools);
+  emit({ phase: "plan", detail: "เข้าใจเป้าหมายจากภาษาคน แล้วให้ Agent เลือกวิธีทำเอง" });
+  emit({ phase: "select", detail: effectiveTools.length ? `เปิดเครื่องมือ ${effectiveTools.length} ตัวให้ Agent ตัดสินใจเอง` : "ไม่มีเครื่องมือที่จำเป็น จึงตอบตรง" });
+
+  const autonomousPrompt = buildAutonomousPrompt(prompt, effectiveTools);
   let activityCount = 0;
 
   const result = await callWithFallback(
     autonomousPrompt,
-    tools,
+    effectiveTools,
     [model],
     (lines) => {
       for (const detail of lines) {
