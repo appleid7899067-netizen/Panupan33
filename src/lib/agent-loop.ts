@@ -1,5 +1,6 @@
 import { callWithFallback, loadCodingFleetTools, type CodingFleetTool, type ToolExecutionResult } from "@/lib/puter-tool-loader";
 import { runInSandbox, type SandboxResult } from "@/lib/sandbox";
+import { bootstrapBoss, bossPromptPrefix, onToolResults, shouldStopAsVerified } from "@/lib/boss-engine";
 
 export type AgentPhase = "plan" | "select" | "act" | "observe" | "refine" | "verify";
 export type AgentStep = { phase: AgentPhase; detail: string };
@@ -133,6 +134,7 @@ export async function runAgentLoop(
 
   const mutation = looksLikeMutation(prompt);
   const verificationRequested = looksLikeVerification(prompt);
+  const bossContext = await bootstrapBoss(prompt);
 
   // Refresh the complete tool registry at the execution boundary so MCP,
   // GitHub, web search, sandbox and builder tools are available without
@@ -145,7 +147,7 @@ export async function runAgentLoop(
   emit({ phase: "plan", detail: "เข้าใจเป้าหมายจากภาษาคน แล้วให้ Agent เลือกวิธีทำเอง" });
   emit({ phase: "select", detail: effectiveTools.length ? `เปิดเครื่องมือ ${effectiveTools.length} ตัวให้ Agent ตัดสินใจเอง` : "ไม่มีเครื่องมือที่จำเป็น จึงตอบตรง" });
 
-  const autonomousPrompt = buildAutonomousPrompt(prompt, effectiveTools);
+  const autonomousPrompt = `${buildAutonomousPrompt(prompt, effectiveTools)}\n\n${bossPromptPrefix(bossContext)}`;
   let activityCount = 0;
 
   const result = await callWithFallback(
@@ -177,7 +179,7 @@ export async function runAgentLoop(
     });
   }
 
-  const verified = hasSuccessfulVerification(result.toolResults) || Boolean(result.verified);
+  const updatedBossContext = onToolResults(bossContext, result.toolResults.map((r) => ({\n    name: r.name,\n    ok: r.ok,\n    result: r.result,\n    error: r.error,\n  })));\n  const verified =\n    hasSuccessfulVerification(result.toolResults) ||\n    Boolean(result.verified) ||\n    shouldStopAsVerified(updatedBossContext);
   const needsVerification = mutation || verificationRequested;
 
   if (needsVerification && !verified) {
