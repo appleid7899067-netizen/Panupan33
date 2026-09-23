@@ -165,7 +165,8 @@ Health URL: ${prompt.match(/https:\/\/[^\s)\]}>,]+/i)?.[0] || "none"}.`;
   const toolFailureCounts = new Map<string, number>();
   const mutationExpected = looksLikeMutation(prompt);
 
-  const maxRounds = 4;\n  for (let iteration = 0; iteration < maxRounds; iteration += 1) {
+  const maxRounds = 4;
+  for (let iteration = 0; iteration < maxRounds; iteration += 1) {
     emitStep({ phase: "act", detail: `รอบที่ ${iteration + 1}: ลงมือทำ (1–2 tool ตามเจตนา)` });
     const result = await callWithFallback(currentPrompt, tools, [model], (activity) => activity.forEach((detail) => emitStep({ phase: "observe", detail })), authToken, githubToken);
     if (!result.ok) {
