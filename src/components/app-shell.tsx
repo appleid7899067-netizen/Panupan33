@@ -80,7 +80,7 @@ function Header() {
                 <Link
                   key={item.to}
                   to={item.to}
-                  className="flex min-h-11 items-center gap-2 rounded-md px-2 py-2 text-sm text-muted hover:bg-elevated hover:text-fg"
+                  className="boss-nav-item flex min-h-11 items-center gap-2 rounded-md px-2 py-2 text-sm text-muted hover:bg-elevated hover:text-fg"
                 >
                   <item.icon className="size-4" />
                   {item.label}
@@ -93,7 +93,7 @@ function Header() {
         <nav className="ml-6 hidden items-center gap-1 md:flex">
           {APP_NAV.map((item) => (
             <Button key={item.to} variant="ghost" size="sm" asChild>
-              <Link to={item.to} className={path.startsWith(item.to) ? "text-fg" : undefined}>
+              <Link to={item.to} className={"boss-nav-item " + (path.startsWith(item.to) ? "text-fg bg-elevated/70" : "text-muted")}>
                 {item.label}
               </Link>
             </Button>
