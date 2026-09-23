@@ -399,7 +399,7 @@ export async function callWithFallback(
         if (!apiKey) {
           throw new Error("Server model provider is not configured. Set OPENROUTER_API_KEY on Render.");
         }
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        const httpResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${apiKey}`,
@@ -414,9 +414,9 @@ export async function callWithFallback(
             tool_choice: puterTools.length ? "auto" : undefined,
           }),
         });
-        const raw = await response.text();
-        if (!response.ok) {
-          throw new Error(`OpenRouter HTTP ${response.status}: ${raw.slice(0, 700)}`);
+        const raw = await httpResponse.text();
+        if (!httpResponse.ok) {
+          throw new Error(`OpenRouter HTTP ${httpResponse.status}: ${raw.slice(0, 700)}`);
         }
         let parsed: unknown;
         try {
@@ -425,9 +425,9 @@ export async function callWithFallback(
           throw new Error(`OpenRouter returned invalid JSON: ${raw.slice(0, 700)}`);
         }
         const choice = (parsed as { choices?: Array<{ message?: unknown }> })?.choices?.[0];
-        const response = choice?.message ? { message: choice.message } : parsed;
-        const text = extractText(response) || "";
-        const calls = extractToolCalls(response);
+        const modelResponse = choice?.message ? { message: choice.message } : parsed;
+        const text = extractText(modelResponse) || "";
+        const calls = extractToolCalls(modelResponse);
         lastCalls = calls;
         if (!calls.length) {
           finalText = text;
