@@ -78,6 +78,8 @@ export function decomposeGoal(goal: string): PlanStep[] {
     lastId = steps[steps.length - 1].id;
     push("Observe repository checks", ["github", "ci", "verify"], [lastId], "Use repository CI/build/test evidence when available; sandbox is not the source of truth for repository changes.");
     lastId = steps[steps.length - 1].id;
+    push("Diagnose and repair concrete failures", ["code", "github", "ci"], [lastId], "If checks fail, inspect the actual error, change strategy, patch the smallest concrete cause, then re-run verification. Never retry the identical action blindly.");
+    lastId = steps[steps.length - 1].id;
   }
 
   if (needsGithub) {
