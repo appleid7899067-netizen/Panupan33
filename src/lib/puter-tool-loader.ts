@@ -146,7 +146,7 @@ async function executePublicGitHub(name: string, args: Record<string, unknown>):
     return r.json();
   }
   if (name === "github_get_file" || name === "github_list_dir") {
-    const path = String(args.path ?? "").replace(/^\/+/, "");
+    const path = String(args.path ?? "").replace(/^\\/+/, "");
     const ref = args.ref ? `?ref=${encodeURIComponent(String(args.ref))}` : "";
     const r = await fetch(`${base}/contents/${path.split("/").map(encodeURIComponent).join("/")}${ref}`, {
       headers: { Accept: "application/vnd.github+json" },
@@ -159,7 +159,7 @@ async function executePublicGitHub(name: string, args: Record<string, unknown>):
 
 async function executeWeb(name: string, args: Record<string, unknown>): Promise<unknown> {
   const rawUrl = String(args.url ?? "").trim();
-  if (!/^https:\/\//i.test(rawUrl)) throw new Error("HTTPS only");
+  if (!/^https:\\/\\//i.test(rawUrl)) throw new Error("HTTPS only");
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Math.min(30000, Number(args.timeoutMs ?? 15000)));
   try {
@@ -248,13 +248,13 @@ export async function callWithFallback(
     try {
       await ensurePuter();
       const toolResults: ToolExecutionResult[] = [];
-      let messages: Array<Record<string, unknown>> = [{ role: "user", content: prompt }];
+      const messages: Array<Record<string, unknown>> = [{ role: "user", content: prompt }];
       let finalText = "";
       let lastCalls: ToolCall[] = [];
 
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
         const response = await (globalThis as unknown as {
-          puter?: { ai?: { chat?: Function } };
+          puter?: { ai?: { chat?: (...args: any[]) => Promise<unknown> } };
         }).puter?.ai?.chat?.(messages, {
           model,
           tools: puterTools,
