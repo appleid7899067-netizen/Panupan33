@@ -62,6 +62,8 @@ export async function githubAppInstallUrl(): Promise<string> {
 async function getInstallationToken(owner: string, repo: string, githubToken?: string): Promise<string> {
   // Browser-session GitHub PAT takes precedence. Never persist or log it.
   if (githubToken) return githubToken;
+  const serverToken = process.env.GITHUB_TOKEN?.trim();
+  if (serverToken) return serverToken;
 
   const jwt = createAppJwt();
   const installation = await github<{ id: number }>(
