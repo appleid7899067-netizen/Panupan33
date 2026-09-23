@@ -682,7 +682,7 @@ export function SuperChat() {
       >
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
           {thread?.messages.map((m) => (
-            <div key={m.id} className={`group flex gap-3 ${m.role === "user" ? "justify-end" : ""}`}>
+            <div key={m.id} className={`group flex gap-3 boss-message-in ${m.role === "user" ? "justify-end" : ""}`}>
               {m.role === "assistant" && (
                 <div className="size-7 rounded-full bg-zinc-800 border border-zinc-700 grid place-items-center shrink-0 mt-0.5">
                   <span className="text-[11px]">B</span>
@@ -693,7 +693,7 @@ export function SuperChat() {
                   ? "bg-white text-black"
                   : "bg-zinc-900/80 border border-zinc-800 text-zinc-100"
               }`}>
-                <BossMarkdown content={m.content} onCopyCode={copyCode} onDownloadCode={downloadCode} />
+                <BossMarkdown content={m.content} onCopyCode={copyCode} onDownloadCode={downloadCode} />{m.role === "assistant" && m.id === liveStream.id && liveStream.active ? <span className="boss-stream-caret" aria-hidden="true" /> : null}
                 {m.role === "assistant" && m.activity && m.activity.length > 0 && (
                   <>
                     <BossLiveActivity
