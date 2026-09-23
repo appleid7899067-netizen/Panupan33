@@ -11,14 +11,15 @@ export const FOOTER_LINE =
 export const PUTER_DOCS = "https://developer.puter.com";
 
 /** Free-first default. Boss tries the free tier before paid fallbacks. */
-export const DEFAULT_PUTER_MODEL = "nex-agi/nex-n2.5-pro:free";
+export const DEFAULT_PUTER_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free";
 
 /** Verified free-tier candidates supplied by the current model catalog. */
 export const FREE_PUTER_MODEL_IDS = [
-  "nex-agi/nex-n2.5-pro:free",
+  "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "poolside/laguna-s-2.1:free",
   "dots-studio/dots-3-note-preview:free",
-  "inclusionai/ling-3.0-flash-sante:free",
-  "nex-agi/nex-n2.5-mini:free",
+  "nvidia/nemotron-3.5-lightning:free",
+  "cohere/north-mini-code:free",
 ] as const;
 
 /** Free-first picker list, followed by cheap paid fallbacks when needed. */
