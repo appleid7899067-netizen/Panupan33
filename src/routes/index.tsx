@@ -83,7 +83,7 @@ function Home() {
                 <div className="pointer-events-none absolute right-8 top-28 hidden size-28 rounded-full border border-primary/20 sm:block animate-[spin_18s_linear_infinite]">
                   <div className="absolute -right-1 top-1/2 size-2 rounded-full bg-primary shadow-[0_0_18px_rgba(139,92,246,1)]" />
                 </div>
-                <Button size="lg" asChild>
+                <Button size="lg" className="boss-primary-cta" asChild>
                   <Link to="/chat">
                     เริ่มแชทกับ Boss
                     <ArrowRight className="size-4" />
@@ -239,7 +239,7 @@ function Home() {
                 บอกเป้าหมายมา แล้วดูระบบแตกงาน วางแผน เรียกเครื่องมือ ลงมือ และตรวจสอบผลแบบเรียลไทม์
               </p>
             </div>
-            <Button size="lg" asChild>
+            <Button size="lg" className="boss-primary-cta" asChild>
               <Link to="/chat">
                 เปิด Boss Chat
                 <ArrowRight className="size-4" />
