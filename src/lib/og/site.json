@@ -1,5 +1,8 @@
 {
   "title": "Bossnu SlieLo",
+  "description": "AI Agent Workspace — คุณบอกเป้าหมาย Boss หาวิธีทำเอง ระบบ 6-Agent orchestration ที่เชื่อม Goal → Build → Verify → Live",
   "type": "website",
-  "card": "custom"
+  "card": "custom",
+  "color": "#785aff",
+  "image": "/og.jpg"
 }
