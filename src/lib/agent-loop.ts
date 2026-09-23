@@ -15,6 +15,17 @@ import {
 } from "@/lib/puter-tool-loader";
 import { runInSandbox, type SandboxResult } from "@/lib/sandbox";
 import {
+  buildAgentFoundation,
+  foundationPrompt,
+  createAgentMemory,
+  actionKey,
+  shouldRetry,
+  recordFailure as recordFoundationFailure,
+  recordEvidence as recordFoundationEvidence,
+  hasVerifiedEvidence as hasFoundationEvidence,
+  type AgentMemory,
+} from "@/lib/boss-engine/agent-foundation";
+import {
   createAgentKernel,
   recordAction as kernelRecordAction,
   recordObservation as kernelRecordObservation,
@@ -252,7 +263,9 @@ export async function runAgentLoop(
     onStep?.(step);
   };
 
-  const budget = iterationBudget(prompt, maxIterations);
+  const foundation = buildAgentFoundation(prompt, maxIterations);
+  const budget = Math.min(iterationBudget(prompt, maxIterations), foundation.budget);
+  const foundationMemory: AgentMemory = createAgentMemory();
   const deepReasoning = wantsDeepReasoning(prompt);
   const available = tools.length ? tools : await loadCodingFleetTools();
   const seenCalls = new Set<string>();
@@ -260,7 +273,8 @@ export async function runAgentLoop(
   let consecutiveFails = 0;
   const FAIL_LIMIT = 3;
 
-  emit({ phase: "plan", detail: `budget ${budget} rounds · tools ${available.length}` });
+  emit({ phase: "plan", detail: `budget ${budget} rounds · tools ${available.length} · Puter-first` });
+  emit({ phase: "plan", detail: foundationPrompt(foundation) });
   emit({
     phase: "select",
     detail: available
@@ -276,7 +290,7 @@ export async function runAgentLoop(
     });
   }
 
-  let currentPrompt = buildKickoffPrompt(prompt, available) + `\n\nAGENT KERNEL:\n${kernelSummary(kernel)}`;
+  let currentPrompt = buildKickoffPrompt(prompt, available) + `\n\n${foundationPrompt(foundation)}\n\nAGENT KERNEL:\n${kernelSummary(kernel)}`;
   let last = "";
   let lastResults: ToolExecutionResult[] = [];
   let allResults: ToolExecutionResult[] = [];
