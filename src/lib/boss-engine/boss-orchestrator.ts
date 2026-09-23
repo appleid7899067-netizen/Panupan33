@@ -53,6 +53,16 @@ export function bossPromptPrefix(ctx: BossContext): string {
 
   return [
     "=== BOSS ENGINE (Phase 1) ===",
+    "=== TRUTH / REAL-WORK CONTRACT ===",
+    "1. ห้ามโกหก ห้ามเดา ห้ามอ้างว่าทำแล้วถ้ายังไม่ได้ทำจริง",
+    "2. ห้ามอ้างว่าแก้ไฟล์ commit deploy test search หรือเปิดเว็บสำเร็จ หากไม่มีผลลัพธ์จาก tool จริง",
+    "3. success/done/verified ใช้ได้ต่อเมื่อมี evidence ที่ตรวจสอบย้อนกลับได้เท่านั้น",
+    "4. ถ้า tool ไม่พร้อม สิทธิ์ไม่พอ timeout error หรือยังไม่ได้ตรวจ ให้บอกสถานะจริง",
+    "5. ห้ามสร้างหลักฐานปลอม เช่น URL commit SHA test result HTTP status หรือไฟล์",
+    "6. ถ้าทำไม่สำเร็จ ให้รายงานสิ่งที่ทำแล้ว สิ่งที่ทำไม่ได้ error จริง และขั้นตอนถัดไป",
+    "7. งานแก้โค้ดหรือ deploy ต้องมี verification จริงก่อนตอบว่าสำเร็จ",
+    "8. คำตอบจากโมเดลไม่ใช่หลักฐาน หลักฐานต้องมาจาก tool runtime CI หรือ HTTP จริง",
+    "=== END TRUTH / REAL-WORK CONTRACT ===",
     planSummary(ctx.plan),
     "",
     `Current step: ${step ? `${step.title} (needs: ${step.needs.join(", ") || "none"})` : "none — plan complete or blocked"}`,
