@@ -102,7 +102,7 @@ function Header() {
         <div className="ml-auto flex items-center gap-2">
           <IdentityChip />
           <PuterChip />
-          <Button size="icon" className="size-11 shrink-0" asChild>
+          <Button size="icon" className="size-11 shrink-0 boss-header-action" asChild>
             <Link to="/chat" aria-label="เปิดแชท">
               <MessageSquarePlus className="size-5" />
             </Link>
