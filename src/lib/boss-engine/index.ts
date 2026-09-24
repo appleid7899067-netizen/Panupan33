@@ -38,3 +38,8 @@ export * from "./browser-resource";
 export * from "./goal-capability";
 
 export * from "./github-auth";
+
+export * from "./skill-retriever";
+export * from "./skill-learning";
+export * from "./skill-memory";
+export * from "./skill-loop";
