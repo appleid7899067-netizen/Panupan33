@@ -100,6 +100,19 @@ function formatInline(text: string) {
   });
 }
 
+function extractInlineGithubToken(value: string): { token: string; redacted: string } | null {
+  // If a user accidentally pastes a GitHub credential into chat, consume it as
+  // ephemeral request data instead of persisting the secret in the chat thread.
+  const pattern = /\b(?:ghp|github_pat|gho|ghu|ghs|ghr)_[A-Za-z0-9_]+\b/g;
+  const match = value.match(pattern)?.[0];
+  if (!match || match.length < 20) return null;
+  return { token: match, redacted: value.replace(match, "[GitHub credential received securely]") };
+}
+
+function redactCredentialText(value: string): string {
+  return value.replace(/\b(?:ghp|github_pat|gho|ghu|ghs|ghr)_[A-Za-z0-9_]+\b/g, "[credential redacted]");
+}
+
 function displayAgentText(value: unknown): string {
   if (typeof value === "string") {
     return value
@@ -402,11 +415,15 @@ export function SuperChat() {
   const handleSend = async (forcedText?: string) => {
     const userText = (forcedText ?? input).trim();
     if (!userText || !thread) return;
+    const inlineGithubCredential = extractInlineGithubToken(userText);
+    const safeUserText = inlineGithubCredential?.redacted ?? userText;
+    const effectiveGithubToken = inlineGithubCredential?.token ?? githubToken;
     setInput("");
     isPinnedRef.current = true;
     setIsPinnedToBottom(true);
     requestAnimationFrame(() => pinToBottom("auto"));
-    appendMessage(thread.id, { role: "user", content: userText });
+    // Never persist an inline credential in the conversation history.
+    appendMessage(thread.id, { role: "user", content: safeUserText });
     const assistantId = appendMessage(thread.id, {
       role: "assistant",
       content: "กำลังเริ่มงาน…",
@@ -416,7 +433,7 @@ export function SuperChat() {
     const context = compileChatContext({
       messages: thread.messages,
       memory: useFleet.getState().memory.map((m) => m.text),
-      query: userText,
+      query: safeUserText,
       maxMessages: 8,
       maxMemory: 6,
       maxChars: 12000,
@@ -432,7 +449,7 @@ export function SuperChat() {
       lastUser.content.trim().length > 2,
     );
     const continueTask = quickReply && hasActiveTask;
-    const wantsAgent = /(?:ทำให้|แก้|สร้าง|เขียน|deploy|ดีพลอย|github|git|repo|repository|โค้ด|code|run|รัน|ทดสอบ|sandbox|api|database|ฐานข้อมูล|ไฟล์|file|ติดตั้ง|เชื่อมต่อ|ตรวจสอบระบบ|แก้บั๊ก|bug|task|งาน|ค้นหา|search|เว็บ|ค้นเว็บ)/i.test(userText) || continueTask;
+    const wantsAgent = /(?:ทำให้|แก้|สร้าง|เขียน|deploy|ดีพลอย|github|git|repo|repository|โค้ด|code|run|รัน|ทดสอบ|sandbox|api|database|ฐานข้อมูล|ไฟล์|file|ติดตั้ง|เชื่อมต่อ|ตรวจสอบระบบ|แก้บั๊ก|bug|task|งาน|ค้นหา|search|เว็บ|ค้นเว็บ)/i.test(safeUserText) || continueTask;
 
     if (!wantsAgent) {
       try {
@@ -567,7 +584,7 @@ export function SuperChat() {
       const message = error instanceof Error ? error.message : String(error);
       patchActivity(thread.id, assistantId, []);
       patchVerified(thread.id, assistantId, false);
-      patchMessage(thread.id, assistantId, `Boss เรียก Agent ไม่สำเร็จ: ${message.slice(0, 700)}`);
+      patchMessage(thread.id, assistantId, `Boss เรียก Agent ไม่สำเร็จ: ${redactCredentialText(message).slice(0, 700)}`);
       setLiveStream((s) => s.id === assistantId ? { ...s, active: false } : s);
     }
   };
