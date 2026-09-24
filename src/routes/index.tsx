@@ -100,8 +100,18 @@ function Home() {
               <span className="rounded-full border border-border bg-surface/60 px-3 py-1.5">Goal → Build → Verify → Live</span>
             </div>
 
-            <div className="mt-14 overflow-hidden rounded-2xl border border-border bg-surface/70 shadow-[var(--shadow-border)]">
-              <div className="grid divide-y divide-border md:grid-cols-6 md:divide-x md:divide-y-0">
+            <div className="boss-type-hero mt-14" aria-label="BOSSNU typographic identity">
+              <div className="boss-type-word">BOSSNU</div>
+              <div className="boss-type-rule" />
+              <div className="boss-type-meta">
+                <span>UNIFIED AI WORKSPACE</span>
+                <span>GOAL → BUILD → VERIFY → LIVE</span>
+              </div>
+              <div className="boss-type-mark" aria-hidden="true">B</div>
+            </div>
+
+            <div className="mt-8 overflow-hidden rounded-2xl border border-border bg-surface/70 shadow-[var(--shadow-border)]">
+              <div className="grid divide-y divide-border md:grid-cols-7 md:divide-x md:divide-y-0">
                 {[
                   ["06", "Agents"],
                   ["05", "Skills"],
