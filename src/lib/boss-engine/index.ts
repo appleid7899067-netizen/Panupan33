@@ -47,3 +47,5 @@ export * from "./skill-loop";
 export * from "./sandbox-runtime";
 export * from "./sandbox-tool";
 export * from "./sandbox-loop";
+
+export * from "./autonomous-agent-prompt";
