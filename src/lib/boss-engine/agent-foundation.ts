@@ -6,6 +6,7 @@
  */
 
 import { AUTONOMOUS_PROBLEM_SOLVER_PROMPT } from "./autonomous-agent-prompt";
+import { coreSkillSummary } from "./core-skill-router";
 
 export type AgentFoundationIntent =
   | "chat" | "research" | "code" | "github" | "deploy" | "verify" | "data" | "general";
@@ -149,6 +150,7 @@ export function foundationPrompt(plan: AgentFoundationPlan): string {
     `Live evidence required: ${plan.needsLiveEvidence ? "yes" : "no"}`,
     `Budget: ${plan.budget} rounds`,
     `Priority capabilities: ${plan.priorities.join(", ") || "none"}`,
+    `Built-in core skills: ${coreSkillSummary(plan.intent)}`,
     "Rules:",
     ...plan.constraints.map((item) => "- " + item),
   ].join("\\n");
