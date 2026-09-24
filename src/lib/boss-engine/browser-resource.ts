@@ -13,9 +13,9 @@ export type BrowserResource = BorrowedResource & {
 };
 
 export const PLAYWRIGHT_CONTAINER_ADAPTER: ResourceAdapter = {
-  kind: "browser" as never,
+  kind: "browser",
   canProvide: (request: ResourceRequest) =>
-    request.kind === ("browser" as never) && /browser|scrap|render|page|website|web/i.test(request.goal),
+    request.kind === "browser" && /browser|scrap|render|page|website|web/i.test(request.goal),
   acquire: async (request: ResourceRequest, plan: ResourcePlan) => ({
     id: "browser-lease-" + Date.now().toString(36),
     kind: "browser" as never,
