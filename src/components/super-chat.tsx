@@ -165,19 +165,29 @@ export function SuperChat() {
 
   useEffect(() => {
     try {
-      const storage = window.sessionStorage;
-      const saved = storage.getItem("bossnu_github_token") || storage.getItem("github_token") || storage.getItem("githubToken") || "";
-      if (saved) setGithubToken(saved);
-    } catch { /* intentionally ignored */ }
+      const raw = window.sessionStorage.getItem("bossnu_github_token");
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { token?: string; expiresAt?: number };
+      if (saved.token && saved.expiresAt && saved.expiresAt > Date.now()) {
+        setGithubToken(saved.token);
+        window.setTimeout(() => clearGithubToken(), Math.max(0, saved.expiresAt - Date.now()));
+      } else {
+        window.sessionStorage.removeItem("bossnu_github_token");
+      }
+    } catch {
+      try { window.sessionStorage.removeItem("bossnu_github_token"); } catch { /* intentionally ignored */ }
+    }
   }, []);
 
   const saveGithubToken = () => {
     const value = githubTokenInput.trim();
     if (value.length < 20) return;
-    try { window.sessionStorage.setItem("bossnu_github_token", value); } catch { /* intentionally ignored */ }
+    const expiresAt = Date.now() + 5 * 60 * 1000;
+    try { window.sessionStorage.setItem("bossnu_github_token", JSON.stringify({ token: value, expiresAt })); } catch { /* intentionally ignored */ }
     setGithubToken(value);
     setGithubTokenInput("");
     setGithubTokenOpen(false);
+    window.setTimeout(() => clearGithubToken(), 5 * 60 * 1000);
   };
 
   const clearGithubToken = () => {
@@ -552,7 +562,7 @@ export function SuperChat() {
           maxIterations: 3,
           context: attachmentContext ? `${context}\n\n${attachmentContext}` : context,
           ...(authToken ? { authToken } : {}),
-          ...(githubToken ? { githubToken } : {}),
+          ...(effectiveGithubToken ? { githubToken: effectiveGithubToken } : {}),
           ...(thread?.id ? { threadId: thread.id } : {}),
           model: selectedModel,
         },
@@ -568,6 +578,15 @@ export function SuperChat() {
         }
       }
       if (!result) throw new Error("Agent stream ended without a final result.");
+      if (inlineGithubCredential) {
+        // Inline credentials are one-shot: never keep them in chat state or session storage.
+        setGithubToken("");
+        try {
+          window.sessionStorage.removeItem("bossnu_github_token");
+          window.sessionStorage.removeItem("github_token");
+          window.sessionStorage.removeItem("githubToken");
+        } catch { /* intentionally ignored */ }
+      }
       const resultText = displayAgentText(result.text);
       const previewUrl = resultText.match(/https:\/\/[a-z0-9-]+\.puter\.site(?:\/[^\s)<>]*)?/i)?.[0];
       if (previewUrl && thread) {
