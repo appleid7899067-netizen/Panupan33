@@ -110,23 +110,31 @@ function Home() {
               <div className="boss-type-mark" aria-hidden="true">B</div>
             </div>
 
-            <div className="mt-8 overflow-hidden rounded-2xl border border-border bg-surface/70 shadow-[var(--shadow-border)]">
-              <div className="grid divide-y divide-border md:grid-cols-7 md:divide-x md:divide-y-0">
-                {[
-                  ["06", "Agents"],
-                  ["05", "Skills"],
-                  ["11", "Tools"],
-                  ["∞", "Model routes"],
-                  ["LIVE", "Trace"],
-                  ["✓", "Verify"],
-                  ["30K+", "Identity space"],
-                ].map(([value, label]) => (
-                  <div key={label} className="group relative overflow-hidden px-5 py-5 transition-all duration-300 hover:-translate-y-1 hover:bg-primary/[0.04]">
-                    <div className="text-2xl font-semibold tracking-tight">{value}</div>
-                    <div className="mt-1 text-xs uppercase tracking-[0.16em] text-subtle">{label}</div>
+            <div className="boss-template-grid mt-10" aria-label="Bossnu workspace templates">
+              {[
+                { tone: "violet", label: "SITES", title: "Northstar", body: "หน้าเว็บที่ Boss วางโครง สร้างเนื้อหา และตรวจ Preview ให้พร้อมใช้งาน", mark: "N" },
+                { tone: "cyan", label: "APPS", title: "Pulse", body: "แอปที่ Boss ช่วยแตกงาน เขียนโค้ด รัน และตรวจผลแบบเป็นขั้นตอน", mark: "P" },
+                { tone: "amber", label: "SYSTEMS", title: "Ledger", body: "ระบบข้อมูลที่เริ่มจาก Goal แล้วค่อยเชื่อม Tool, API และ workflow ที่ต้องใช้", mark: "L" },
+              ].map((item) => (
+                <article key={item.title} className={`boss-template-card boss-template-${item.tone}`}>
+                  <div className="boss-template-visual">
+                    <div className="boss-template-gridlines" aria-hidden="true" />
+                    <div className="boss-template-mark">{item.mark}</div>
+                    <div className="boss-template-kicker">BOSSNU TEMPLATE</div>
+                    <div className="boss-template-preview">
+                      <span>{item.title}</span>
+                      <span className="boss-template-dot" />
+                    </div>
                   </div>
-                ))}
-              </div>
+                  <div className="boss-template-copy">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3>{item.title}</h3>
+                      <span>{item.label}</span>
+                    </div>
+                    <p>{item.body}</p>
+                  </div>
+                </article>
+              ))}
             </div>
           </div>
         </section>
