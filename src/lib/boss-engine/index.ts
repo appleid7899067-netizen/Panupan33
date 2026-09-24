@@ -33,3 +33,6 @@ export * from "./resource-adapters";
 export * from "./resource-selection";
 export * from "./resource-bridge";
 export * from "./skills/core/resilient-data-ingestion/skill";
+
+export * from "./browser-resource";
+export * from "./goal-capability";
