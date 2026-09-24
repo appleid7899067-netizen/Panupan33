@@ -36,3 +36,5 @@ export * from "./skills/core/resilient-data-ingestion/skill";
 
 export * from "./browser-resource";
 export * from "./goal-capability";
+
+export * from "./github-auth";
