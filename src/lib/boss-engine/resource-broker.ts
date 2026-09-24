@@ -6,7 +6,7 @@
  * every external provider.
  */
 
-export type ResourceKind = "sandbox" | "search" | "github" | "deploy" | "model" | "friend-ai";
+export type ResourceKind = "sandbox" | "browser" | "search" | "github" | "deploy" | "model" | "friend-ai";
 export type ResourceMode = "native" | "borrow";
 
 export type ResourceRequest = {
@@ -27,6 +27,7 @@ export type ResourcePlan = {
 
 const DEFAULT_BORROW_LIMITS: Record<ResourceKind, number> = {
   sandbox: 15,
+  browser: 15,
   search: 5,
   github: 10,
   deploy: 15,
