@@ -250,3 +250,24 @@
   .boss-type-meta{flex-direction:column;gap:5px;font-size:8px;letter-spacing:.16em}
   .boss-type-mark{right:-2%;bottom:-18px}
 }
+
+
+/* Filled visual templates: reference-card composition without empty image placeholders. */
+.boss-template-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.boss-template-card{overflow:hidden;border:1px solid var(--color-border);border-radius:28px;background:#101116;box-shadow:0 18px 55px -35px rgba(0,0,0,.8);transition:transform 220ms cubic-bezier(.22,1,.36,1),border-color 220ms ease,box-shadow 220ms ease}
+.boss-template-card:hover{transform:translateY(-5px);border-color:color-mix(in oklab,var(--color-primary) 32%,var(--color-border));box-shadow:0 24px 65px -34px rgba(110,184,196,.28)}
+.boss-template-visual{position:relative;height:210px;overflow:hidden;isolation:isolate}
+.boss-template-violet .boss-template-visual{background:radial-gradient(circle at 75% 25%,rgba(167,139,250,.48),transparent 30%),linear-gradient(135deg,#24202e,#11131a 70%)}
+.boss-template-cyan .boss-template-visual{background:radial-gradient(circle at 50% 50%,rgba(103,200,214,.32),transparent 32%),linear-gradient(145deg,#17272c,#111318 72%)}
+.boss-template-amber .boss-template-visual{background:radial-gradient(circle at 25% 25%,rgba(232,190,112,.38),transparent 30%),linear-gradient(135deg,#2a261d,#121318 72%)}
+.boss-template-gridlines{position:absolute;inset:0;opacity:.18;background-image:linear-gradient(rgba(255,255,255,.22) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.22) 1px,transparent 1px);background-size:34px 34px;mask-image:linear-gradient(to bottom,black,transparent 90%)}
+.boss-template-mark{position:absolute;left:24px;bottom:-34px;font-size:12rem;line-height:.8;font-weight:800;letter-spacing:-.12em;color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.14);opacity:.85}
+.boss-template-kicker{position:absolute;left:22px;top:20px;font-size:9px;font-weight:700;letter-spacing:.2em;color:rgba(255,255,255,.62)}
+.boss-template-preview{position:absolute;right:20px;top:20px;display:flex;align-items:center;gap:9px;padding:9px 12px;border:1px solid rgba(255,255,255,.13);border-radius:999px;background:rgba(0,0,0,.22);backdrop-filter:blur(10px);font-size:10px;font-weight:600;letter-spacing:.08em}
+.boss-template-dot{width:6px;height:6px;border-radius:999px;background:var(--color-primary);box-shadow:0 0 12px var(--color-primary)}
+.boss-template-copy{padding:18px 20px 21px}
+.boss-template-copy h3{font-size:17px;font-weight:650}
+.boss-template-copy span{color:var(--color-subtle);font-size:10px;letter-spacing:.16em}
+.boss-template-copy p{margin-top:8px;color:var(--color-muted);font-size:13px;line-height:1.65}
+@media(max-width:900px){.boss-template-grid{grid-template-columns:1fr}.boss-template-visual{height:190px}}
+@media(max-width:640px){.boss-template-grid{gap:14px}.boss-template-card{border-radius:24px}.boss-template-visual{height:175px}.boss-template-mark{font-size:10rem}}
