@@ -36,6 +36,9 @@ const KNOWN_CAPABILITIES = new Set([
   "sandbox",
   "skill",
   "model",
+  "data",
+  "api",
+  "memory",
 ]);
 
 const HIGH_RISK_WORDS = /delete|ลบ|production|prod|secret|credential|token|permission|merge|publish/i;
