@@ -1,4 +1,4 @@
-import { normalizeSkill, activateVerifiedSkill, type SkillRecord } from "../skill-registry";
+import { normalizeSkill, activateVerifiedSkill, type SkillRecord } from "../../../skill-registry";
 
 export const RESILIENT_DATA_INGESTION_SKILL: SkillRecord = activateVerifiedSkill(
   normalizeSkill({
