@@ -179,3 +179,74 @@
   .boss-primary-cta,.boss-header-action{transition:none!important;transform:none!important}
   .boss-primary-cta::before{display:none}
 }
+
+
+/* Typography-first hero: no image dependency, brand text becomes the visual. */
+.boss-type-hero{
+  position:relative;
+  overflow:hidden;
+  min-height:220px;
+  padding:12px 0 8px;
+  isolation:isolate;
+}
+.boss-type-word{
+  position:relative;
+  z-index:1;
+  font-family:var(--font-sans);
+  font-size:clamp(5rem,16vw,12rem);
+  line-height:.78;
+  font-weight:800;
+  letter-spacing:-.085em;
+  white-space:nowrap;
+  color:transparent;
+  background:linear-gradient(105deg,#f4f5f7 5%,#b9c4ff 38%,#9d7cff 62%,#66d4df 92%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  text-shadow:0 0 55px rgba(139,92,246,.14);
+}
+.boss-type-word::after{
+  content:"BOSSNU";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  color:transparent;
+  -webkit-text-stroke:1px rgba(255,255,255,.08);
+  transform:translate(3px,3px);
+}
+.boss-type-rule{
+  width:min(100%,720px);
+  height:1px;
+  margin-top:22px;
+  background:linear-gradient(90deg,color-mix(in oklab,var(--color-primary) 65%,transparent),color-mix(in oklab,#9d7cff 38%,transparent),transparent);
+}
+.boss-type-meta{
+  display:flex;
+  justify-content:space-between;
+  gap:16px;
+  margin-top:12px;
+  color:var(--color-subtle);
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:.22em;
+  text-transform:uppercase;
+}
+.boss-type-mark{
+  position:absolute;
+  right:2%;
+  bottom:-36px;
+  z-index:-1;
+  font-size:clamp(10rem,28vw,22rem);
+  line-height:.7;
+  font-weight:800;
+  letter-spacing:-.12em;
+  color:transparent;
+  -webkit-text-stroke:1px color-mix(in oklab,var(--color-primary) 10%,transparent);
+  opacity:.75;
+  pointer-events:none;
+}
+@media (max-width:640px){
+  .boss-type-hero{min-height:155px;padding-top:8px}
+  .boss-type-word{font-size:clamp(4rem,19vw,7rem)}
+  .boss-type-meta{flex-direction:column;gap:5px;font-size:8px;letter-spacing:.16em}
+  .boss-type-mark{right:-2%;bottom:-18px}
+}
