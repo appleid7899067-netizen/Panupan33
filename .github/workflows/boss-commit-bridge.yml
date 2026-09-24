@@ -1,0 +1,55 @@
+name: Boss Commit Bridge
+
+on:
+  repository_dispatch:
+    types: [boss_commit]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: boss-commit-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  commit:
+    if: ${{ github.event.client_payload.path != '' && github.event.client_payload.message != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.branch || github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Apply requested file
+        env:
+          TARGET_PATH: ${{ github.event.client_payload.path }}
+          TARGET_CONTENT: ${{ github.event.client_payload.content }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          raw = os.environ['TARGET_PATH'].strip()
+          if not raw or raw.startswith('/') or raw.startswith('../') or '/../' in raw or '\\..' in raw:
+              raise SystemExit('Rejected unsafe path')
+          name = Path(raw).name.lower()
+          if name.startswith('.env') or name in {'id_rsa','id_ed25519','credentials.json','service-account.json'}:
+              raise SystemExit('Rejected sensitive path')
+          path = Path(raw)
+          path.parent.mkdir(parents=True, exist_ok=True)
+          path.write_text(os.environ.get('TARGET_CONTENT', ''), encoding='utf-8')
+          print(f'Prepared {path}')
+          PY
+
+      - name: Commit and push
+        env:
+          COMMIT_MESSAGE: ${{ github.event.client_payload.message }}
+          BRANCH: ${{ github.event.client_payload.branch || github.event.repository.default_branch }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- '${{ github.event.client_payload.path }}'
+          if git diff --cached --quiet; then echo 'No changes to commit'; exit 0; fi
+          git commit -m "$COMMIT_MESSAGE"
+          git push origin "HEAD:$BRANCH"
