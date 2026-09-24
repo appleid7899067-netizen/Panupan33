@@ -5,6 +5,8 @@
  * UI-agnostic, no app/sandbox creation, and Puter-first by design.
  */
 
+import { AUTONOMOUS_PROBLEM_SOLVER_PROMPT } from "./autonomous-agent-prompt";
+
 export type AgentFoundationIntent =
   | "chat" | "research" | "code" | "github" | "deploy" | "verify" | "data" | "general";
 
@@ -138,6 +140,8 @@ export function hasVerifiedEvidence(memory: AgentMemory): boolean {
 
 export function foundationPrompt(plan: AgentFoundationPlan): string {
   return [
+    AUTONOMOUS_PROBLEM_SOLVER_PROMPT,
+    "",
     "AGENT FOUNDATION:",
     `Intent: ${plan.intent}`,
     `Tool use required: ${plan.needsTools ? "yes" : "no"}`,
