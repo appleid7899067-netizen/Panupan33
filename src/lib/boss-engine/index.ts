@@ -55,3 +55,4 @@ export * from "./skills/core/web-search-scraping/skill";
 export * from "./skills/core/code-execution-math/skill";
 export * from "./skills/core/api-calling/skill";
 export * from "./skills/core/memory-context/skill";
+export * from "./core-skill-router";
