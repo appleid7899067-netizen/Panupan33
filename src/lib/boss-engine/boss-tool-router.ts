@@ -19,6 +19,9 @@ export type CapabilityNeed = {
   search: boolean;
   puter: boolean;
   ci: boolean;
+  documents: boolean;
+  mcp: boolean;
+  plugins: boolean;
 };
 
 export type RouterDecision = {
@@ -42,6 +45,9 @@ export function inferCapabilityNeeds(prompt: string): CapabilityNeed {
     search: /ค้นหา|search|หาข้อมูล|research|browse/.test(text),
     puter: /puter|ฟรี host|publish.*puter/.test(text),
     ci: /ci\b|github actions|workflow|pipeline/.test(text),
+    documents: /pdf|เอกสาร|document|ไฟล์|csv|json|markdown|md\b|ข้อความในไฟล์/.test(text),
+    mcp: /mcp|model context protocol|connector|เชื่อมต่อเครื่องมือ/.test(text),
+    plugins: /plugin|ปลั๊กอิน|integration|แอปภายนอก/.test(text),
   };
 }
 
@@ -71,13 +77,16 @@ function matchesNeeds(tool: ToolRegistryEntry, needs: CapabilityNeed): boolean {
     return true;
   if (needs.ci && (name.includes("workflow") || name.includes("actions") || name.includes("ci"))) return true;
   if (needs.puter && name.includes("puter")) return true;
+  if (needs.documents && (/pdf|document|file|parse|extract|csv|json/.test(name) || cap === "data")) return true;
+  if (needs.mcp && (src === "mcp" || name.startsWith("mcp_"))) return true;
+  if (needs.plugins && (src === "plugin" || name.startsWith("plugin_"))) return true;
 
   if ((needs.sandbox || needs.deploy || needs.web) && cap === "verify") return true;
 
   return false;
 }
 
-export async function routeToolsForTask(prompt: string, maxTools = 4): Promise<RouterDecision> {
+export async function routeToolsForTask(prompt: string, maxTools = 12): Promise<RouterDecision> {
   const intent = inferTaskIntent(prompt);
   const needs = inferCapabilityNeeds(prompt);
   const urgency = getUrgencyProfile(prompt, intent);
@@ -100,8 +109,22 @@ export async function routeToolsForTask(prompt: string, maxTools = 4): Promise<R
   const excludedSources: string[] = [];
   if (!needs.web && !needs.search && !needs.deploy) excludedSources.push("optional-web");
   if (!needs.github && !needs.ci) excludedSources.push("optional-github");
+  if (!needs.mcp) excludedSources.push("optional-mcp");
+  if (!needs.plugins) excludedSources.push("optional-plugin");
 
   const candidates = registry.filter((tool) => matchesNeeds(tool, needs));
+
+  // Seed concrete tools first, then let ranking fill the remaining slots.
+  const seedNames: string[] = [];
+  if (needs.github) seedNames.push("github_get_repo", "github_get_file", "github_list_dir");
+  if (needs.search) seedNames.push("web_search", "web_browse");
+  if (needs.web) seedNames.push("web_check", "web_browse");
+  if (needs.sandbox) seedNames.push("sandbox_run");
+  if (needs.deploy) seedNames.push("web_check");
+  if (needs.ci) seedNames.push("github_actions", "github_get_workflow_runs");
+  if (needs.documents) seedNames.push("document_extract", "file_read", "web_fetch");
+  if (needs.mcp) seedNames.push("mcp_list_tools");
+  if (needs.plugins) seedNames.push("plugin_list");
 
   const priorityName = (name: string) => {
     const n = name.toLowerCase();
@@ -122,6 +145,11 @@ export async function routeToolsForTask(prompt: string, maxTools = 4): Promise<R
     .sort((a, b) => b.score - a.score || a.index - b.index);
 
   const selected: ToolRegistryEntry[] = [];
+  for (const name of seedNames) {
+    const hit = ranked.find(({ tool }) => tool.name === name)?.tool;
+    if (hit && !selected.some((s) => s.name === hit.name)) selected.push(hit);
+    if (selected.length >= limit) break;
+  }
   for (const { tool } of ranked) {
     if (selected.length >= limit) break;
     if (!selected.some((s) => s.name === tool.name)) selected.push(tool);
