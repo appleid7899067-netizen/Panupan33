@@ -94,7 +94,7 @@ function Inline({ text }: { text: string }) {
 }
 
 function CodeBlock({ lang, content }: { lang: string; content: string }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState(false);\n  const [wrap, setWrap] = useState(true);
   const isMermaid = lang.toLowerCase() === "mermaid";
   return (
     <div className="group relative my-3 overflow-hidden rounded-lg bg-bg shadow-[var(--shadow-border)]">
@@ -118,7 +118,7 @@ function CodeBlock({ lang, content }: { lang: string; content: string }) {
       {isMermaid ? (
         <MermaidBlock source={content} />
       ) : (
-        <pre className="overflow-x-auto p-3 font-mono text-[13px] leading-relaxed text-fg">
+        <pre className={(wrap ? "whitespace-pre-wrap break-all" : "overflow-x-auto whitespace-pre") + " p-3 font-mono text-[13px] leading-relaxed text-fg"}>
           <code>{content}</code>
         </pre>
       )}
