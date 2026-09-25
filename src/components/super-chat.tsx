@@ -609,7 +609,7 @@ export function SuperChat() {
   };
 
   return (
-    <div className="relative flex flex-col h-full min-h-0 w-full max-w-5xl mx-auto overflow-hidden bg-[radial-gradient(circle_at_top,rgba(139,92,246,0.08),transparent_34%),radial-gradient(circle_at_bottom,rgba(236,72,153,0.05),transparent_30%)]">
+    <div className="relative flex flex-col h-full min-h-0 w-full max-w-[1400px] mx-auto overflow-hidden bg-[radial-gradient(circle_at_top,rgba(139,92,246,0.08),transparent_34%),radial-gradient(circle_at_bottom,rgba(236,72,153,0.05),transparent_30%)]">
       <div className="relative z-50 shrink-0 flex min-h-14 items-center justify-between gap-3 px-4 py-2.5 border-b border-white/[0.06] bg-zinc-950/90 backdrop-blur-2xl">
         <div className="flex min-w-0 items-center gap-2">
           <button type="button" onClick={() => setHistoryOpen(true)} className="size-9 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 grid place-items-center" aria-label="ประวัติแชท">
@@ -716,7 +716,7 @@ export function SuperChat() {
           setIsPinnedToBottom(pinned);
         }}
       >
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 px-1 sm:px-2">
           {thread?.messages.map((m) => (
             <div key={m.id} className={`group flex gap-3 boss-message-in ${m.role === "user" ? "justify-end" : ""}`}>
               {m.role === "assistant" && (
