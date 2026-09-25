@@ -49,6 +49,8 @@ export type ModelAttempt = {
 
 /** Current Puter fallback. Keep the server pool small and reliable. */
 export const PUTER_FALLBACK_POOL = [
+  "deepseek-chat",
+  "deepseek-reasoner",
   "gpt-5.6-luna",
   "claude-opus-4-8",
   "gemini-3.1-flash-lite",
