@@ -17,7 +17,7 @@ export function nativeBuilderTools(): BuilderToolDef[] {
   return [
     {
       name: "builder_write",
-      description: "Create or overwrite a project file (full content). Prefer builder_edit for small changes.",
+      description: "Create or overwrite a project file (full content). For HTML/CSS/JS projects, write the complete source into the project workspace. Use automatically when the user asks to create or edit a webpage.",
       builderSource: true,
       inputSchema: {
         type: "object",
@@ -28,7 +28,7 @@ export function nativeBuilderTools(): BuilderToolDef[] {
     },
     {
       name: "builder_edit",
-      description: "Replace an exact old_content section with new_content in an existing file (fast partial edit).",
+      description: "Replace an exact old_content section with new_content in an existing file. Use automatically for targeted HTML/CSS/JS fixes after preview or runtime evidence.",
       builderSource: true,
       inputSchema: {
         type: "object",
@@ -119,7 +119,7 @@ export function nativeBuilderTools(): BuilderToolDef[] {
     },
     {
       name: "builder_update_preview",
-      description: "Refresh the live preview after file changes. Call after UI edits.",
+      description: "Refresh the live HTML/web preview after file changes. MUST be used after HTML/CSS/JS edits when the goal includes previewing or seeing the result. Returns structured preview metadata for verification.",
       builderSource: true,
       inputSchema: {
         type: "object",
@@ -132,7 +132,7 @@ export function nativeBuilderTools(): BuilderToolDef[] {
     },
     {
       name: "builder_publish_site",
-      description: "Publish the project folder to a public Puter hosting URL.",
+      description: "Publish the project folder to a public Puter hosting URL. Use automatically when the user asks to publish, share, or open the finished webpage publicly, then verify the returned URL.",
       builderSource: true,
       inputSchema: {
         type: "object",
