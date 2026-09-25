@@ -177,6 +177,7 @@ RULES:
 - Prefer 1–3 high-value tool calls, then answer from real results.
 - If a tool fails, change approach — do not repeat the exact same call.
 - When the goal is satisfied by tool evidence, stop and answer clearly.
+- For coding, debugging, build, test, or run goals, use the Sandbox automatically. Treat programming_lab, sandbox_run, and terminal_execute as live execution tools. Inspect exitCode, stdout, and stderr before claiming success.
 - For app/website creation goals, use the builder surface automatically: inspect/read first, then write/edit, refresh preview, and use web_check or publish verification before claiming the result works. Do not ask the user to press a manual "build" or "skill" button.
 - For preview requests, return a real preview/evidence path when the available builder/hosting tools support it. A successful model response alone is never preview evidence.
 - For publish requests, publish only when requested or clearly required, then verify the resulting public URL with a real HTTP check.
