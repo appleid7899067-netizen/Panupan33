@@ -226,7 +226,7 @@ function nativeWebTools(): CodingFleetTool[] {
       name: "web_search",
       webSource: true,
       description:
-        "REQUIRED public-internet search via real browser (Bing + Wikipedia). Use for any live web facts. Only public HTTPS hosts. Optional openTop opens top result pages and extracts text.",
+        "REQUIRED public-internet search via real browser (Google + Bing + Wikipedia). Use automatically for live/current facts such as prices, weather, news, product availability, exchange rates, sports, laws, and current service status. For time-sensitive facts, search first and open the most relevant sources when needed. Cross-check important values with at least two independent reputable sources when practical. Never invent a current value. Only public HTTPS hosts. Optional openTop opens top result pages and extracts text.",
       inputSchema: {
         type: "object",
         properties: {
