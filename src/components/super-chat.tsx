@@ -223,7 +223,7 @@ export function SuperChat() {
     }
     setGithubTokenStatus("checking");
     setGithubTokenError("");
-    void executeGithubWithPat("github_me", {}, value).then((user) => {
+    void executeGithubWithPat("github_me", {}, value).then(async (user) => {
       const login = (user as { login?: string })?.login;
       if (!login) throw new Error("GitHub ไม่ยืนยัน Token");
       setGithubPat(value);
