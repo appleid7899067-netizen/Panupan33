@@ -371,7 +371,31 @@ export async function browserWebSearch(
 }> {
   const count = Math.min(10, Math.max(1, Number(opts?.count ?? 8)));
   const openTop = Math.min(3, Math.max(0, Number(opts?.openTop ?? 0)));
-  const search = await browserSearchDuckDuckGo(query, count);
+  let search: { ok: boolean; query: string; hits: SearchHit[]; engines?: string[]; error?: string; via: "browser" };
+  try {
+    const apiSearch = await searchGoogleApi(query, { maxResults: count });
+    search = {
+      ok: apiSearch.results.length > 0,
+      query: apiSearch.query,
+      hits: apiSearch.results,
+      engines: ["google"],
+      via: "browser",
+      ...(apiSearch.results.length ? {} : { error: "No Google results" }),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // Local preview may not have Google API credentials. Keep a real
+    // Google-only browser fallback, never silently switch engines.
+    const google = await searchGoogle(query, count);
+    search = {
+      ok: google.length > 0,
+      query,
+      hits: google,
+      engines: ["google"],
+      via: "browser",
+      ...(google.length ? {} : { error: message || "No Google results" }),
+    };
+  }
   if (!search.ok) return { ...search, via: "browser" };
 
   const pages: Array<{ url: string; title?: string; text: string; status: number }> = [];
