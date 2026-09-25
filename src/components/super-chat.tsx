@@ -190,13 +190,29 @@ export function SuperChat() {
     const saved = getGithubPat();
     if (saved) setGithubTokenStatus("checking");
     if (saved) void executeGithubWithPat("github_me", {}, saved).then((user) => {
-      if ((user as { login?: string })?.login) { setGithubToken(saved); setGithubTokenStatus("valid"); }
+      if ((user as { login?: string })?.login) { setGithubToken(saved); setGithubTokenStatus("valid"); void verifyGithubCapabilities(saved); }
       else throw new Error("Token ไม่ผ่าน");
     }).catch(() => { setGithubPat(null); setGithubToken(""); setGithubTokenStatus("invalid"); });
   }, []);
 
   const [githubTokenStatus, setGithubTokenStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
   const [githubTokenError, setGithubTokenError] = useState("");
+  const [githubCapabilities, setGithubCapabilities] = useState<string[]>([]);
+
+  const verifyGithubCapabilities = async (token: string) => {
+    const checks = [
+      ["repo-read", "github_get_repo", { owner: "appleid7899067-netizen", repo: "Panupan33" }],
+      ["contents-read", "github_get_file", { owner: "appleid7899067-netizen", repo: "Panupan33", path: "README.md" }],
+      ["branches-read", "github_list_branches", { owner: "appleid7899067-netizen", repo: "Panupan33" }],
+      ["pulls-read", "github_list_pulls", { owner: "appleid7899067-netizen", repo: "Panupan33", state: "open" }],
+      ["issues-read", "github_list_issues", { owner: "appleid7899067-netizen", repo: "Panupan33", state: "open" }],
+      ["actions-read", "github_list_workflow_runs", { owner: "appleid7899067-netizen", repo: "Panupan33" }],
+    ] as const;
+    const results = await Promise.all(checks.map(async ([name, tool, args]) => {
+      try { await executeGithubWithPat(tool, args, token); return name; } catch { return null; }
+    }));
+    setGithubCapabilities(results.filter((x): x is string => Boolean(x)));
+  };
 
   const saveGithubToken = () => {
     const value = githubTokenInput.trim();
@@ -214,6 +230,7 @@ export function SuperChat() {
       setGithubToken(value);
       setGithubTokenInput("");
       setGithubTokenStatus("valid");
+      await verifyGithubCapabilities(value);
       setGithubTokenOpen(false);
     }).catch((error) => {
       setGithubPat(null);
