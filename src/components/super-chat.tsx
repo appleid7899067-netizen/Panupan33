@@ -9,7 +9,7 @@ import { unzipSync, strFromU8 } from "fflate";
 import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X, Copy, Check, Download, Square, Github, KeyRound, Eye, Heart, ThumbsUp, Palette } from "lucide-react";
 import { useFleet } from "@/lib/store";
 import { runAgent, runAgentSandbox, runAgentStream } from "@/lib/agent.functions";
-import { chatWithPuter, listPuterModels, loadPuter, type PuterModel } from "@/lib/puter";
+import { chatWithPuter, listPuterModels, loadPuter, signInWithPuter, getPuterAuthToken, type PuterModel } from "@/lib/puter";
 import { executeWebSearch } from "@/lib/bossnugrok/skills/web-search";
 import { compileChatContext } from "@/lib/context-compiler";
 import { DEFAULT_PUTER_MODEL } from "@/lib/catalog";
@@ -601,7 +601,17 @@ export function SuperChat() {
       patchActivity(thread.id, assistantId, [initialAgentStatus]);
       setLiveStream({ id: assistantId, steps: [initialAgentStatus], active: true });
       const puter = await loadPuter();
-      const authToken = (puter as unknown as { authToken?: string }).authToken;
+      // The Boss loop executes on the server, so explicitly bridge the
+      // signed-in browser Puter session into the server gateway. Never let a
+      // missing browser token silently turn into the old "Puter runs in the
+      // browser only" failure path.
+      if (!puter.auth.isSignedIn()) {
+        const signedIn = await signInWithPuter();
+        if (!signedIn) throw new Error("Puter login ไม่สำเร็จหรือ session ยังไม่พร้อม");
+      }
+      const authToken = await getPuterAuthToken();
+      if (!authToken) throw new Error("ไม่พบ Puter auth token หลัง login — กรุณา sign in กับ Puter ใหม่");
+      const agentModel = models.some((m) => m.id === selectedModel) ? selectedModel : DEFAULT_PUTER_MODEL;
       let result: import("@/lib/agent-loop").AgentRunResult | null = null;
       const liveSteps: string[] = [];
       for await (const event of await runAgentStream({
@@ -614,7 +624,7 @@ export function SuperChat() {
           ...(authToken ? { authToken } : {}),
           ...(effectiveGithubToken ? { githubToken: effectiveGithubToken } : {}),
           ...(thread?.id ? { threadId: thread.id } : {}),
-          model: selectedModel,
+          model: agentModel,
           agentSettings,
         },
       })) {
