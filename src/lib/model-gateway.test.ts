@@ -64,7 +64,7 @@ describe("buildModelPlan — Puter first, OpenRouter fallback", () => {
   it("puts user Puter attempts before OpenRouter, requested id first", () => {
     setEnv({ openrouter: "sk-or-test" });
     const plan = buildModelPlan({ requested: "openai/gpt-5.6-luna", puterUserToken: "user-token", openrouterKey: "sk-or-test" });
-    assert.equal(plan.length, 6);
+    assert.equal(plan.length, 8);
     assert.deepEqual(
       plan.map((p) => `${p.provider}:${p.tokenScope}:${p.model}`),
       [
@@ -72,8 +72,8 @@ describe("buildModelPlan — Puter first, OpenRouter fallback", () => {
         "puter:user:gpt-5.6-luna",
         "puter:user:deepseek/deepseek-chat",
         "openrouter:server:openai/gpt-5.6-luna",
-        "openrouter:server:nex-agi/nex-n2.5-pro:free",
-        "openrouter:server:nex-agi/nex-n2.5-mini:free",
+        "openrouter:server:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "openrouter:server:poolside/laguna-s-2.1:free",
       ],
     );
   });
@@ -121,7 +121,7 @@ describe("runModelGateway", () => {
   it("walks Puter pool failures into the OpenRouter fallback", async () => {
     setEnv({ openrouter: "sk-or-test" });
     const puter = puterProvider(new Set<string>()); // rejects every model
-    const openrouter = completingProvider(new Set(["nex-agi/nex-n2.5-pro:free"]));
+    const openrouter = completingProvider(new Set(["nvidia/nemotron-3-ultra-550b-a55b:free"]));
     const labels: string[] = [];
     const gw = await runModelGateway({
       messages: [{ role: "user", content: "hi" }],
@@ -134,8 +134,8 @@ describe("runModelGateway", () => {
     assert.equal(gw.ok, true);
     if (!gw.ok) return;
     assert.equal(gw.result.provider, "openrouter");
-    assert.equal(gw.attempt.model, "nex-agi/nex-n2.5-pro:free");
-    assert.equal(labels.length, 3); // 2 puter attempts + 1 openrouter
+    assert.equal(gw.attempt.model, "nvidia/nemotron-3-ultra-550b-a55b:free");
+    assert.equal(labels.length, 4); // 3 Puter attempts + 1 OpenRouter fallback
     assert.match(labels[0], /^puter:user /);
     assert.match(labels[2], /^openrouter:server /);
   });
