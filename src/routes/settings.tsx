@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import {
-  Bot, Check, ChevronLeft, Globe, Github, RotateCcw, ShieldCheck,
-  SlidersHorizontal, Sparkles, Terminal, Wrench, Zap
+  Bot, Check, ChevronLeft, RotateCcw, ShieldCheck,
+  SlidersHorizontal, Sparkles, Wrench, Zap
 } from "lucide-react";
 import { useFleet, DEFAULT_AGENT_SETTINGS, type AgentSettings } from "@/lib/store";
 
@@ -24,7 +24,7 @@ function Toggle({ checked, onChange, label, description }: {
 }
 
 function Section({ icon: Icon, title, description, children }: {
-  icon: typeof Bot; title: string; description: string; children: React.ReactNode;
+  icon: typeof Bot; title: string; description: string; children: ReactNode;
 }) {
   return (
     <section className="rounded-2xl border border-border bg-bg/70 p-4 sm:p-5">
