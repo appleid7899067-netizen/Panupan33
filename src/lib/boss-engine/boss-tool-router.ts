@@ -1,6 +1,7 @@
 /**
  * Smart Tool Router
  * ตัดสินใจระดับ: "งานนี้ต้องใช้ GitHub + Sandbox แต่ไม่ต้องใช้ Web" โดยอัตโนมัติ
+ * Anti tool-shopping: default max 6 tools, search = 1
  */
 
 import {
@@ -41,7 +42,7 @@ export function inferCapabilityNeeds(prompt: string): CapabilityNeed {
   const text = prompt.toLowerCase();
   return {
     github: /github|repo|repository|pull request|pr\b|branch|commit|ci|workflow|actions/.test(text),
-    sandbox: /code|โค้ด|รัน|run|build|test|bug|error|debug|แก้|เขียน|สร้าง|sandbox|typecheck|lint|html|css|javascript|javascript|live preview|live html|เว็บเพจ/.test(text),
+    sandbox: /code|โค้ด|รัน|run|build|test|bug|error|debug|แก้|เขียน|สร้าง|sandbox|typecheck|lint|html|css|javascript|live preview|live html|เว็บเพจ/.test(text),
     web:
       /เว็บ|website|url|http|ตรวจ.*เว็บ|เช็ก.*ลิงก์|preview|health|502|503|deploy.*ตรวจ|web_check/.test(text) ||
       /https?:\/\//.test(text),
@@ -98,7 +99,7 @@ function matchesNeeds(tool: ToolRegistryEntry, needs: CapabilityNeed): boolean {
   return false;
 }
 
-export async function routeToolsForTask(prompt: string, maxTools = 12): Promise<RouterDecision> {
+export async function routeToolsForTask(prompt: string, maxTools = 6): Promise<RouterDecision> {
   const intent = inferTaskIntent(prompt);
   const needs = inferCapabilityNeeds(prompt);
   const urgency = getUrgencyProfile(prompt, intent);
@@ -116,7 +117,11 @@ export async function routeToolsForTask(prompt: string, maxTools = 12): Promise<
   }
 
   const registry = await getToolRegistry();
-  const limit = intent === "search" ? 1 : Math.max(1, Math.min(maxTools, urgency.maxTools));
+  // Search = 1 tool. Everything else hard-capped (anti tool-shopping).
+  const limit =
+    intent === "search"
+      ? 1
+      : Math.max(1, Math.min(maxTools, Math.min(6, urgency.maxTools || 6)));
 
   const excludedSources: string[] = [];
   if (!needs.web && !needs.search && !needs.deploy) excludedSources.push("optional-web");
@@ -126,7 +131,6 @@ export async function routeToolsForTask(prompt: string, maxTools = 12): Promise<
 
   const candidates = registry.filter((tool) => matchesNeeds(tool, needs));
 
-  // Seed concrete tools first, then let ranking fill the remaining slots.
   const seedNames: string[] = [];
   if (needs.github) seedNames.push("github_get_repo", "github_get_file", "github_list_dir");
   if (needs.search) seedNames.push("web_search");
@@ -134,19 +138,20 @@ export async function routeToolsForTask(prompt: string, maxTools = 12): Promise<
   if (needs.sandbox) seedNames.push("programming_lab", "sandbox_run");
   if (needs.deploy) seedNames.push("web_check");
   if (needs.ci) seedNames.push("github_actions", "github_get_workflow_runs");
-    if (needs.documents) seedNames.push("document_extract", "file_read", "web_fetch");
+  if (needs.documents) seedNames.push("document_extract", "file_read", "web_fetch");
   if (needs.mcp) seedNames.push("mcp_list_tools");
   if (needs.plugins) seedNames.push("plugin_list");
-  if (needs.builder) seedNames.push("builder_read", "builder_write", "builder_edit", "builder_update_preview", "builder_publish_site", "web_check");
-  if (needs.writing) seedNames.push("write_continue", "rewrite_text", "fix_grammar", "change_tone", "generate_reply", "translate_text", "summarize_text");
-  if (needs.maps) seedNames.push("web_search", "web_browse", "web_fetch", "web_check");
-  if (needs.terminal) seedNames.push("terminal_execute", "programming_lab", "sandbox_run");
+  if (needs.builder) seedNames.push("builder_read", "builder_write", "web_check");
+  if (needs.writing) seedNames.push("write_continue", "rewrite_text", "summarize_text");
+  if (needs.maps) seedNames.push("web_search", "web_browse");
+  if (needs.terminal) seedNames.push("terminal_execute", "sandbox_run");
 
   const priorityName = (name: string) => {
     const n = name.toLowerCase();
     if (n === "programming_lab") return 105;
     if (n === "sandbox_run") return 100;
     if (n === "web_check") return 90;
+    if (n === "web_search") return 88;
     if (n.includes("github") && n.includes("read")) return 80;
     if (n.includes("github") && (n.includes("write") || n.includes("update"))) return 75;
     if (n.includes("deploy")) return 70;
@@ -172,7 +177,6 @@ export async function routeToolsForTask(prompt: string, maxTools = 12): Promise<
     if (!selected.some((s) => s.name === tool.name)) selected.push(tool);
   }
 
-  // `intent === "chat"` already returned above, so no chat guard is needed here.
   if (!selected.length) {
     const fallback = registry.filter((t) => t.name === "sandbox_run" || t.name === "web_check").slice(0, 2);
     selected.push(...fallback);
