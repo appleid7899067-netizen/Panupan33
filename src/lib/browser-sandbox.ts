@@ -159,6 +159,36 @@ export async function runInBrowserSandbox(input: SandboxRunInput): Promise<Brows
   const iframeLang = /^(js|javascript|ts|typescript|html|htm|css)$/i.test(language);
 
   if (typeof window === "undefined") {
+    if (/^(py|python|python3)$/i.test(language)) {
+      try {
+        const { runPythonServer } = await import("@/lib/python-server");
+        const python = await runPythonServer(input.code, timeoutMs);
+        return {
+          ok: python.ok,
+          runtime: "server",
+          stdout: python.stdout,
+          stderr: python.stderr,
+          logs: python.ok
+            ? [{ level: "log" as const, text: python.stdout || "Python server execution passed." }]
+            : [{ level: "error" as const, text: python.stderr || python.error || "Python execution failed." }],
+          durationMs: python.durationMs,
+          exitCode: python.exitCode,
+          ...(python.ok ? {} : { error: python.error || python.stderr || "Python execution failed." }),
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          ok: false,
+          runtime: "server",
+          stdout: "",
+          stderr: message,
+          logs: [{ level: "error" as const, text: message }],
+          durationMs: Date.now() - started,
+          exitCode: 127,
+          error: "PYTHON_ROUTE_FAILED",
+        };
+      }
+    }
     return runServerVerification(language, input.code, started);
   }
 
