@@ -139,15 +139,30 @@ export async function executeGithubWithPat(toolName: string, args: Record<string
     case "github_write_file": {
       const path = encodePath(String(args.path ?? ""));
       const content = btoa(unescape(encodeURIComponent(String(args.content ?? ""))));
-      return g(`${base}/contents/${path}`, {
+      let sha = args.sha ? String(args.sha) : "";
+      // Resolve and verify inside this single tool call so the agent does not
+      // waste rounds on get_file -> write_file -> verify_file.
+      if (!sha) {
+        const current = await g(base + "/contents/" + path + (args.branch ? "?ref=" + encodeURIComponent(String(args.branch)) : "")) as { sha?: string };
+        sha = String(current.sha ?? "");
+      }
+      const written = await g(base + "/contents/" + path, {
         method: "PUT",
         body: JSON.stringify({
           message: String(args.message ?? "Bossnu update"),
           content,
-          ...(args.sha ? { sha: String(args.sha) } : {}),
+          ...(sha ? { sha } : {}),
           ...(args.branch ? { branch: String(args.branch) } : {}),
         }),
-      });
+      }) as { content?: { path?: string; sha?: string }; commit?: { sha?: string; html_url?: string } };
+      const verified = await g(base + "/contents/" + path + (args.branch ? "?ref=" + encodeURIComponent(String(args.branch)) : "")) as { sha?: string; content?: { sha?: string } };
+      return {
+        ...written,
+        verified: Boolean(
+          (written.content?.sha && verified.sha && written.content.sha === verified.sha) ||
+          (written.content?.sha && verified.content?.sha && written.content.sha === verified.content.sha),
+        ),
+      };
     }
     case "github_delete_file": {
       const path = encodePath(String(args.path ?? ""));
