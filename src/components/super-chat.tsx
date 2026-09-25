@@ -15,6 +15,7 @@ import { compileChatContext } from "@/lib/context-compiler";
 import { DEFAULT_PUTER_MODEL } from "@/lib/catalog";
 import { BossLiveActivity } from "@/components/boss-live-activity";
 import { McpUiBlock, type McpUiPayload } from "@/components/mcp-ui-block";
+import { createArenaSession, createArenaChoiceContext, type ArenaSession } from "@/lib/boss-engine/boss-arena";
 
 /**
  * MCP tools can return a structured UI payload; the agent loop forwards it as a step
@@ -157,6 +158,9 @@ export function SuperChat() {
   const [modelsLoading, setModelsLoading] = useState(true);
   const [liveStream, setLiveStream] = useState<{ id: string; steps: string[]; active: boolean }>({ id: "", steps: [], active: false });
   const [attachmentContext, setAttachmentContext] = useState("");
+  const [arenaOpen, setArenaOpen] = useState(false);
+  const [arenaSession, setArenaSession] = useState<ArenaSession | null>(null);
+  const [arenaChoice, setArenaChoice] = useState<"A" | "B" | null>(null);
   const selectedModel = storedModel || DEFAULT_PUTER_MODEL;
   const agentSettings = useFleet((s) => s.agentSettings);
   const openPreviewRoom = () => {
@@ -629,6 +633,14 @@ export function SuperChat() {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
+          <button type="button" onClick={() => {
+            const goal = input.trim() || [...(thread?.messages ?? [])].reverse().find((m) => m.role === "user")?.content || "งานล่าสุดของ Boss";
+            setArenaSession(createArenaSession(goal));
+            setArenaChoice(null);
+            setArenaOpen(true);
+          }} className={"flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-left " + (arenaOpen ? "border-amber-400/30 bg-amber-500/10 text-amber-200" : "border-zinc-700 bg-zinc-900/90 text-zinc-400 hover:bg-zinc-800")} aria-label="เปิด Boss Arena">
+            <span className="text-sm">⚔️</span><span className="hidden sm:inline text-[11px]">Arena</span>
+          </button>
           <button type="button" onClick={openPreviewRoom} className="flex items-center gap-1.5 rounded-xl border border-violet-400/20 bg-violet-500/10 px-2.5 py-2 text-left text-violet-200 hover:bg-violet-500/15" aria-label="เปิดห้อง Preview">
             <Eye className="size-3.5 shrink-0" />
             <span className="hidden sm:inline text-[11px]">Preview</span>
@@ -681,6 +693,34 @@ export function SuperChat() {
           </div>
         )}
       </div>
+
+      {arenaOpen && arenaSession && (
+        <div className="absolute inset-0 z-50 bg-black/45" onClick={() => setArenaOpen(false)}>
+          <section className="absolute right-0 top-0 w-[min(94vw,520px)] rounded-bl-3xl border-b border-l border-zinc-800 bg-zinc-950/98 p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3">
+              <div><div className="text-sm font-semibold text-zinc-100">⚔️ Boss Arena</div><div className="mt-1 text-[11px] text-zinc-500">เลือกทิศทางที่ต้องการ แล้ว Boss จะใช้เป็น preference ในรอบถัดไป ไม่ถือว่าการเลือกแทนการ Verify</div></div>
+              <button type="button" onClick={() => setArenaOpen(false)} className="size-8 rounded-lg text-zinc-500 hover:bg-zinc-800" aria-label="ปิด Arena"><X className="size-4 mx-auto" /></button>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {arenaSession.options.map((option) => (
+                <button key={option.id} type="button" onClick={() => setArenaChoice(option.id)} className={"rounded-2xl border p-3 text-left transition " + (arenaChoice === option.id ? "border-violet-400/50 bg-violet-500/10" : "border-zinc-800 bg-zinc-900/60 hover:bg-zinc-900")}>
+                  <div className="flex items-center justify-between"><span className="text-xs font-semibold text-zinc-100">แบบ {option.id}</span>{arenaChoice === option.id ? <Check className="size-3.5 text-violet-300" /> : null}</div>
+                  <div className="mt-2 text-[11px] font-medium text-zinc-300">{option.title}</div>
+                  <div className="mt-1 text-[10px] leading-4 text-zinc-500">{option.instruction}</div>
+                </button>
+              ))}
+            </div>
+            <button type="button" disabled={!arenaChoice} onClick={() => {
+              if (!arenaChoice) return;
+              const context = createArenaChoiceContext({ sessionId: arenaSession.id, optionId: arenaChoice, createdAt: Date.now() }, arenaSession);
+              setArenaOpen(false);
+              setArenaChoice(null);
+              setInput("");
+              void handleSend(context);
+            }} className="mt-3 w-full rounded-xl bg-white px-3 py-2.5 text-xs font-semibold text-black disabled:opacity-30">ใช้แนวทางที่เลือกกับ Boss</button>
+          </section>
+        </div>
+      )}
 
       {historyOpen && (
         <div className="absolute inset-0 z-40 bg-black/55" onClick={() => setHistoryOpen(false)}>
