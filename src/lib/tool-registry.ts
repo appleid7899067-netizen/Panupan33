@@ -115,7 +115,7 @@ export async function selectToolsForTask(prompt: string, maxTools = 24): Promise
   if (intent === "chat") return [];
 
   const intentCap =
-    intent === "search" ? 8 :
+    intent === "search" ? 1 :
     intent === "verify" ? 10 :
     intent === "code" ? 16 :
     intent === "github" ? 24 :
@@ -124,7 +124,7 @@ export async function selectToolsForTask(prompt: string, maxTools = 24): Promise
     16;
 
   const urgency = getUrgencyProfile(prompt, intent);
-  const limit = Math.max(6, Math.min(maxTools, intentCap, Math.max(urgency.maxTools, 8)));
+  const limit = intent === "search" ? 1 : Math.max(6, Math.min(maxTools, intentCap, Math.max(urgency.maxTools, 8)));
   const ranked = registry
     .map((tool, index) => ({ tool, score: score(tool, prompt), index }))
     .sort((a, b) => b.score - a.score || a.index - b.index);
@@ -164,7 +164,7 @@ export async function selectToolsForTask(prompt: string, maxTools = 24): Promise
   }
 
   if (!selected.length) {
-    for (const name of ["web_search", "sandbox_run", "web_browse"]) {
+    for (const name of intent === "search" ? ["web_search"] : ["web_search", "sandbox_run", "web_browse"]) {
       const hit = registry.find((t) => t.name === name);
       if (hit) selected.push(hit);
     }
