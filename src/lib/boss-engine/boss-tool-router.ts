@@ -117,7 +117,10 @@ export async function routeToolsForTask(prompt: string, maxTools = 12): Promise<
   }
 
   const registry = await getToolRegistry();
-  // GitHub work is a dedicated execution path. Do not starve the model of authenticated GitHub tools: when the user asks for GitHub, expose the full installed GitHub surface so read/write/branch/PR/Actions/search operations cannot disappear merely because the generic router budget is small.\n  const limit = intent === "github"\n    ? Math.min(AUTH_GITHUB_FULL.length, Math.max(maxTools, AUTH_GITHUB_FULL.length))\n    : intent === "search" ? 1 : Math.max(1, Math.min(maxTools, urgency.maxTools));
+  // GitHub work is a dedicated execution path. Do not starve the model of authenticated GitHub tools: when the user asks for GitHub, expose the full installed GitHub surface so read/write/branch/PR/Actions/search operations cannot disappear merely because the generic router budget is small.
+  const limit = intent === "github"
+    ? Math.min(AUTH_GITHUB_FULL.length, Math.max(maxTools, AUTH_GITHUB_FULL.length))
+    : intent === "search" ? 1 : Math.max(1, Math.min(maxTools, urgency.maxTools));
 
   const excludedSources: string[] = [];
   if (!needs.web && !needs.search && !needs.deploy) excludedSources.push("optional-web");
