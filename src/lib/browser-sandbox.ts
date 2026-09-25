@@ -113,7 +113,7 @@ function runServerVerification(
       if (ch === "}") balance--;
       if (balance < 0) break;
     }
-    const ok = balance === 0 && !quote && !/\\b(?:TODO|FIXME)\\b/.test(code);
+    const ok = balance === 0 && !quote && !/\b(?:TODO|FIXME)\b/.test(code);
     const message = ok ? "Server-side code verification passed; browser runtime not required." : "Server-side code verification found an incomplete block or unresolved marker.";
     logs.push({ level: ok ? "log" : "error", text: message });
     return {
@@ -129,7 +129,7 @@ function runServerVerification(
   }
 
   if (/^(html|htm)$/.test(lang)) {
-    const ok = /<html[\\s>]/i.test(code) && /<body[\\s>]/i.test(code) && /<\\/body>/i.test(code);
+    const ok = /<html[\s>]/i.test(code) && /<body[\s>]/i.test(code) && /<\/body>/i.test(code);
     const message = ok ? "HTML structure verified." : "HTML structure verification failed.";
     logs.push({ level: ok ? "log" : "error", text: message });
     return { ok, runtime: "server", stdout: ok ? message : "", stderr: ok ? "" : message, logs, durationMs: Date.now() - started, exitCode: ok ? 0 : 1, ...(ok ? {} : { error: message }) };
