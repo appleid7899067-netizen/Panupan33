@@ -20,6 +20,7 @@ import { loadBossBlob, saveBossBlob } from "@/lib/boss-engine/puter-kv.server";
 import { parseRepoRef, runGitHubLoopDriver, wantsGitHubMutation } from "@/lib/boss-engine/github-loop-driver";
 import { createHttpGitHubDriver, createPuterModelDriver } from "@/lib/boss-engine/github-loop-driver.server";
 import { webLearningPrompt } from "@/lib/boss-engine/web-development-learning";
+import { coworkerPromptBlock } from "@/lib/boss-engine/coworker-path";
 
 const loopSchema = z.object({
   prompt: z.string().min(1).max(60_000),
@@ -69,8 +70,11 @@ async function prepareBossRun(data: LoopData) {
   const learningContext = /\b(html|css|javascript|typescript|react|dom|web development|เว็บ|เว็บไซต์|หน้าเว็บ|frontend|ฟรอนต์เอนด์|เว็บแอป)\b/i.test(data.prompt)
     ? "\n\n=== WEB DEVELOPMENT LEARNING CAPABILITY ===\n" + webLearningPrompt()
     : "";
+  const coworkerBlock = coworkerPromptBlock(data.prompt);
   const taskPrompt =
     bossPromptPrefix(boss) +
+    "\n\n" +
+    coworkerBlock +
     "\n\n" +
     persistInstructions(data.threadId) +
     (resumeParts.length ? "\n\n" + resumeParts.join("\n\n") : "") +
