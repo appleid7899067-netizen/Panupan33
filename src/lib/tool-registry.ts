@@ -78,6 +78,7 @@ function score(tool: ToolRegistryEntry, prompt: string): number {
   if (capability === "code" && /code|โค้ด|แก้ไฟล์|ไฟล์/.test(text)) value += 5;
   if (capability === "search" && /ค้นหา|search|หาข้อมูล|เว็บ/.test(text)) value += 9;
   if (tool.name === "sandbox_run" && /code|โค้ด|รัน|run|error|bug|debug|แก้|test|verify/.test(text)) value += 10;
+  if (tool.name === "programming_lab" && /code|โค้ด|เขียน|สร้าง|รัน|run|error|bug|debug|แก้|test|verify|เรียน|ฝึก/.test(text)) value += 13;
   if (tool.name === "web_search" && /ค้น|search|หา|ข่าว|ข้อมูล|internet|เว็บ|ใคร|อะไร|เมื่อไหร่|where|what|who|when|latest|ราคา/.test(text)) value += 14;
   if (tool.name === "web_browse" && /https?:\/\/|เปิดหน้า|อ่านหน้า|browse/.test(text)) value += 12;
   if (String(tool.name ?? "").startsWith("builder_") && /สร้าง|เว็บ|แอป|landing|website|app|builder/.test(text)) value += 11;
@@ -137,7 +138,7 @@ export async function selectToolsForTask(prompt: string, maxTools = 24): Promise
   const selected: ToolRegistryEntry[] = [];
 
   const seedNames: string[] = [];
-  if (intent === "code" || intent === "verify") seedNames.push("sandbox_run", "sandbox_languages");
+  if (intent === "code" || intent === "verify") seedNames.push("programming_lab", "sandbox_run", "sandbox_languages");
   if (intent === "search" || intent === "general") seedNames.push("web_search", "web_browse", "web_check");
   if (intent === "github") seedNames.push("github_get_repo", "github_get_file", "github_list_dir");
   for (const name of seedNames) {
