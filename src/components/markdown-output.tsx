@@ -94,33 +94,26 @@ function Inline({ text }: { text: string }) {
 }
 
 function CodeBlock({ lang, content }: { lang: string; content: string }) {
-  const [copied, setCopied] = useState(false);\n  const [wrap, setWrap] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [wrap, setWrap] = useState(true);
   const isMermaid = lang.toLowerCase() === "mermaid";
   return (
     <div className="group relative my-3 overflow-hidden rounded-lg bg-bg shadow-[var(--shadow-border)]">
       <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
-        <span className="font-mono text-[11px] uppercase tracking-wider text-subtle">
-          {lang || "code"}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Copy code"
-          onClick={async () => {
+        <span className="font-mono text-[11px] uppercase tracking-wider text-subtle">{lang || "code"}</span>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => setWrap((v) => !v)} aria-label={wrap ? "Scroll code" : "Wrap code"}>{wrap ? "Scroll" : "Wrap"}</Button>
+          <Button variant="ghost" size="icon-sm" aria-label="Copy code" onClick={async () => {
             await navigator.clipboard.writeText(content);
             setCopied(true);
             setTimeout(() => setCopied(false), 1200);
-          }}
-        >
-          {copied ? <Check className="size-3.5 text-ok" /> : <Copy className="size-3.5" />}
-        </Button>
+          }}>
+            {copied ? <Check className="size-3.5 text-ok" /> : <Copy className="size-3.5" />}
+          </Button>
+        </div>
       </div>
-      {isMermaid ? (
-        <MermaidBlock source={content} />
-      ) : (
-        <pre className={(wrap ? "whitespace-pre-wrap break-all" : "overflow-x-auto whitespace-pre") + " p-3 font-mono text-[13px] leading-relaxed text-fg"}>
-          <code>{content}</code>
-        </pre>
+      {isMermaid ? <MermaidBlock source={content} /> : (
+        <pre className={(wrap ? "whitespace-pre-wrap break-all" : "overflow-x-auto whitespace-pre") + " p-3 font-mono text-[13px] leading-relaxed text-fg"}><code>{content}</code></pre>
       )}
     </div>
   );
