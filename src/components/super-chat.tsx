@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { unzipSync, strFromU8 } from "fflate";
-import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X, Copy, Check, Download, Square, Github, KeyRound, Eye } from "lucide-react";
+import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X, Copy, Check, Download, Square, Github, KeyRound, Eye, Heart, ThumbsUp, Palette } from "lucide-react";
 import { useFleet } from "@/lib/store";
 import { runAgent, runAgentSandbox, runAgentStream } from "@/lib/agent.functions";
 import { chatWithPuter, listPuterModels, loadPuter, type PuterModel } from "@/lib/puter";
@@ -161,7 +161,10 @@ export function SuperChat() {
   const [arenaOpen, setArenaOpen] = useState(false);
   const [arenaSession, setArenaSession] = useState<ArenaSession | null>(null);
   const [arenaChoice, setArenaChoice] = useState<"A" | "B" | null>(null);
+  const [messageReactions, setMessageReactions] = useState<Record<string, string>>({});
+  const [chatTheme, setChatTheme] = useState<"default" | "violet" | "pink" | "cyan" | "warm">("default");
   const selectedModel = storedModel || DEFAULT_PUTER_MODEL;
+  const themeClass = { default: "", violet: "boss-chat-theme-violet", pink: "boss-chat-theme-pink", cyan: "boss-chat-theme-cyan", warm: "boss-chat-theme-warm" }[chatTheme];
   const agentSettings = useFleet((s) => s.agentSettings);
   const openPreviewRoom = () => {
     if (!thread) return;
@@ -305,6 +308,10 @@ export function SuperChat() {
     } catch {
       setCopiedMessage(null);
     }
+  };
+
+  const toggleMessageReaction = (messageId: string, reaction: string) => {
+    setMessageReactions((current) => ({ ...current, [messageId]: current[messageId] === reaction ? "" : reaction }));
   };
 
   const downloadMessage = (messageId: string, content: string) => {
@@ -784,12 +791,14 @@ export function SuperChat() {
                     <button type="button" onClick={() => void handleSend("ลองวิธีอื่นต่อจากงานล่าสุด โดยไม่ทำซ้ำวิธีเดิม")} className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-950/70 px-3 py-2 text-[11px] font-medium text-zinc-300 hover:bg-zinc-800 transition">↻ ลองวิธีอื่น</button>
                   </div>
                 )}
-                {m.role === "assistant" && m.content && (
-                  <div className="mt-2 flex items-center gap-1.5 opacity-100">
-                    <button type="button" onClick={() => copyMessage(m.id, m.content)} className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2 py-1.5 text-[11px] text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100" aria-label="คัดลอกคำตอบ" title="คัดลอกคำตอบ">
+                {m.content && !liveStream.active && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 opacity-100">
+                    <button type="button" onClick={() => toggleMessageReaction(m.id, "👍")} className={`inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] transition ${messageReactions[m.id] === "👍" ? "bg-primary/15 text-primary" : "text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"}`} aria-label="ถูกใจข้อความ"><ThumbsUp className="size-3.5" />{messageReactions[m.id] === "👍" ? "👍" : ""}</button>
+                    <button type="button" onClick={() => toggleMessageReaction(m.id, "❤️")} className={`inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] transition ${messageReactions[m.id] === "❤️" ? "bg-rose-500/15 text-rose-300" : "text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"}`} aria-label="รักข้อความ"><Heart className="size-3.5" />{messageReactions[m.id] === "❤️" ? "❤️" : ""}</button>
+                    <button type="button" onClick={() => copyMessage(m.id, m.content)} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200" aria-label="คัดลอกคำตอบ" title="คัดลอกคำตอบ">
                       {copiedMessage === m.id ? <><Check className="size-3.5 text-emerald-400" /><span className="text-emerald-300">คัดลอกแล้ว</span></> : <><Copy className="size-3.5" /><span>คัดลอก</span></>}
                     </button>
-                    <button type="button" onClick={() => downloadMessage(m.id, m.content)} className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2 py-1.5 text-[11px] text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100" aria-label="ดาวน์โหลดคำตอบ" title="ดาวน์โหลดคำตอบ"><Download className="size-3.5" /><span>ดาวน์โหลด</span></button>
+                    {m.role === "assistant" && <button type="button" onClick={() => downloadMessage(m.id, m.content)} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200" aria-label="ดาวน์โหลดคำตอบ" title="ดาวน์โหลดคำตอบ"><Download className="size-3.5" /><span>ดาวน์โหลด</span></button>}
                   </div>
                 )}
               </div>
@@ -814,6 +823,14 @@ export function SuperChat() {
       </main>
 
       <div className="relative z-30 shrink-0 border-t border-white/[0.06] bg-zinc-950/90 p-3 backdrop-blur-2xl sm:p-4">
+        <div className="mx-auto mb-2 flex max-w-[1400px] justify-end">
+          <div className="flex items-center gap-1 rounded-full bg-white/[0.035] px-1 py-1">
+            <Palette className="mx-1 size-3.5 text-zinc-500" />
+            {([["default","•"],["violet","V"],["pink","P"],["cyan","C"],["warm","W"]] as const).map(([theme, label]) => (
+              <button key={theme} type="button" onClick={() => setChatTheme(theme)} className={`size-6 rounded-full text-[9px] font-semibold transition ${chatTheme === theme ? "bg-white text-black" : "text-zinc-500 hover:bg-zinc-800"}`} aria-label={`ธีม ${theme}`}>{label}</button>
+            ))}
+          </div>
+        </div>
         <div className="relative flex items-end gap-2 rounded-[22px] bg-white/[0.045] border border-white/[0.08] p-2 shadow-[0_12px_50px_rgba(0,0,0,0.2)] focus-within:border-violet-400/20">
           <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => { handleAttachment(e.target.files?.[0]); e.currentTarget.value = ""; }} />
           <button type="button" onClick={() => fileInputRef.current?.click()} className="size-8 grid place-items-center rounded-full hover:bg-zinc-800 text-zinc-500" aria-label="แนบไฟล์">
