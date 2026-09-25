@@ -52,6 +52,7 @@ function sourceOf(tool: CodingFleetTool): ToolSource {
 
 function capabilityOf(tool: CodingFleetTool): string {
   const text = `${tool.name ?? ""} ${tool.description ?? ""}`.toLowerCase();
+  if (tool.name === "programming_lab") return "code";
   if (/deploy|hosting|railway|vercel|netlify/.test(text)) return "deploy";
   if (/github|git|repo|commit|pull request|branch/.test(text)) return "code-repository";
   if (/test|verify|check|lint|build|ci|workflow|sandbox_run|sandbox|web_check|health|http|502|500|503|timeout/.test(text)) return "verify";
