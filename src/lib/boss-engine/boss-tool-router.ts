@@ -116,7 +116,7 @@ export async function routeToolsForTask(prompt: string, maxTools = 12): Promise<
   }
 
   const registry = await getToolRegistry();
-  const limit = Math.max(1, Math.min(maxTools, urgency.maxTools));
+  const limit = intent === "search" ? 1 : Math.max(1, Math.min(maxTools, urgency.maxTools));
 
   const excludedSources: string[] = [];
   if (!needs.web && !needs.search && !needs.deploy) excludedSources.push("optional-web");
