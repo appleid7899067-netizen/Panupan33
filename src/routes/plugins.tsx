@@ -123,13 +123,13 @@ function PluginsPage() {
         </section>
 
         <section className="mt-4 rounded-xl bg-surface p-5 shadow-[var(--shadow-border)]">
-          <h2 className="text-base font-medium">GitHub token</h2>
+          <h2 className="text-base font-medium">Master Token</h2>
           <p className="mt-1 text-sm leading-6 text-muted">
             สำหรับเขียนไฟล์, PR, Issue, และรอ CI เมื่อยังไม่ได้ติดตั้ง GitHub App. Token อยู่ใน session ของเบราว์เซอร์นี้เท่านั้น
           </p>
           {githubOn ? (
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <p className="text-sm text-ok">GitHub token connected</p>
+              <p className="text-sm text-ok">Master Token connected</p>
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -150,10 +150,10 @@ function PluginsPage() {
                 setGithubPat(githubToken);
                 setGithubToken("");
                 setGithubOn(true);
-                toast.success("GitHub token saved in this session");
+                toast.success("Master Token saved in this session");
               }}
             >
-              <Label htmlFor="gh-key">Personal access token</Label>
+              <Label htmlFor="gh-key">Master Token</Label>
               <Input
                 id="gh-key"
                 type="password"
