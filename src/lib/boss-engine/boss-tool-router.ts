@@ -129,13 +129,12 @@ export async function routeToolsForTask(prompt: string, maxTools = 12): Promise<
   // Seed concrete tools first, then let ranking fill the remaining slots.
   const seedNames: string[] = [];
   if (needs.github) seedNames.push("github_get_repo", "github_get_file", "github_list_dir");
-  if (needs.search) seedNames.push("web_search", "web_browse");
+  if (needs.search) seedNames.push("web_search");
   if (needs.web) seedNames.push("web_check", "web_browse");
   if (needs.sandbox) seedNames.push("programming_lab", "sandbox_run");
   if (needs.deploy) seedNames.push("web_check");
   if (needs.ci) seedNames.push("github_actions", "github_get_workflow_runs");
-  if (needs.terminal) parts.push("Terminal");
-  if (needs.documents) seedNames.push("document_extract", "file_read", "web_fetch");
+    if (needs.documents) seedNames.push("document_extract", "file_read", "web_fetch");
   if (needs.mcp) seedNames.push("mcp_list_tools");
   if (needs.plugins) seedNames.push("plugin_list");
   if (needs.builder) seedNames.push("builder_read", "builder_write", "builder_edit", "builder_update_preview", "builder_publish_site", "web_check");
