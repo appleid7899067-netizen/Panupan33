@@ -57,14 +57,14 @@ function redactCredentialText(value: string): string {
 
 function displayAgentText(value: unknown): string {
   if (typeof value === "string") {
-    return value
+    return maskUrlForDisplay(value
       .replaceAll("<tool_call>", "")
       .replaceAll("</tool_call>", "")
       .replaceAll("<arg_key>", "")
       .replaceAll("</arg_key>", "")
       .replaceAll("<arg_value>", "")
       .replaceAll("</arg_value>", "")
-      .trim();
+      .trim());
   }
   if (value == null) return "";
   if (typeof value === "number" || typeof value === "boolean") return String(value);
