@@ -103,7 +103,7 @@ function nativeSandboxTools(): CodingFleetTool[] {
     {
       name: "programming_lab",
       description:
-        "Hidden programming workspace for Boss. Use automatically when the goal requires writing, running, testing, debugging, or learning code. It provides a real sandbox runtime, stdin, timeout control, stdout/stderr and exit evidence. Do not ask the user to open a coding app; execute the code here and inspect the result.",
+        "Hidden programming workspace for Boss. Use automatically when the goal requires writing, running, testing, debugging, previewing, or learning code. It provides the real Panupan33 sandbox runtime and returns execution evidence. This is an internal agent tool, not a user-facing button.",
       sandboxSource: true,
       inputSchema: {
         type: "object",
