@@ -16,7 +16,7 @@ import { DEFAULT_PUTER_MODEL } from "@/lib/catalog";
 import { BossLiveActivity } from "@/components/boss-live-activity";
 import { McpUiBlock, type McpUiPayload } from "@/components/mcp-ui-block";
 import { createArenaSession, createArenaChoiceContext, type ArenaSession } from "@/lib/boss-engine/boss-arena";
-import { getGithubPat, setGithubPat } from "@/lib/github-pat";
+import { getGithubPat, setGithubPat, executeGithubWithPat } from "@/lib/github-pat";
 
 /**
  * MCP tools can return a structured UI payload; the agent loop forwards it as a step
@@ -188,16 +188,39 @@ export function SuperChat() {
 
   useEffect(() => {
     const saved = getGithubPat();
-    if (saved) setGithubToken(saved);
+    if (saved) setGithubTokenStatus("checking");
+    if (saved) void executeGithubWithPat("github_me", {}, saved).then((user) => {
+      if ((user as { login?: string })?.login) { setGithubToken(saved); setGithubTokenStatus("valid"); }
+      else throw new Error("Token ไม่ผ่าน");
+    }).catch(() => { setGithubPat(null); setGithubToken(""); setGithubTokenStatus("invalid"); });
   }, []);
+
+  const [githubTokenStatus, setGithubTokenStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
+  const [githubTokenError, setGithubTokenError] = useState("");
 
   const saveGithubToken = () => {
     const value = githubTokenInput.trim();
-    if (value.length < 20) return;
-    setGithubPat(value);
-    setGithubToken(value);
-    setGithubTokenInput("");
-    setGithubTokenOpen(false);
+    if (value.length < 20) {
+      setGithubTokenStatus("invalid");
+      setGithubTokenError("Token ไม่ถูกต้อง");
+      return;
+    }
+    setGithubTokenStatus("checking");
+    setGithubTokenError("");
+    void executeGithubWithPat("github_me", {}, value).then((user) => {
+      const login = (user as { login?: string })?.login;
+      if (!login) throw new Error("GitHub ไม่ยืนยัน Token");
+      setGithubPat(value);
+      setGithubToken(value);
+      setGithubTokenInput("");
+      setGithubTokenStatus("valid");
+      setGithubTokenOpen(false);
+    }).catch((error) => {
+      setGithubPat(null);
+      setGithubToken("");
+      setGithubTokenStatus("invalid");
+      setGithubTokenError(error instanceof Error ? error.message.slice(0, 160) : "Token ใช้ไม่ได้");
+    });
   };
 
   const clearGithubToken = () => {
@@ -638,10 +661,10 @@ export function SuperChat() {
           </div>
         </div>
         <div className="flex min-w-0 shrink-0 items-center gap-1 sm:gap-1.5">
-          <button type="button" onClick={() => setGithubTokenOpen((open) => !open)} className={"flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-left hover:bg-zinc-800 " + (githubToken ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : "border-zinc-700 bg-zinc-900/90 text-zinc-400")} aria-label="Master Token">
+          <button type="button" onClick={() => setGithubTokenOpen((open) => !open)} className={"flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-left hover:bg-zinc-800 " + (githubTokenStatus === "valid" ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : githubTokenStatus === "invalid" ? "border-red-700/60 bg-red-950/30 text-red-300" : "border-zinc-700 bg-zinc-900/90 text-zinc-400")} aria-label="Master Token">
             <Github className="size-3.5 shrink-0" />
-            <span className="hidden sm:inline text-[11px]">{githubToken ? "GitHub พร้อม" : "GitHub"}</span>
-            <span className={"size-1.5 rounded-full " + (githubToken ? "bg-emerald-400" : "bg-zinc-600")} />
+            <span className="hidden sm:inline text-[11px]">{githubTokenStatus === "valid" ? "GitHub พร้อม" : githubTokenStatus === "checking" ? "กำลังตรวจ..." : githubTokenStatus === "invalid" ? "Token ไม่ผ่าน" : "GitHub"}</span>
+            <span className={"size-1.5 rounded-full " + (githubTokenStatus === "valid" ? "bg-emerald-400" : githubTokenStatus === "invalid" ? "bg-red-400" : githubTokenStatus === "checking" ? "bg-amber-400" : "bg-zinc-600")} />
           </button>
           <button type="button" onClick={() => setModelMenuOpen((open) => !open)} className="flex min-w-0 w-[min(42vw,190px)] sm:w-[min(48%,260px)] items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-900/90 px-2.5 py-2 text-left hover:bg-zinc-800 sm:gap-2 sm:px-3" aria-label="เลือกโมเดล">
             <Sparkles className="size-3.5 text-zinc-300 shrink-0" />
@@ -658,9 +681,9 @@ export function SuperChat() {
                 <div className="text-[10px] text-zinc-500">สิทธิ์จริงมาจาก Token นี้ และ Boss จะส่งต่อให้เครื่องมือที่ต้องใช้สิทธิ์ GitHub</div>
               </div>
             </div>
-            {githubToken ? (
+            {githubTokenStatus === "valid" && githubToken ? (
               <div className="mt-3 flex items-center justify-between rounded-xl bg-emerald-950/30 px-3 py-2">
-                <span className="text-[11px] text-emerald-300">✓ Master Token พร้อม · GitHub tools ใช้สิทธิ์ตาม Token</span>
+                <span className="text-[11px] text-emerald-300">✓ Token ผ่านการตรวจสอบ · ใช้สิทธิ์จริงจาก Token</span>
                 <button type="button" onClick={clearGithubToken} className="rounded-lg px-2 py-1 text-[10px] text-zinc-400 hover:bg-zinc-800 hover:text-red-300">ล้าง Token</button>
               </div>
             ) : (
