@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 type BossLiveActivityProps = {
   steps: string[];
@@ -28,10 +28,8 @@ function phaseFor(step: string): WorkflowPhase {
 }
 
 function cleanStep(step: string): string {
-  return step
-    .replace(/^\s*[🎯🗺️🔎🛠️🔧🔬✅✓✦›⚠️🚨🧩🔄⛔]+\s*/u, "")
-    .replace(/^(Goal & Context|Plan & Route|Research|Execute & Trace|Repair Engine|Verify & Publish)\s*:\s*/i, "")
-    .trim();
+  return step.replace(/^\s*[🎯🗺️🔎🛠️🔧🔬✅✓✦›⚠️🚨🧩🔄⛔]+\s*/u, "")
+    .replace(/^(Goal & Context|Plan & Route|Research|Execute & Trace|Repair Engine|Verify & Publish)\s*:\s*/i, "").trim();
 }
 
 function iconFor(step: string) {
@@ -45,7 +43,8 @@ function iconFor(step: string) {
 }
 
 export function BossLiveActivity({ steps, active = false, verified = false, compact = false }: BossLiveActivityProps) {
-  const visible = useMemo(() => steps.filter(Boolean).slice(-12), [steps]);
+  const visible = useMemo(() => steps.filter(Boolean).slice(-18), [steps]);
+  const [open, setOpen] = useState<Record<string, boolean>>({});
   const phases = useMemo(() => {
     const map = new Map<WorkflowPhase["key"], string[]>();
     for (const step of visible) {
@@ -58,12 +57,7 @@ export function BossLiveActivity({ steps, active = false, verified = false, comp
   }, [visible]);
 
   if (!visible.length && !active && !verified) return null;
-
-  const currentPhase = active
-    ? phaseFor(visible[visible.length - 1] ?? "Execute & Trace")
-    : verified
-      ? WORKFLOW[5]
-      : phaseFor(visible[visible.length - 1] ?? "Execute & Trace");
+  const currentPhase = active ? phaseFor(visible[visible.length - 1] ?? "Execute & Trace") : verified ? WORKFLOW[5] : phaseFor(visible[visible.length - 1] ?? "Execute & Trace");
 
   return (
     <div className={compact ? "mt-2" : "mt-3"} aria-live="polite">
@@ -71,55 +65,42 @@ export function BossLiveActivity({ steps, active = false, verified = false, comp
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2 text-[11px] text-zinc-400">
             <span className="shrink-0" aria-hidden="true">{currentPhase.icon}</span>
-            <span className="truncate font-medium text-zinc-200">
-              {active ? currentPhase.label : verified ? "Verify & Publish · ตรวจสอบแล้ว" : "Workflow Trace"}
-            </span>
+            <span className="truncate font-medium text-zinc-200">{active ? currentPhase.label : verified ? "Verify & Publish · ตรวจสอบแล้ว" : "Workflow Trace"}</span>
           </div>
-          <span className="shrink-0 text-[10px] text-zinc-600">
-            {active ? "กำลังทำงาน" : verified ? "เสร็จสิ้น" : "บันทึกการทำงาน"}
-          </span>
+          <span className="shrink-0 text-[10px] text-zinc-600">{active ? "กำลังทำงาน" : verified ? "เสร็จสิ้น" : "บันทึกการทำงาน"}</span>
         </div>
 
         <div className="mt-2 flex flex-wrap gap-1.5">
           {WORKFLOW.map((phase) => {
             const done = phases.some((entry) => entry.phase.key === phase.key);
             const current = active && currentPhase.key === phase.key;
-            const finalDone = verified && phase.key === "verify";
-            return (
-              <span
-                key={phase.key}
-                className={[
-                  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] transition",
-                  current ? "border-primary/30 bg-primary/10 text-zinc-100" :
-                  (done || finalDone) ? "border-zinc-700 bg-zinc-900/70 text-zinc-400" :
-                  "border-zinc-900 bg-zinc-950/40 text-zinc-700",
-                ].join(" ")}
-              >
-                <span aria-hidden="true">{phase.icon}</span>
-                {phase.label}
-              </span>
-            );
+            return <span key={phase.key} className={"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] " + (current ? "border-primary/30 bg-primary/10 text-zinc-100" : done || (verified && phase.key === "verify") ? "border-zinc-700 bg-zinc-900/70 text-zinc-400" : "border-zinc-900 bg-zinc-950/40 text-zinc-700")}>{phase.icon} {phase.label}</span>;
           })}
         </div>
 
         <div className="mt-2 space-y-1.5">
-          {phases.map(({ phase, steps: phaseSteps }) => (
-            <div key={phase.key} className="space-y-1">
-              {phaseSteps.slice(-3).map((step, index) => (
-                <div
-                  key={`${phase.key}-${step}-${index}`}
-                  className="boss-activity-row flex items-start gap-2 text-[11px] leading-5 text-zinc-400"
-                >
-                  <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border border-zinc-800 bg-zinc-900 text-[9px] text-zinc-500">
-                    {iconFor(step)}
-                  </span>
-                  <span className={active && phase.key === currentPhase.key && index === phaseSteps.slice(-3).length - 1 ? "text-zinc-200" : ""}>
-                    {cleanStep(step)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ))}
+          {phases.map(({ phase, steps: phaseSteps }) => {
+            const autoOpen = active && phase.key === currentPhase.key;
+            const isOpen = open[phase.key] ?? (autoOpen || phaseSteps.length <= 3);
+            return (
+              <div key={phase.key} className="overflow-hidden rounded-lg border border-zinc-900/80 bg-zinc-950/30">
+                <button type="button" onClick={() => setOpen((v) => ({ ...v, [phase.key]: !isOpen }))} className="flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left hover:bg-zinc-900/50" aria-expanded={isOpen}>
+                  <span className="flex min-w-0 items-center gap-2 text-[10px] font-medium text-zinc-300"><span>{phase.icon}</span><span className="truncate">{phase.label}</span><span className="text-zinc-600">· {phaseSteps.length}</span></span>
+                  <span className="text-[10px] text-zinc-600">{isOpen ? "⌃" : "⌄"}</span>
+                </button>
+                {isOpen && (
+                  <div className="space-y-1 border-t border-zinc-900 px-2.5 py-2">
+                    {phaseSteps.slice(-6).map((step, index) => (
+                      <div key={phase.key + "-" + index + "-" + step} className="boss-activity-row flex items-start gap-2 text-[11px] leading-5 text-zinc-400">
+                        <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border border-zinc-800 bg-zinc-900 text-[9px] text-zinc-500">{iconFor(step)}</span>
+                        <span className={active && phase.key === currentPhase.key && index === phaseSteps.slice(-6).length - 1 ? "text-zinc-200" : ""}>{cleanStep(step)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
