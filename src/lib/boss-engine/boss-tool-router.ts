@@ -22,6 +22,7 @@ export type CapabilityNeed = {
   documents: boolean;
   mcp: boolean;
   plugins: boolean;
+  builder: boolean;
 };
 
 export type RouterDecision = {
@@ -48,6 +49,7 @@ export function inferCapabilityNeeds(prompt: string): CapabilityNeed {
     documents: /pdf|เอกสาร|document|ไฟล์|csv|json|markdown|md\b|ข้อความในไฟล์/.test(text),
     mcp: /mcp|model context protocol|connector|เชื่อมต่อเครื่องมือ/.test(text),
     plugins: /plugin|ปลั๊กอิน|integration|แอปภายนอก/.test(text),
+    builder: /สร้าง.*(?:เว็บ|แอป)|(?:เว็บ|แอป).*(?:สร้าง|ทำ)|landing|website|web app|mobile app|builder|preview|พรีวิว/.test(text),
   };
 }
 
@@ -80,6 +82,7 @@ function matchesNeeds(tool: ToolRegistryEntry, needs: CapabilityNeed): boolean {
   if (needs.documents && (/pdf|document|file|parse|extract|csv|json/.test(name) || cap === "data")) return true;
   if (needs.mcp && (src === "mcp" || name.startsWith("mcp_"))) return true;
   if (needs.plugins && (src === "plugin" || name.startsWith("plugin_"))) return true;
+  if (needs.builder && (name.startsWith("builder_") || cap === "builder" || cap === "deploy" || cap === "verify")) return true;
 
   if ((needs.sandbox || needs.deploy || needs.web) && cap === "verify") return true;
 
@@ -125,6 +128,7 @@ export async function routeToolsForTask(prompt: string, maxTools = 12): Promise<
   if (needs.documents) seedNames.push("document_extract", "file_read", "web_fetch");
   if (needs.mcp) seedNames.push("mcp_list_tools");
   if (needs.plugins) seedNames.push("plugin_list");
+  if (needs.builder) seedNames.push("builder_read", "builder_write", "builder_edit", "builder_update_preview", "builder_publish_site", "web_check");
 
   const priorityName = (name: string) => {
     const n = name.toLowerCase();
