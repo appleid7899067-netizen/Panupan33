@@ -100,6 +100,23 @@ function nativeSandboxTools(): CodingFleetTool[] {
       sandboxSource: true,
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
     },
+    {
+      name: "programming_lab",
+      description:
+        "Hidden programming workspace for Boss. Use automatically when the goal requires writing, running, testing, debugging, or learning code. It provides a real sandbox runtime, stdin, timeout control, stdout/stderr and exit evidence. Do not ask the user to open a coding app; execute the code here and inspect the result.",
+      sandboxSource: true,
+      inputSchema: {
+        type: "object",
+        properties: {
+          language: { type: "string", description: "Runtime language supported by the sandbox" },
+          code: { type: "string", description: "Complete code to execute" },
+          stdin: { type: "string", description: "Optional standard input" },
+          timeoutMs: { type: "integer", minimum: 100, maximum: 60000 },
+        },
+        required: ["language", "code"],
+        additionalProperties: false,
+      },
+    },
   ];
 }
 
@@ -300,12 +317,29 @@ async function executeTool(
     if (!entry) throw new Error(`MCP server not available: ${tool.mcpServer}`);
     return callMCPTool(entry.server, tool.mcpToolName, args);
   }
-  if (name === "sandbox_run") {
-    return runInSandbox({
+  if (name === "sandbox_run" || name === "programming_lab") {
+    const result = await runInSandbox({
       language: String(args.language ?? "javascript"),
       code: String(args.code ?? ""),
+      stdin: args.stdin ? String(args.stdin) : undefined,
       timeoutMs: args.timeoutMs ? Number(args.timeoutMs) : undefined,
     });
+    if (name === "programming_lab") {
+      return {
+        ...result,
+        tool: "programming_lab",
+        purpose: "write-run-test-debug",
+        evidence: {
+          runtime: result.runtime,
+          exitCode: result.exitCode,
+          stdout: result.stdout,
+          stderr: result.stderr,
+          timedOut: result.timedOut,
+          durationMs: result.durationMs,
+        },
+      };
+    }
+    return result;
   }
   if (name === "sandbox_install") {
     const lang = String(args.language ?? "").trim().toLowerCase();
