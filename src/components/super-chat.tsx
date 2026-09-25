@@ -616,29 +616,29 @@ export function SuperChat() {
 
   return (
     <div className="relative flex flex-col h-full min-h-0 w-full max-w-[1400px] mx-auto overflow-hidden bg-zinc-950">
-      <div className="relative z-50 shrink-0 flex min-h-14 items-center justify-between gap-3 px-3 py-2 border-b border-white/[0.04] bg-zinc-950/85 backdrop-blur-2xl">
-        <div className="flex min-w-0 items-center gap-2">
+      <div className="relative z-50 shrink-0 flex min-h-14 items-center justify-between gap-2 px-2.5 py-2 border-b border-white/[0.04] bg-zinc-950/95 backdrop-blur-2xl sm:gap-3 sm:px-3">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
           <button type="button" onClick={() => setHistoryOpen(true)} className="size-9 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 grid place-items-center" aria-label="ประวัติแชท">
             <History className="size-4" />
           </button>
-          <button type="button" onClick={startNewChat} className="size-9 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 grid place-items-center" aria-label="เริ่มแชทใหม่">
+          <button type="button" onClick={startNewChat} className="size-9 shrink-0 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 grid place-items-center" aria-label="เริ่มแชทใหม่">
             <Plus className="size-4" />
           </button>
-          <div className="ml-1 flex items-center min-w-0">
+          <div className="ml-0.5 flex min-w-0 items-center sm:ml-1">
             <div className="size-8 rounded-full bg-white text-black grid place-items-center font-medium text-sm shrink-0">B</div>
-            <div className="ml-2 min-w-0">
+            <div className="ml-1.5 min-w-0 sm:ml-2">
               <div className="text-sm font-medium text-zinc-100">Boss</div>
-              <div className="text-[11px] text-zinc-500 truncate max-w-[120px]">{thread?.title || "New chat"}</div>
+              <div className="hidden text-[11px] text-zinc-500 truncate max-w-[120px] sm:block">{thread?.title || "New chat"}</div>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex min-w-0 shrink-0 items-center gap-1 sm:gap-1.5">
           <button type="button" onClick={() => setGithubTokenOpen((open) => !open)} className={"flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-left hover:bg-zinc-800 " + (githubToken ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : "border-zinc-700 bg-zinc-900/90 text-zinc-400")} aria-label="GitHub Token">
             <Github className="size-3.5 shrink-0" />
             <span className="hidden sm:inline text-[11px]">{githubToken ? "GitHub พร้อม" : "GitHub"}</span>
             <span className={"size-1.5 rounded-full " + (githubToken ? "bg-emerald-400" : "bg-zinc-600")} />
           </button>
-          <button type="button" onClick={() => setModelMenuOpen((open) => !open)} className="flex items-center gap-2 max-w-[48%] rounded-xl border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-left hover:bg-zinc-800" aria-label="เลือกโมเดล">
+          <button type="button" onClick={() => setModelMenuOpen((open) => !open)} className="flex min-w-0 w-[min(42vw,190px)] sm:w-[min(48%,260px)] items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-900/90 px-2.5 py-2 text-left hover:bg-zinc-800 sm:gap-2 sm:px-3" aria-label="เลือกโมเดล">
             <Sparkles className="size-3.5 text-zinc-300 shrink-0" />
             <span className="truncate text-xs text-zinc-200">{modelsLoading ? "กำลังโหลดโมเดล..." : selectedModelInfo.name}</span>
             <ChevronDown className="size-3.5 text-zinc-500 shrink-0" />
@@ -683,7 +683,7 @@ export function SuperChat() {
       </div>
 
       {arenaOpen && arenaSession && (
-        <div className="absolute inset-0 z-50 bg-black/45" onClick={() => setArenaOpen(false)}>
+        <div className="absolute inset-0 z-[70] bg-black/45" onClick={() => setArenaOpen(false)}>
           <section className="absolute right-0 top-0 w-[min(94vw,520px)] rounded-bl-3xl border-b border-l border-zinc-800 bg-zinc-950/98 p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3">
               <div><div className="text-sm font-semibold text-zinc-100">⚔️ Boss Arena</div><div className="mt-1 text-[11px] text-zinc-500">เลือกทิศทางที่ต้องการ แล้ว Boss จะใช้เป็น preference ในรอบถัดไป ไม่ถือว่าการเลือกแทนการ Verify</div></div>
