@@ -128,7 +128,8 @@ export async function routeToolsForTask(prompt: string, maxTools = 12): Promise<
   const candidates = registry.filter((tool) => matchesNeeds(tool, needs));
 
   // Seed concrete tools first, then let ranking fill the remaining slots.
-  const seedNames: string[] = [];\n  if (intent === "github") seedNames.push(...AUTH_GITHUB_FULL);
+  const seedNames: string[] = [];
+  if (intent === "github") seedNames.push(...AUTH_GITHUB_FULL);
   if (needs.github) seedNames.push("github_get_repo", "github_get_file", "github_list_dir");
   if (needs.search) seedNames.push("web_search");
   if (needs.web) seedNames.push("web_check", "web_browse");
