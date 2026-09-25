@@ -248,7 +248,7 @@ async function searchGoogle(query: string, count: number): Promise<SearchHit[]> 
   // Google result pages vary by locale/layout. Prefer links containing an h3,
   // then fall back to ordinary absolute links. Never treat Google-internal
   // navigation as an external result.
-  const h3Re = /<a[^>]+href="([^"]+)"[^>]*>[\\s\\S]*?<h3[^>]*>([\\s\\S]*?)<\\/h3>[\\s\\S]*?<\\/a>/gi;
+  const h3Re = /<a[^>]+href="([^"]+)"[^>]*>[\s\S]*?<h3[^>]*>([\s\S]*?)<\/h3>[\s\S]*?<\/a>/gi;
   let m: RegExpExecArray | null;
   while ((m = h3Re.exec(body)) !== null && hits.length < count) {
     let href = decodeEntities(m[1]);
