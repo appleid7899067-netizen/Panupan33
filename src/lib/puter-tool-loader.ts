@@ -56,7 +56,7 @@ type ToolCall = { id?: string; name: string; arguments: Record<string, unknown> 
 
 const AUTH_GITHUB = AUTH_GITHUB_FULL as unknown as string[];
 const GITHUB_API = "https://api.github.com";
-const MAX_TOOL_ROUNDS = 5;
+const MAX_TOOL_ROUNDS = 8;
 // Puter is the default authority for model access. Qualified model IDs are
 // also passed to Puter first because Puter can route across many vendors.
 const DEFAULT_MODELS = [
