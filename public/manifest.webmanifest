@@ -1,0 +1,8 @@
+{
+  "name": "Panupan33 Boss",
+  "short_name": "Boss",
+  "start_url": "/chat",
+  "display": "standalone",
+  "scope": "/",
+  "description": "Panupan33 Boss agent"
+}

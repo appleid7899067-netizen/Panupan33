@@ -59,3 +59,13 @@ export * from "./skills/core/memory-context/skill";
 export * from "./core-skill-router";
 
 export * from "./web-development-learning";
+
+export * from "./approve-gate";
+export * from "./specialist-lanes";
+export * from "./routine-store";
+export * from "./cloud-runtime";
+export * from "./connector-vault";
+export * from "./packaged-jobs";
+export * from "./notifications";
+export * from "./coworker-session";
+export * from "./coworker-path";
