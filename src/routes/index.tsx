@@ -139,6 +139,58 @@ function Home() {
           </div>
         </section>
 
+        <section className="border-b border-border bg-surface/20">
+          <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-20">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="max-w-2xl">
+                <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">App showcase</p>
+                <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">ดูงานที่ Boss สร้างได้จริง</h2>
+                <p className="mt-4 text-sm leading-7 text-muted">หน้าแรกควรเห็นภาพทันทีว่า Boss ไม่ได้มีแค่ช่องแชท แต่สามารถพา Goal ไปเป็นเว็บไซต์ แอป และระบบที่เปิดดู Preview ได้</p>
+              </div>
+              <Link to="/chat" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-fg">
+                สั่ง Boss สร้างแอป <ArrowRight className="size-4" />
+              </Link>
+            </div>
+
+            <div className="mt-9 grid gap-5 lg:grid-cols-3">
+              {[
+                { title: "Website Studio", tag: "WEB APP", icon: Code2, tone: "violet", body: "สร้างหน้าเว็บหลายบล็อก พร้อม layout, typography, content และ Preview ในงานเดียว" },
+                { title: "App Builder", tag: "APPLICATION", icon: Rocket, tone: "cyan", body: "แตก Goal เป็นหน้าจอและฟังก์ชัน แล้วให้ Agent ลงมือแก้โค้ด ทดสอบ และวนซ้ำ" },
+                { title: "Live Preview", tag: "VERIFY", icon: Eye, tone: "amber", body: "แสดงผลลัพธ์จากงานจริงให้เห็นก่อนจบ พร้อมตรวจ runtime และเส้นทาง Preview" },
+              ].map((item) => (
+                <article key={item.title} className="group overflow-hidden rounded-3xl border border-border bg-background shadow-[0_20px_70px_rgba(0,0,0,.16)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/30">
+                  <div className={`relative h-48 overflow-hidden border-b border-border bg-gradient-to-br ${item.tone === "violet" ? "from-violet-500/20 via-background to-fuchsia-500/5" : item.tone === "cyan" ? "from-cyan-500/20 via-background to-sky-500/5" : "from-amber-400/20 via-background to-orange-500/5"}`}>
+                    <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(255,255,255,.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.05)_1px,transparent_1px)] [background-size:28px_28px]" />
+                    <div className="absolute left-5 right-5 top-5 rounded-xl border border-white/10 bg-black/30 p-3 backdrop-blur-sm">
+                      <div className="flex items-center gap-1.5">
+                        <span className="size-2 rounded-full bg-red-400/70" /><span className="size-2 rounded-full bg-amber-300/70" /><span className="size-2 rounded-full bg-emerald-400/70" />
+                        <span className="ml-2 text-[9px] tracking-[0.18em] text-white/45">BOSS PREVIEW</span>
+                      </div>
+                      <div className="mt-4 grid grid-cols-[1fr_1.5fr] gap-2">
+                        <div className="h-20 rounded-lg bg-white/5" />
+                        <div className="space-y-2"><div className="h-3 w-2/3 rounded bg-white/10" /><div className="h-3 w-full rounded bg-white/5" /><div className="h-10 w-full rounded-lg bg-white/5" /></div>
+                      </div>
+                    </div>
+                    <div className="absolute bottom-4 right-5 flex items-center gap-2 rounded-full border border-white/10 bg-black/35 px-3 py-1.5 text-[10px] text-white/65 backdrop-blur-sm">
+                      <item.icon className="size-3.5 text-primary" /> {item.tag}
+                    </div>
+                  </div>
+                  <div className="p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-lg font-semibold">{item.title}</h3>
+                      <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,.7)]" />
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-muted">{item.body}</p>
+                    <Link to="/chat" className="mt-5 inline-flex items-center gap-2 text-xs font-medium text-subtle transition-colors group-hover:text-fg">
+                      ให้ Boss ลงมือ <ArrowRight className="size-3.5" />
+                    </Link>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section className="border-b border-border">
           <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-20">
             <div className="mb-10 max-w-2xl">
