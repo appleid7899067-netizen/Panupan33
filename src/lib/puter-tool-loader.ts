@@ -110,7 +110,6 @@ function nativeSandboxTools(): CodingFleetTool[] {
         properties: {
           language: { type: "string", description: "Runtime language supported by the sandbox" },
           code: { type: "string", description: "Complete code to execute" },
-          stdin: { type: "string", description: "Optional standard input" },
           timeoutMs: { type: "integer", minimum: 100, maximum: 60000 },
         },
         required: ["language", "code"],
@@ -321,7 +320,6 @@ async function executeTool(
     const result = await runInSandbox({
       language: String(args.language ?? "javascript"),
       code: String(args.code ?? ""),
-      stdin: args.stdin ? String(args.stdin) : undefined,
       timeoutMs: args.timeoutMs ? Number(args.timeoutMs) : undefined,
     });
     if (name === "programming_lab") {
@@ -334,7 +332,6 @@ async function executeTool(
           exitCode: result.exitCode,
           stdout: result.stdout,
           stderr: result.stderr,
-          timedOut: result.timedOut,
           durationMs: result.durationMs,
         },
       };
