@@ -27,6 +27,7 @@ import {
   hasVerifiedEvidence as hasFoundationEvidence,
   type AgentMemory,
 } from "@/lib/boss-engine/agent-foundation";
+import { routeToolsForTask } from "@/lib/boss-engine/boss-tool-router";
 import {
   createAgentKernel,
   recordAction as kernelRecordAction,
@@ -284,8 +285,28 @@ export async function runAgentLoop(
   const budget = Math.min(iterationBudget(prompt, maxIterations), foundation.budget);
   const foundationMemory: AgentMemory = createAgentMemory();
   const deepReasoning = wantsDeepReasoning(prompt);
-  const available = tools.length ? tools : await loadCodingFleetTools();
+  let available = tools.length ? [...tools] : await loadCodingFleetTools();
   const seenCalls = new Set<string>();
+
+  // Tool access is adaptive: start with routed real capabilities, then open
+  // additional capabilities when evidence or an error shows the route is insufficient.
+  const expandToolset = async (reason: string) => {
+    try {
+      const decision = await routeToolsForTask(`${prompt}
+
+ROUTING SIGNAL: ${reason}`, 12);
+      const existing = new Set(available.map((tool) => tool.name));
+      const additions = decision.selected.filter((tool) => !existing.has(tool.name));
+      if (additions.length) {
+        available = [...available, ...additions];
+        emit({ phase: "select", detail: `🔌 เปิดเครื่องมือเพิ่มตามสถานการณ์: ${additions.map((tool) => tool.name).join(", ")}` });
+        return additions.length;
+      }
+    } catch (error) {
+      emit({ phase: "observe", detail: `⚠️ dynamic tool routing: ${safeText(error, "failed")}` });
+    }
+    return 0;
+  };
   let kernel: AgentKernelState = createAgentKernel(prompt);
   let consecutiveFails = 0;
   const FAIL_LIMIT = 3;
@@ -448,6 +469,13 @@ export async function runAgentLoop(
 
     // Tools ran — check early exit
     const failed = result.toolResults.filter((r) => !r.ok);
+    if (failed.length) {
+      const failureSummary = failed.map((r) => `${r.name}: ${safeText(r.error ?? r.result, "failed").slice(0, 300)}`).join(" | ");
+      await expandToolset(`tool failure requires a different capability: ${failureSummary}`);
+    } else if (result.toolResults.length) {
+      const observed = result.toolResults.map((r) => `${r.name}: ${safeText(r.result, "ok").slice(0, 180)}`).join(" | ");
+      await expandToolset(`continue from real tool evidence: ${observed}`);
+    }
     if (!failed.length && hasUsefulEvidence(result.toolResults)) {
       const { done, verified } = goalSatisfied(prompt, allResults, last, true);
       // For search-style tasks, one good evidence pass is enough
