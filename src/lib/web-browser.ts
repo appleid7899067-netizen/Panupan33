@@ -237,6 +237,35 @@ async function searchWikipedia(query: string, count: number): Promise<SearchHit[
   }
 }
 
+async function searchGoogle(query: string, count: number): Promise<SearchHit[]> {
+  const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&hl=en&num=${Math.min(10, count)}`;
+  const page = await browserNavigate(searchUrl, { timeoutMs: 25000, maxBytes: 1_500_000 });
+  if (!page.ok && page.status === 0) return [];
+
+  const body = page.htmlPreview ?? page.text;
+  const hits: SearchHit[] = [];
+  const seen = new Set<string>();
+
+  // Google result pages vary by locale/layout. Prefer links containing an h3,
+  // then fall back to ordinary absolute links. Never treat Google-internal
+  // navigation as an external result.
+  const h3Re = /<a[^>]+href="([^"]+)"[^>]*>[\\s\\S]*?<h3[^>]*>([\\s\\S]*?)<\\/h3>[\\s\\S]*?<\\/a>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = h3Re.exec(body)) !== null && hits.length < count) {
+    let href = decodeEntities(m[1]);
+    if (href.startsWith("/url?")) {
+      try { href = new URL(`https://www.google.com${href}`).searchParams.get("q") || ""; } catch { href = ""; }
+    }
+    if (!/^https:\/\//i.test(href) || /google\\.com\\/(search|url|accounts|preferences|support)/i.test(href)) continue;
+    try { href = assertPublicHttpsUrl(href).toString(); } catch { continue; }
+    if (seen.has(href)) continue;
+    seen.add(href);
+    hits.push({ title: decodeEntities(m[2]).replace(/\\s+/g, " ").trim().slice(0, 200), url: href, snippet: "" });
+  }
+
+  return hits;
+}
+
 async function searchBing(query: string, count: number): Promise<SearchHit[]> {
   const searchUrl = `https://www.bing.com/search?q=${encodeURIComponent(query)}&setlang=en`;
   const page = await browserNavigate(searchUrl, { timeoutMs: 25000, maxBytes: 1_500_000 });
@@ -296,6 +325,15 @@ export async function browserSearchDuckDuckGo(
     merged.push(h);
   }
 
+  const google = await searchGoogle(q, n);
+  if (google.length) engines.push("google");
+  for (const h of google) {
+    if (seen.has(h.url)) continue;
+    seen.add(h.url);
+    merged.push(h);
+    if (merged.length >= n) break;
+  }
+
   const bing = await searchBing(q, n);
   if (bing.length) engines.push("bing");
   for (const h of bing) {
@@ -317,7 +355,7 @@ export async function browserSearchDuckDuckGo(
 
 /**
  * Forced public browser search:
- * 1) Wikipedia + Bing via browser UA
+ * 1) Google + Wikipedia + Bing via browser UA
  * 2) Optionally open top hits and extract page text
  */
 export async function browserWebSearch(
