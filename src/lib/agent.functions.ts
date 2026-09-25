@@ -28,6 +28,19 @@ const loopSchema = z.object({
   context: z.string().max(45_000).optional(),
   model: z.string().min(1).max(200).optional(),
   threadId: z.string().min(1).max(128).optional(),
+  agentSettings: z.object({
+    autonomy: z.enum(["balanced", "high", "supervised"]).optional(),
+    maxIterations: z.number().int().min(1).max(10).optional(),
+    requireVerification: z.boolean().optional(),
+    autoRepair: z.boolean().optional(),
+    autoTools: z.boolean().optional(),
+    webAccess: z.boolean().optional(),
+    sandboxAccess: z.boolean().optional(),
+    githubAccess: z.boolean().optional(),
+    mcpAccess: z.boolean().optional(),
+    showProgress: z.boolean().optional(),
+    rememberContext: z.boolean().optional(),
+  }).optional(),
 });
 const codeSchema = z.object({ language: z.string().min(1).max(40), code: z.string().max(500_000) });
 
@@ -57,6 +70,9 @@ async function prepareBossRun(data: LoopData) {
     "\n\n" +
     persistInstructions(data.threadId) +
     (resumeParts.length ? "\n\n" + resumeParts.join("\n\n") : "") +
+    "\n\n=== AGENT SETTINGS ===\n" +
+    JSON.stringify(data.agentSettings ?? {}) +
+    "\nUse these settings as hard execution preferences: obey disabled tool families, honor maxIterations, repair when enabled, and do not claim mutation success without verification when requireVerification=true." +
     "\n\n=== CURRENT REQUEST ===\n" +
     basePrompt;
   return { basePrompt, boss, saved, taskPrompt };
@@ -153,7 +169,18 @@ export const runAgent = createServerFn({ method: "POST" })
     // tools selected by intent (up to 24 — do not starve the agent)
     const engineSelected = selectToolsFromRouter(boss);
     const selected = engineSelected.length ? engineSelected : await selectToolsForTask(taskPrompt, 24);
-    const selectedNames = selected.slice(0, 12).map((tool) => String(tool.name ?? "")).filter(Boolean);
+    const settings = data.agentSettings ?? {};
+    const filteredSelected = selected.filter((tool) => {
+      const name = String(tool.name ?? "").toLowerCase();
+      if (settings.autoTools === false) return false;
+      if (settings.webAccess === false && /^(web_|yandex)/.test(name)) return false;
+      if (settings.sandboxAccess === false && /^sandbox_/.test(name)) return false;
+      if (settings.githubAccess === false && /^github_/.test(name)) return false;
+      if (settings.mcpAccess === false && /^mcp/.test(name)) return false;
+      return true;
+    });
+    const effectiveSelected = filteredSelected;
+    const selectedNames = effectiveSelected.slice(0, 12).map((tool) => String(tool.name ?? "")).filter(Boolean);
     const registryStep = {
       phase: "plan" as const,
       detail: `Intent: ${intent} · tools (${selectedNames.length}): ${selectedNames.join(", ") || "ไม่มี — ตอบตรงเจตนา"}`,
@@ -174,7 +201,7 @@ export const runAgent = createServerFn({ method: "POST" })
     let driver: DriverOutcome | null = null;
     let driverFallbackError: string | null = null;
     try {
-      driver = await tryGitHubLoopDriver(data, basePrompt);
+      driver = data.agentSettings?.githubAccess === false ? null : await tryGitHubLoopDriver(data, basePrompt);
     } catch (e) {
       driverFallbackError = e instanceof Error ? e.message : String(e);
     }
@@ -184,7 +211,7 @@ export const runAgent = createServerFn({ method: "POST" })
     }
 
     const registryHasGitHub = selected.some((tool) => String(tool.name ?? "").toLowerCase().includes("github"));
-    if ((data.githubToken && intent === "github") || (registryHasGitHub && prefersAuthenticatedGitHub(data.prompt))) {
+    if (data.agentSettings?.githubAccess !== false && ((data.githubToken && intent === "github") || (registryHasGitHub && prefersAuthenticatedGitHub(data.prompt)))) {
       const result = await runGitHubAgent(taskPrompt, data.authToken, data.model, data.githubToken);
       if (!result.ok) {
         return {
@@ -217,10 +244,10 @@ export const runAgent = createServerFn({ method: "POST" })
       };
     }
 
-    const iterations = data.maxIterations ?? (intent === "github" || intent === "deploy" ? 8 : 6);
+    const iterations = data.agentSettings?.maxIterations ?? data.maxIterations ?? (intent === "github" || intent === "deploy" ? 8 : 6);
     const result = await runAgentLoop(
       taskPrompt,
-      selected,
+      effectiveSelected,
       iterations,
       data.authToken,
       undefined,
@@ -258,7 +285,18 @@ export const runAgentStream = createServerFn({ method: "POST" })
     const intent = inferTaskIntent(data.prompt);
     const engineSelected = selectToolsFromRouter(boss);
     const selected = engineSelected.length ? engineSelected : await selectToolsForTask(taskPrompt, 24);
-    const selectedNames = selected.slice(0, 12).map((tool) => String(tool.name ?? "")).filter(Boolean);
+    const settings = data.agentSettings ?? {};
+    const filteredSelected = selected.filter((tool) => {
+      const name = String(tool.name ?? "").toLowerCase();
+      if (settings.autoTools === false) return false;
+      if (settings.webAccess === false && /^(web_|yandex)/.test(name)) return false;
+      if (settings.sandboxAccess === false && /^sandbox_/.test(name)) return false;
+      if (settings.githubAccess === false && /^github_/.test(name)) return false;
+      if (settings.mcpAccess === false && /^mcp/.test(name)) return false;
+      return true;
+    });
+    const effectiveSelected = filteredSelected;
+    const selectedNames = effectiveSelected.slice(0, 12).map((tool) => String(tool.name ?? "")).filter(Boolean);
     const registryStep = {
       phase: "plan" as const,
       detail: `Intent: ${intent} · tools (${selectedNames.length}): ${selectedNames.join(", ") || "ไม่มี"}`,
@@ -293,7 +331,7 @@ export const runAgentStream = createServerFn({ method: "POST" })
     let driver: DriverOutcome | null = null;
     let driverFallbackError: string | null = null;
     try {
-      driver = await tryGitHubLoopDriver(data, basePrompt, (step) => push({ type: "step", step }));
+      driver = data.agentSettings?.githubAccess === false ? null : await tryGitHubLoopDriver(data, basePrompt, (step) => push({ type: "step", step }));
     } catch (e) {
       driverFallbackError = e instanceof Error ? e.message : String(e);
     }
@@ -304,7 +342,7 @@ export const runAgentStream = createServerFn({ method: "POST" })
     }
 
     const registryHasGitHub = selected.some((tool) => String(tool.name ?? "").toLowerCase().includes("github"));
-    if (registryHasGitHub && prefersAuthenticatedGitHub(data.prompt)) {
+    if (data.agentSettings?.githubAccess !== false && registryHasGitHub && prefersAuthenticatedGitHub(data.prompt)) {
       yield {
         type: "step",
         step: { phase: "act", detail: "🔐 กำลังเปิด GitHub Agent ที่เชื่อม repo จริง..." },
@@ -354,10 +392,10 @@ export const runAgentStream = createServerFn({ method: "POST" })
       return;
     }
 
-    const iterations = data.maxIterations ?? (intent === "github" || intent === "deploy" ? 8 : 6);
+    const iterations = data.agentSettings?.maxIterations ?? data.maxIterations ?? (intent === "github" || intent === "deploy" ? 8 : 6);
     const runner = runAgentLoop(
       taskPrompt,
-      selected,
+      effectiveSelected,
       iterations,
       data.authToken,
       (step) => push({ type: "step", step }),
