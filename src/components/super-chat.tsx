@@ -214,7 +214,7 @@ export function SuperChat() {
     setGithubCapabilities(results.filter((x): x is string => Boolean(x)));
   };
 
-  const saveGithubToken = () => {
+  const saveGithubToken = async () => {
     const value = githubTokenInput.trim();
     if (value.length < 20) {
       setGithubTokenStatus("invalid");
