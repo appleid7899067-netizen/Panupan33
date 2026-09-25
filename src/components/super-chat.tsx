@@ -158,6 +158,7 @@ export function SuperChat() {
   const [liveStream, setLiveStream] = useState<{ id: string; steps: string[]; active: boolean }>({ id: "", steps: [], active: false });
   const [attachmentContext, setAttachmentContext] = useState("");
   const selectedModel = storedModel || DEFAULT_PUTER_MODEL;
+  const agentSettings = useFleet((s) => s.agentSettings);
   const openPreviewRoom = () => {
     if (!thread) return;
     window.location.assign(`/preview?chat=${encodeURIComponent(thread.id)}`);
@@ -559,12 +560,13 @@ export function SuperChat() {
           prompt: continueTask
             ? `ทำงานต่อจากคำสั่งล่าสุดของผู้ใช้ทันที โดยไม่ต้องตอบรับสั้น ๆ และไม่ต้องถามยืนยันอีกครั้ง คำสั่งล่าสุดคือ: ${lastUser?.content || ""}`
             : userText,
-          maxIterations: 3,
+          maxIterations: agentSettings.maxIterations,
           context: attachmentContext ? `${context}\n\n${attachmentContext}` : context,
           ...(authToken ? { authToken } : {}),
           ...(effectiveGithubToken ? { githubToken: effectiveGithubToken } : {}),
           ...(thread?.id ? { threadId: thread.id } : {}),
           model: selectedModel,
+          agentSettings,
         },
       })) {
         if (event.type === "step") {
