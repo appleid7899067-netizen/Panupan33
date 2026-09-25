@@ -746,9 +746,9 @@ export function SuperChat() {
           setIsPinnedToBottom(pinned);
         }}
       >
-        <div className="mx-auto flex w-full max-w-[920px] flex-col gap-6 px-1 sm:px-2">
+        <div className="flex w-full flex-col gap-6 px-0">
           {thread?.messages.map((m) => (
-            <div key={m.id} className={`group flex gap-3 boss-message-in ${m.role === "user" ? "justify-end" : ""}`}>
+            <div key={m.id} className={`group flex w-full gap-2 boss-message-in ${m.role === "user" ? "justify-end" : "justify-start"}`}>
               {m.role === "assistant" && (
                 <div className={`size-7 rounded-full bg-zinc-800 border border-zinc-700 grid place-items-center shrink-0 mt-0.5 ${m.id === liveStream.id && liveStream.active ? "boss-avatar-working" : ""}`}>
                   <span className="text-[11px]">B</span>
@@ -757,7 +757,7 @@ export function SuperChat() {
               <div className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 ${
                 m.role === "user"
                   ? "ml-auto max-w-[78%] bg-white px-4 py-3 text-black"
-                  : "max-w-[1200px] bg-transparent border-0 text-zinc-100 px-0 py-2"
+                  : "w-full max-w-none bg-transparent border-0 text-zinc-100 px-0 py-2"
               }`}>
                 <BossMarkdown content={m.content} onCopyCode={copyCode} onDownloadCode={downloadCode} />{m.role === "assistant" && m.id === liveStream.id && liveStream.active ? <span className="boss-stream-caret" aria-hidden="true" /> : null}
                 {m.role === "assistant" && m.activity && m.activity.length > 0 && (
