@@ -825,6 +825,30 @@ export function SuperChat() {
         )}
       </main>
 
+      <div className="shrink-0 overflow-x-auto px-3 pt-2 pb-1 sm:px-4" aria-label="Boss Quick Actions">
+        <div className="mx-auto flex w-full max-w-[1400px] gap-1.5 whitespace-nowrap">
+          {[
+            ["สรุป", "สรุปข้อความ/งานล่าสุดให้กระชับ พร้อมประเด็นสำคัญและสิ่งที่ต้องทำต่อ"],
+            ["วางแผน", "วางแผนงานนี้เป็นขั้นตอนที่ทำได้จริง แล้วเริ่มทำขั้นตอนแรกถ้าทำได้"],
+            ["จัดเป็นงาน", "แปลงเป้าหมายนี้เป็นงานย่อยที่ชัดเจน พร้อมลำดับการลงมือและตรวจสอบผล"],
+            ["เขียน", "ช่วยเขียนหรือปรับข้อความนี้ให้พร้อมใช้งาน โดยรักษาเจตนาเดิม"],
+            ["แปล", "แปลข้อความล่าสุดให้เป็นภาษาที่เหมาะสมและเป็นธรรมชาติ"],
+            ["วิเคราะห์", "วิเคราะห์ปัญหาหรือข้อมูลนี้ แยกข้อเท็จจริง สมมติฐาน ความเสี่ยง และทางเลือก"],
+            ["แก้โค้ด", "ตรวจโค้ดล่าสุด หา root cause แล้วแก้ไขพร้อมตรวจสอบผล"],
+            ["อธิบาย", "อธิบายเรื่องนี้แบบเข้าใจง่าย พร้อมตัวอย่างที่จำเป็น"],
+          ].map(([label, prompt]) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => void handleSend(prompt)}
+              className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-1.5 text-[11px] text-zinc-400 transition hover:border-violet-400/20 hover:bg-violet-500/10 hover:text-violet-200"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="relative z-30 shrink-0 border-t border-white/[0.06] bg-zinc-950/90 p-3 backdrop-blur-2xl sm:p-4">
         <div className="relative flex items-end gap-2 rounded-[22px] bg-white/[0.045] border border-white/[0.08] p-2 shadow-[0_12px_50px_rgba(0,0,0,0.2)] focus-within:border-violet-400/20">
           <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => { handleAttachment(e.target.files?.[0]); e.currentTarget.value = ""; }} />
