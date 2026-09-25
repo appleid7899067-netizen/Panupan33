@@ -1,0 +1,19 @@
+{
+  "name": "Bossnu SlieLo — Panupan33",
+  "short_name": "Boss",
+  "description": "AI Coworker — Puter-first. สั่งวันนี้ต้องเสร็จเมื่อวาน.",
+  "start_url": "/chat",
+  "display": "standalone",
+  "background_color": "#0b0c0e",
+  "theme_color": "#0b0c0e",
+  "lang": "th",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"]
+}
