@@ -279,6 +279,8 @@ export function SuperChat() {
           .filter((m) => !/image|audio|video|embedding|rerank|moderation|tts|speech/i.test(
             `${m.id} ${m.name ?? ""} ${m.provider ?? ""}`,
           ))
+          // Retire model IDs that repeatedly failed in the old gateway path.
+          .filter((m) => !/inclusionai\/ling-3\.0-flash-sante|nex-agi\/nex-n2\.5-(mini|pro)/i.test(m.id))
           .filter((m) => Boolean(m.id));
         const byId = new Map<string, PuterModel>();
         for (const model of modelFallbacks) byId.set(model.id, model);
@@ -611,7 +613,8 @@ export function SuperChat() {
       }
       const authToken = await getPuterAuthToken();
       if (!authToken) throw new Error("ไม่พบ Puter auth token หลัง login — กรุณา sign in กับ Puter ใหม่");
-      const agentModel = models.some((m) => m.id === selectedModel) ? selectedModel : DEFAULT_PUTER_MODEL;
+      const staleModel = /inclusionai\/ling-3\.0-flash-sante|nex-agi\/nex-n2\.5-(mini|pro)/i.test(selectedModel);
+      const agentModel = !staleModel && models.some((m) => m.id === selectedModel) ? selectedModel : DEFAULT_PUTER_MODEL;
       let result: import("@/lib/agent-loop").AgentRunResult | null = null;
       const liveSteps: string[] = [];
       for await (const event of await runAgentStream({
