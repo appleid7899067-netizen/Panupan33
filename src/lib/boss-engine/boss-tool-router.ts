@@ -41,7 +41,7 @@ export function inferCapabilityNeeds(prompt: string): CapabilityNeed {
   const text = prompt.toLowerCase();
   return {
     github: /github|repo|repository|pull request|pr\b|branch|commit|ci|workflow|actions/.test(text),
-    sandbox: /code|โค้ด|รัน|run|build|test|bug|error|debug|แก้|เขียน|สร้าง|sandbox|typecheck|lint/.test(text),
+    sandbox: /code|โค้ด|รัน|run|build|test|bug|error|debug|แก้|เขียน|สร้าง|sandbox|typecheck|lint|html|css|javascript|javascript|live preview|live html|เว็บเพจ/.test(text),
     web:
       /เว็บ|website|url|http|ตรวจ.*เว็บ|เช็ก.*ลิงก์|preview|health|502|503|deploy.*ตรวจ|web_check/.test(text) ||
       /https?:\/\//.test(text),
@@ -52,7 +52,7 @@ export function inferCapabilityNeeds(prompt: string): CapabilityNeed {
     documents: /pdf|เอกสาร|document|ไฟล์|csv|json|markdown|md\b|ข้อความในไฟล์/.test(text),
     mcp: /mcp|model context protocol|connector|เชื่อมต่อเครื่องมือ/.test(text),
     plugins: /plugin|ปลั๊กอิน|integration|แอปภายนอก/.test(text),
-    builder: /สร้าง.*(?:เว็บ|แอป)|(?:เว็บ|แอป).*(?:สร้าง|ทำ)|landing|website|web app|mobile app|builder|preview|พรีวิว/.test(text),
+    builder: /สร้าง.*(?:เว็บ|แอป|หน้าเว็บ|html)|(?:เว็บ|แอป|หน้าเว็บ|html).*(?:สร้าง|ทำ|แก้|preview)|landing|website|web app|mobile app|html editor|html viewer|live html|live preview|builder|preview|พรีวิว/.test(text),
     writing: /เขียน(?:บทความ|บล็อก|อีเมล|โฆษณา|โพสต์|สคริปต์)|บทความ|blog|article|email|copywriting|โฆษณา|social media|rewrite|paraphrase|proofread|grammar|แปล|translate|สรุป/.test(text),
     maps: /แผนที่|map|maps|street view|streetview|satellite|ดาวเทียม|earth map|earthcam|live cam|webcam|360|gps|พิกัด|สถานที่|landmark|เส้นทาง|route|นำทาง|navigation|traffic|จราจร|nearby|ใกล้ฉัน/.test(text),
     terminal: /terminal|shell|command line|cli|คอนโซล|เทอร์มินัล|คำสั่ง|รันคำสั่ง|npm run|pnpm|yarn|bun|bash|powershell/.test(text),
