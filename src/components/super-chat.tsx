@@ -726,8 +726,8 @@ export function SuperChat() {
               )}
               <div className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 ${
                 m.role === "user"
-                  ? "bg-white text-black"
-                  : "bg-zinc-900/80 border border-zinc-800 text-zinc-100"
+                  ? "ml-auto max-w-[78%] bg-white px-4 py-3 text-black"
+                  : "max-w-[1200px] bg-transparent border-0 text-zinc-100 px-0 py-2"
               }`}>
                 <BossMarkdown content={m.content} onCopyCode={copyCode} onDownloadCode={downloadCode} />{m.role === "assistant" && m.id === liveStream.id && liveStream.active ? <span className="boss-stream-caret" aria-hidden="true" /> : null}
                 {m.role === "assistant" && m.activity && m.activity.length > 0 && (
