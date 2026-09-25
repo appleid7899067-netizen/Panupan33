@@ -1,10 +1,9 @@
 /**
- * Efficient Agent Loop
- * - Adaptive iteration budget by task type
+ * Efficient Agent Loop — decisive (anti tool-shopping)
+ * - Adaptive iteration budget by task type (short)
  * - Early exit when evidence answers the goal
- * - Duplicate tool-call detection (no identical retries)
- * - Compact prompts (no tool-list spam every refine)
- * - Failure budget: stop after N consecutive hard fails
+ * - Cap tools exposed (≤6) and expand at most once
+ * - HARD: prefer 1 tool, max 2 per turn, then answer
  */
 import { createEvidenceEngine, type EvidenceEngine } from "@/lib/boss-engine/boss-evidence";
 import { createRecoveryEngine, type RecoveryEngine } from "@/lib/boss-engine/boss-recovery";
@@ -96,12 +95,12 @@ function isEvidenceTool(name: string): boolean {
 
 function isAccessDeniedResult(r: ToolExecutionResult): boolean {
   const raw = safeText(r.error ?? r.result, "").toLowerCase();
-  return /(^|\\D)(401|403)(\\D|$)|access denied|forbidden|unauthorized|permission denied|not authorized|authentication required/.test(raw);
+  return /(^|\D)(401|403)(\D|$)|access denied|forbidden|unauthorized|permission denied|not authorized|authentication required/.test(raw);
 }
 
 function knowledgeFacts(r: ToolExecutionResult): string[] {
   if (!r.ok) return [];
-  const summary = safeText(r.result, "").replace(/\\s+/g, " ").trim();
+  const summary = safeText(r.result, "").replace(/\s+/g, " ").trim();
   return summary ? [summary.slice(0, 700)] : [];
 }
 
@@ -132,13 +131,13 @@ function looksLikeSearch(prompt: string): boolean {
   return /ค้น|search|หา|ข่าว|ราคา|what |who |where |when |why |how |อะไร|ใคร|ที่ไหน|เมื่อ/i.test(prompt);
 }
 
-/** Adaptive budget: cheap tasks finish in 1–2 outer loops. */
+/** Adaptive budget: finish fast — do not tool-shop for rounds. */
 function iterationBudget(prompt: string, requested?: number): number {
-  if (requested && requested > 0) return Math.min(10, requested);
-  if (looksLikeMutation(prompt) || /github|deploy|ดีพลอย|repo/i.test(prompt)) return 6;
-  if (looksLikeVerification(prompt) || /code|โค้ด|debug|bug|sandbox/i.test(prompt)) return 4;
-  if (looksLikeSearch(prompt)) return 2;
-  return 3;
+  if (requested && requested > 0) return Math.min(6, requested);
+  if (looksLikeMutation(prompt) || /github|deploy|ดีพลอย|repo/i.test(prompt)) return 4;
+  if (looksLikeVerification(prompt) || /code|โค้ด|debug|bug|sandbox/i.test(prompt)) return 3;
+  if (looksLikeSearch(prompt)) return 1;
+  return 2;
 }
 
 function activityLabel(name: string, ok: boolean): string {
@@ -162,7 +161,7 @@ function buildKickoffPrompt(prompt: string, tools: CodingFleetTool[]): string {
   const names = tools
     .map((t) => String(t.name ?? ""))
     .filter(Boolean)
-    .slice(0, 20)
+    .slice(0, 6)
     .join(", ");
   return `You are Boss — an efficient execution agent.
 
@@ -171,21 +170,18 @@ ${prompt}
 
 TOOLS (use only what you need): ${names || "none"}
 
-RULES:
-- Act with tools when facts or actions are required. Do not invent results.
-- IMPORTANT: The TOOLS list is a live tool registry, not documentation. You can call any listed tool immediately when its description matches the goal. Do not say a tool is unavailable merely because there is no visible button. For live/current information, call the relevant web tool before answering.
-- Prefer 1–3 high-value tool calls, then answer from real results.
-- If a tool fails, change approach — do not repeat the exact same call.
-- When the goal is satisfied by tool evidence, stop and answer clearly.
-- For coding, debugging, build, test, or run goals, use the Sandbox automatically. Treat programming_lab, sandbox_run, and terminal_execute as live execution tools. Inspect exitCode, stdout, and stderr before claiming success.
-- For app/website creation goals, use the builder surface automatically: inspect/read first, then write/edit, refresh preview, and use web_check or publish verification before claiming the result works. Do not ask the user to press a manual "build" or "skill" button.
-- For preview requests, return a real preview/evidence path when the available builder/hosting tools support it. A successful model response alone is never preview evidence.
-- For publish requests, publish only when requested or clearly required, then verify the resulting public URL with a real HTTP check.
+RULES (STRICT — do not tool-shop):
+- Act with tools only when facts or side-effects are required. Do not invent results.
+- HARD LIMIT: at most 2 tool calls this turn. Prefer 1. Never call 5+ tools to "explore".
+- Pick the single best tool for the goal. Do not list or probe every available tool.
+- After one successful evidence tool (web_browse/web_search/sandbox/github result), STOP calling tools and answer from that evidence.
+- If a tool fails once, change tool or arguments once — then answer with what you have. Do not spiral.
+- When the goal is satisfied by tool evidence, answer immediately in Thai if the user wrote Thai.
+- For coding/debug: use sandbox_run or programming_lab once, inspect exitCode, then answer.
 - Pure greeting only: answer without tools.
 `;
 }
 
-/** Tasks that deserve one extra planning pass before acting. */
 function wantsDeepReasoning(prompt: string): boolean {
   return (
     /(?:architecture|สถาปัตย์|ออกแบบ|debug|แก้บั๊ก|bug|refactor|หลายขั้น|ทั้งระบบ|ระบบ|deploy|ดีพลอย|ci|workflow|database|ฐานข้อมูล|security|ความปลอดภัย|mcp|agent|โค้ด|code)/i.test(
@@ -194,7 +190,6 @@ function wantsDeepReasoning(prompt: string): boolean {
   );
 }
 
-/** Pull a structured MCP UI payload out of a tool result, if the tool returned one. */
 function mcpUiPayload(result: ToolExecutionResult): Record<string, unknown> | null {
   if (!result.ok || !result.result || typeof result.result !== "object") return null;
   const ui = (result.result as Record<string, unknown>).ui;
@@ -217,7 +212,7 @@ function buildContinuePrompt(
 EVIDENCE SO FAR:
 ${summary}
 
-Still need real verification. For code/runtime work, call programming_lab, sandbox_run, or terminal_execute and inspect exitCode/stdout/stderr. For public web work, call web_check. For GitHub work, use a real repository or CI check. Then answer only from the evidence.${reasoningRule}`;
+One verification tool only (sandbox or web_check), then answer from evidence.${reasoningRule}`;
   }
   if (mode === "retry") {
     return `GOAL: ${prompt}
@@ -225,17 +220,18 @@ Still need real verification. For code/runtime work, call programming_lab, sandb
 PREVIOUS FAILURES:
 ${summary}
 
-Diagnose and retry with a DIFFERENT tool or different arguments. Do not repeat the identical call.${reasoningRule}`;
+One different tool or different args — then answer. Do not spiral.${reasoningRule}`;
   }
   return `GOAL: ${prompt}
 
 LATEST RESULTS:
 ${summary}
 
-If the goal is done, answer now from the evidence. Otherwise take the next minimal useful tool action.${reasoningRule}`;
+STOP TOOL-SHOPPING. If you have any useful result above, answer NOW in the user's language.
+Do not call more tools unless the goal is clearly incomplete.
+Max 1 more tool call, then final answer.${reasoningRule}`;
 }
 
-/** Goal satisfied? Search/browse/check success is enough for non-mutation tasks. */
 function goalSatisfied(
   prompt: string,
   results: ToolExecutionResult[],
@@ -246,20 +242,21 @@ function goalSatisfied(
   const needVerify = looksLikeVerification(prompt) || mutation;
   const evidence = hasUsefulEvidence(results);
 
-  // Successful search/browse for Q&A
+  // Any non-mutation task with real tool evidence is done — stop tool-shopping
+  if (!mutation && evidence) {
+    return { done: true, verified: true };
+  }
+
   if (!mutation && looksLikeSearch(prompt) && evidence) {
     return { done: true, verified: true };
   }
 
-  // Model finished with no more tools
   if (!hadToolCalls) {
     if (!needVerify) return { done: true, verified: evidence || Boolean(finalText.trim()) };
     return { done: evidence, verified: evidence };
   }
 
-  // All tools succeeded and we have evidence
   if (results.length && results.every(toolSucceeded) && evidence) {
-    if (!needVerify) return { done: true, verified: true };
     return { done: true, verified: true };
   }
 
@@ -275,7 +272,6 @@ export async function runAgentLoop(
   model = "gpt-5.6-luna",
   githubToken?: string,
   publishCtx?: PublishCtx,
-  /** Called after every round with real tool results — used to accumulate TaskState. */
   onToolResults?: (results: ToolExecutionResult[]) => void,
 ): Promise<AgentRunResult> {
   const steps: AgentStep[] = [];
@@ -291,20 +287,23 @@ export async function runAgentLoop(
   const foundationMemory: AgentMemory = createAgentMemory();
   const deepReasoning = wantsDeepReasoning(prompt);
   let available = tools.length ? [...tools] : await loadCodingFleetTools();
+  const githubHeavy = /github|pull request|\bpr\b|commit|branch|workflow/i.test(prompt);
+  if (!githubHeavy && available.length > 6) {
+    available = available.slice(0, 6);
+  }
   const seenCalls = new Set<string>();
+  let expansions = 0;
 
-  // Tool access is adaptive: start with routed real capabilities, then open
-  // additional capabilities when evidence or an error shows the route is insufficient.
   const expandToolset = async (reason: string) => {
+    if (expansions >= 1) return 0;
     try {
-      const decision = await routeToolsForTask(`${prompt}
-
-ROUTING SIGNAL: ${reason}`, 12);
+      const decision = await routeToolsForTask(`${prompt}\n\nROUTING SIGNAL: ${reason}`, 4);
       const existing = new Set(available.map((tool) => tool.name));
-      const additions = decision.selected.filter((tool) => !existing.has(tool.name));
+      const additions = decision.selected.filter((tool) => !existing.has(tool.name)).slice(0, 2);
       if (additions.length) {
+        expansions += 1;
         available = [...available, ...additions];
-        emit({ phase: "select", detail: `🔌 เปิดเครื่องมือเพิ่มตามสถานการณ์: ${additions.map((tool) => tool.name).join(", ")}` });
+        emit({ phase: "select", detail: `🔌 เปิดเพิ่ม (ครั้งเดียว): ${additions.map((tool) => tool.name).join(", ")}` });
         return additions.length;
       }
     } catch (error) {
@@ -314,30 +313,34 @@ ROUTING SIGNAL: ${reason}`, 12);
   };
   let kernel: AgentKernelState = createAgentKernel(prompt);
   let consecutiveFails = 0;
-  const FAIL_LIMIT = 3;
+  const FAIL_LIMIT = 2;
 
-  emit({ phase: "plan", detail: "🎯 Goal & Context: รับเป้าหมายและรวบรวมบริบท" });
-  emit({ phase: "plan", detail: `🗺️ Plan & Route: budget ${budget} rounds · tools ${available.length} · Puter-first` });
-  emit({ phase: "plan", detail: foundationPrompt(foundation) });
-  emit({ phase: "plan", detail: "🔎 Research: เตรียมข้อมูล/หลักฐานที่จำเป็นก่อนลงมือ" });
+  emit({ phase: "plan", detail: "🎯 Goal & Context: รับเป้าหมาย" });
+  emit({
+    phase: "plan",
+    detail: `🗺️ Plan & Route: budget ${budget} · tools ${available.length} (capped) · ลงมือเร็ว ไม่ tool-shop`,
+  });
   emit({
     phase: "select",
-    detail: available
-      .slice(0, 10)
-      .map((t) => t.name)
-      .filter(Boolean)
-      .join(", "),
+    detail:
+      "เครื่องมือ (จำกัด): " +
+      available
+        .slice(0, 6)
+        .map((t) => t.name)
+        .filter(Boolean)
+        .join(", "),
   });
   if (deepReasoning) {
     emit({
       phase: "plan",
-      detail: "🧠 Deep reasoning: ตรวจข้อจำกัด ผลข้างเคียง และเส้นทางแก้ที่สั้นที่สุด (ไม่เปิดเผย chain-of-thought)",
+      detail: "🧠 Deep reasoning: เส้นทางสั้นสุด (ไม่เปิดเผย chain-of-thought)",
     });
   }
 
-  let currentPrompt = buildKickoffPrompt(prompt, available) + `\n\n${foundationPrompt(foundation)}\n\nAGENT KERNEL:\n${kernelSummary(kernel)}`;
+  let currentPrompt =
+    buildKickoffPrompt(prompt, available) +
+    `\n\n${foundationPrompt(foundation)}\n\nAGENT KERNEL:\n${kernelSummary(kernel)}`;
   let last = "";
-  let lastResults: ToolExecutionResult[] = [];
   let allResults: ToolExecutionResult[] = [];
 
   for (let i = 0; i < budget; i++) {
@@ -356,7 +359,6 @@ ROUTING SIGNAL: ${reason}`, 12);
 
     if (!result.ok) {
       kernel = kernelRecordFailure(kernel, "model_round");
-      kernel = kernelRecordObservation(kernel, "model_round", false, safeText(result.error, "model failed"), false);
       consecutiveFails += 1;
       emit({ phase: "observe", detail: safeText(result.error, "model failed") });
       if (consecutiveFails >= FAIL_LIMIT) {
@@ -368,7 +370,9 @@ ROUTING SIGNAL: ${reason}`, 12);
         };
       }
       const hint = recoveryHint("model_round", safeText(result.error, "model failed"), consecutiveFails);
-      currentPrompt = buildContinuePrompt(prompt, allResults, "retry", deepReasoning) + `\n\nKERNEL RECOVERY:\n${hint}\n${kernelSummary(kernel)}`;
+      currentPrompt =
+        buildContinuePrompt(prompt, allResults, "retry", deepReasoning) +
+        `\n\nKERNEL RECOVERY:\n${hint}\n${kernelSummary(kernel)}`;
       continue;
     }
 
@@ -383,41 +387,21 @@ ROUTING SIGNAL: ${reason}`, 12);
       if (tr.ok) {
         kernel = kernelRecordObservation(kernel, tr.name, true, summary, evidence);
         const facts = knowledgeFacts(tr);
-        if (facts.length) {
-          kernel = rememberKnowledge(kernel, prompt, facts, tr.name);
-        }
+        if (facts.length) kernel = rememberKnowledge(kernel, prompt, facts, tr.name);
       } else {
         kernel = kernelRecordFailure(kernel, tr.name);
         kernel = kernelRecordObservation(kernel, tr.name, false, summary, false);
         if (isAccessDeniedResult(tr)) {
           kernel = recordAccessDenied(kernel, tr.name);
-          emit({
-            phase: "refine",
-            detail: `🔐 Access blocked on ${tr.name}: จำเส้นทางนี้ไว้และเปลี่ยนไปใช้ช่องทางที่ได้รับอนุญาตแทน`,
-          });
         }
       }
     }
-    lastResults = result.toolResults;
     allResults = allResults.concat(result.toolResults);
 
-    // Accumulate task memory + surface publish auto-verification as a step.
     if (result.toolResults.length) {
       onToolResults?.(result.toolResults);
-      for (const tr of result.toolResults) {
-        const rec = tr.result && typeof tr.result === "object" ? (tr.result as Record<string, unknown>) : null;
-        const av = rec?.autoVerify as { url?: string; ok?: boolean; httpStatus?: number } | undefined;
-        if (av?.url) {
-          emit({
-            phase: "observe",
-            detail: `${av.ok ? "✓" : "✗"} auto-verify preview ${av.url}${av.httpStatus != null ? ` (HTTP ${av.httpStatus})` : ""}`,
-          });
-        }
-      }
     }
 
-    // Record every real action in the kernel/foundation so the next round
-    // can change strategy instead of blindly repeating a failed path.
     let duplicateOnly = result.toolCalls.length > 0;
     const avoidedTools = new Set<string>();
     for (const call of result.toolCalls as ToolCall[]) {
@@ -430,9 +414,8 @@ ROUTING SIGNAL: ${reason}`, 12);
     }
     for (const tr of result.toolResults) {
       const key = actionKey(tr.name, tr.result);
-      if (!tr.ok) {
-        recordFoundationFailure(foundationMemory, key);
-      } else if (isEvidenceTool(tr.name)) {
+      if (!tr.ok) recordFoundationFailure(foundationMemory, key);
+      else if (isEvidenceTool(tr.name)) {
         recordFoundationEvidence(foundationMemory, {
           source: tr.name,
           ok: true,
@@ -446,111 +429,44 @@ ROUTING SIGNAL: ${reason}`, 12);
     }
 
     if (duplicateOnly && result.toolCalls.length) {
-      emit({ phase: "refine", detail: "หยุดวน tool ซ้ำ — สรุปจากหลักฐานที่มี" });
+      emit({ phase: "refine", detail: "⛔ หยุดวน tool ซ้ำ — ตอบจากหลักฐานที่มี" });
+      break;
+    }
+
+    const failed = result.toolResults.filter((r) => !toolSucceeded(r));
+    const { done, verified } = goalSatisfied(prompt, allResults, last, result.toolCalls.length > 0);
+    if (done) {
+      emit({ phase: "verify", detail: verified ? "✓ มีหลักฐาน — จบงาน" : "จบจากผลที่มี" });
+      return { ok: true, text: last || summarizeResults(allResults), steps, verified };
+    }
+
+    if (!result.toolCalls.length && last.trim()) {
+      emit({ phase: "verify", detail: "โมเดลตอบแล้ว ไม่เปิด tool เพิ่ม" });
+      return { ok: true, text: last, steps, verified: hasUsefulEvidence(allResults) };
+    }
+
+    if (failed.length && !hasUsefulEvidence(allResults) && expansions < 1) {
+      await expandToolset(`tool failure: ${failed.map((f) => f.name).join(",")}`);
+    }
+
+    if (hasUsefulEvidence(allResults) && !looksLikeMutation(prompt)) {
+      emit({ phase: "verify", detail: "✓ มีหลักฐานพอ — บังคับจบ ไม่ tool-shop ต่อ" });
       return {
-        ok: hasUsefulEvidence(allResults),
+        ok: true,
         text: last || summarizeResults(allResults),
         steps,
-        verified: hasUsefulEvidence(allResults),
+        verified: true,
       };
     }
 
-    // No further tool calls → decide stop / verify / continue
-    if (!result.toolCalls.length) {
-      const { done, verified } = goalSatisfied(prompt, allResults, last, false);
-      if (done) {
-        emit({ phase: "verify", detail: "🔬 Verify & Publish: ตรวจหลักฐานจริงก่อนยืนยันผลลัพธ์" });
-        emit({ phase: "verify", detail: verified ? "✓ จบด้วยหลักฐาน" : "✓ จบ" });
-        return { ok: true, text: last, steps, verified };
-      }
-      if (i < budget - 1 && (looksLikeMutation(prompt) || looksLikeVerification(prompt))) {
-        emit({ phase: "refine", detail: "ขอ verification เพิ่ม" });
-        currentPrompt = buildContinuePrompt(prompt, allResults, "verify", deepReasoning) + `\n\nKERNEL:\n${kernelSummary(kernel)}`;
-        continue;
-      }
-      emit({ phase: "verify", detail: verified ? "✓" : "จบแบบมีหลักฐานจำกัด" });
-      return { ok: verified || Boolean(last.trim()), text: last, steps, verified };
-    }
-
-    // Tools ran — check early exit
-    const failed = result.toolResults.filter((r) => !r.ok);
-    if (failed.length) {
-      const failureSummary = failed.map((r) => `${r.name}: ${safeText(r.error ?? r.result, "failed").slice(0, 300)}`).join(" | ");
-      await expandToolset(`tool failure requires a different capability: ${failureSummary}`);
-    } else if (result.toolResults.length) {
-      const observed = result.toolResults.map((r) => `${r.name}: ${safeText(r.result, "ok").slice(0, 180)}`).join(" | ");
-      await expandToolset(`continue from real tool evidence: ${observed}`);
-    }
-    if (!failed.length && hasUsefulEvidence(result.toolResults)) {
-      const { done, verified } = goalSatisfied(prompt, allResults, last, true);
-      // For search-style tasks, one good evidence pass is enough
-      if (done || (looksLikeSearch(prompt) && !looksLikeMutation(prompt))) {
-        emit({ phase: "verify", detail: "🔬 Verify & Publish: ตรวจหลักฐานจริงก่อนยืนยันผลลัพธ์" });
-        emit({ phase: "verify", detail: "✓ ได้หลักฐานเพียงพอ — จบเร็ว" });
-        // One short synthesis pass only if model gave empty text
-        if (!last.trim() && i < budget - 1) {
-          currentPrompt = buildContinuePrompt(prompt, allResults, "continue", deepReasoning) +
-            "\n\nAnswer the user now from the evidence above. No more tools unless critical.";
-          const synth = await callWithFallback(
-            currentPrompt,
-            [], // no tools — force answer
-            [model],
-            undefined,
-            authToken,
-            githubToken,
-            publishCtx,
-          );
-          if (synth.ok && synth.text.trim()) last = synth.text;
-          else last = summarizeResults(allResults, 6);
-        }
-        return {
-          ok: true,
-          text: last || summarizeResults(allResults),
-          steps,
-          verified: verified || true,
-        };
-      }
-    }
-
-    const decision = kernelDecideNext(kernel);
-    if (decision.kind === "recover") {
-      emit({ phase: "refine", detail: `🔄 Recovery: ${decision.reason}` });
-    } else if (decision.kind === "verify") {
-      emit({ phase: "refine", detail: `🔎 Verification gate: ${decision.reason}` });
-    }
-    if (avoidedTools.size) {
-      emit({ phase: "refine", detail: `⛔ หลีกเลี่ยง tool ที่วน/พังซ้ำ: ${[...avoidedTools].join(", ")}` });
-    }
-
-    if (failed.length) {
-      consecutiveFails += 1;
-      const failedTool = failed[0];
-      const recovery = recoveryEngine.decide();
-      emit({ phase: "observe", detail: `🚨 Error captured: ${safeText(failedTool?.error ?? failedTool?.result, "tool failed").slice(0, 500)}` });
-      emit({ phase: "refine", detail: `🔧 Repair Engine: ${recovery.phase} → ${recovery.instruction.slice(0, 700)}` });
-      emit({ phase: "refine", detail: `🧩 Root cause: ${recoveryEngine.summary().split("\n").slice(-1)[0] ?? "ตรวจจาก error จริง"}` });
-      emit({ phase: "refine", detail: `error: ${failed.map((f) => f.name).join(", ")}` });
-      if (consecutiveFails >= FAIL_LIMIT) {
-        return {
-          ok: false,
-          text: last || summarizeResults(allResults),
-          steps,
-          verified: hasUsefulEvidence(allResults),
-        };
-      }
-      const recoveryHintText = recoveryHint(failedTool?.name ?? "tool", safeText(failedTool?.error ?? failedTool?.result, "tool failed"), consecutiveFails);
-      currentPrompt = buildContinuePrompt(prompt, allResults, "retry", deepReasoning) +
-        `\n\nREPAIR ENGINE:\n${recovery.instruction}\nEVIDENCE:\n${evidenceEngine.summary()}\n\nKERNEL:\n${kernelSummary(kernel)}\n\nRECOVERY HINT:\n${recovery}${avoidedTools.size ? `\nAVOID THESE TOOLS THIS ROUND: ${[...avoidedTools].join(", ")}` : ""}\n\nPAIN MEMORY: The failed path is remembered. Do not replay the same failed action. You must change the tool, arguments, route, or verification method before the next attempt.`;
-    } else {
-      if (result.toolCalls.length) emit({ phase: "act", detail: "🛠️ Execute & Trace: บันทึกผลการลงมือทำจาก tool จริง" });
-      emit({ phase: "refine", detail: "ต่อจากผลลัพธ์" });
-      currentPrompt = buildContinuePrompt(prompt, allResults, "continue", deepReasoning) +
-        `\n\nKERNEL:\n${kernelSummary(kernel)}${decision.kind === "recover" ? `\n\nRECOVERY:\n${decision.reason}` : ""}`;
-    }
+    currentPrompt =
+      buildContinuePrompt(prompt, allResults, failed.length ? "retry" : "continue", deepReasoning) +
+      `\n\nKERNEL:\n${kernelSummary(kernel)}` +
+      (avoidedTools.size ? `\nAVOID: ${[...avoidedTools].join(", ")}` : "");
   }
 
   return {
-    ok: hasUsefulEvidence(allResults),
+    ok: hasUsefulEvidence(allResults) || Boolean(last.trim()),
     text: last || summarizeResults(allResults),
     steps,
     verified: hasUsefulEvidence(allResults),
@@ -558,5 +474,5 @@ ROUTING SIGNAL: ${reason}`, 12);
 }
 
 export async function executeAgentCode(language: string, code: string) {
-  return runInSandbox({ language, code });
+  return runInSandbox(language, code);
 }
