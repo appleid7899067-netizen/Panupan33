@@ -742,7 +742,7 @@ export function SuperChat() {
         </div>
       )}
 
-      <main
+      <main className={themeClass}
         ref={scrollerRef}
         className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y px-4 py-5 pb-8 sm:px-6 sm:py-7 [scrollbar-gutter:stable]"
         style={{ overflowAnchor: "none", WebkitOverflowScrolling: "touch" }}
