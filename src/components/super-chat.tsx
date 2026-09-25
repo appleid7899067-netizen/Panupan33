@@ -165,6 +165,20 @@ export function SuperChat() {
   const [chatTheme, setChatTheme] = useState<"default" | "violet" | "pink" | "cyan" | "warm">("default");
   const selectedModel = storedModel || DEFAULT_PUTER_MODEL;
   const themeClass = { default: "", violet: "boss-chat-theme-violet", pink: "boss-chat-theme-pink", cyan: "boss-chat-theme-cyan", warm: "boss-chat-theme-warm" }[chatTheme];
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("bossnu_chat_theme");
+      if (saved === "default" || saved === "violet" || saved === "pink" || saved === "cyan" || saved === "warm") {
+        setChatTheme(saved);
+      }
+    } catch { /* local preference is optional */ }
+  }, []);
+
+  const selectChatTheme = (theme: typeof chatTheme) => {
+    setChatTheme(theme);
+    try { window.localStorage.setItem("bossnu_chat_theme", theme); } catch { /* local preference is optional */ }
+  };
   const agentSettings = useFleet((s) => s.agentSettings);
   const openPreviewRoom = () => {
     if (!thread) return;
@@ -827,7 +841,7 @@ export function SuperChat() {
           <div className="flex items-center gap-1 rounded-full bg-white/[0.035] px-1 py-1">
             <Palette className="mx-1 size-3.5 text-zinc-500" />
             {([["default","•"],["violet","V"],["pink","P"],["cyan","C"],["warm","W"]] as const).map(([theme, label]) => (
-              <button key={theme} type="button" onClick={() => setChatTheme(theme)} className={`size-6 rounded-full text-[9px] font-semibold transition ${chatTheme === theme ? "bg-white text-black" : "text-zinc-500 hover:bg-zinc-800"}`} aria-label={`ธีม ${theme}`}>{label}</button>
+              <button key={theme} type="button" onClick={() => selectChatTheme(theme)} className={`size-6 rounded-full text-[9px] font-semibold transition ${chatTheme === theme ? "bg-white text-black" : "text-zinc-500 hover:bg-zinc-800"}`} aria-label={`ธีม ${theme}`}>{label}</button>
             ))}
           </div>
         </div>
