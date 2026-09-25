@@ -119,7 +119,7 @@ export async function routeToolsForTask(prompt: string, maxTools = 12): Promise<
   if (needs.github) seedNames.push("github_get_repo", "github_get_file", "github_list_dir");
   if (needs.search) seedNames.push("web_search", "web_browse");
   if (needs.web) seedNames.push("web_check", "web_browse");
-  if (needs.sandbox) seedNames.push("sandbox_run");
+  if (needs.sandbox) seedNames.push("programming_lab", "sandbox_run");
   if (needs.deploy) seedNames.push("web_check");
   if (needs.ci) seedNames.push("github_actions", "github_get_workflow_runs");
   if (needs.documents) seedNames.push("document_extract", "file_read", "web_fetch");
@@ -128,6 +128,7 @@ export async function routeToolsForTask(prompt: string, maxTools = 12): Promise<
 
   const priorityName = (name: string) => {
     const n = name.toLowerCase();
+    if (n === "programming_lab") return 105;
     if (n === "sandbox_run") return 100;
     if (n === "web_check") return 90;
     if (n.includes("github") && n.includes("read")) return 80;
