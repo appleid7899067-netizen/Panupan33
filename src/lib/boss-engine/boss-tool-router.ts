@@ -24,6 +24,7 @@ export type CapabilityNeed = {
   plugins: boolean;
   builder: boolean;
   writing: boolean;
+  maps: boolean;
 };
 
 export type RouterDecision = {
