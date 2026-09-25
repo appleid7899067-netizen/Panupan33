@@ -89,7 +89,7 @@ function summarizeResults(results: ToolExecutionResult[], limit = 4): string {
 }
 
 function isEvidenceTool(name: string): boolean {
-  return /web_search|web_browse|web_check|web_fetch|sandbox_run|sandbox_install|github_|builder_|test|verify|build|ci|workflow|health|deploy/i.test(
+  return /web_search|web_browse|web_check|web_fetch|sandbox_run|programming_lab|terminal_execute|sandbox_install|github_|builder_|test|verify|build|ci|workflow|health|deploy/i.test(
     name,
   );
 }
