@@ -2,7 +2,8 @@ import type { LucideIcon } from "lucide-react";
 import { Bot, Cpu, PlugZap, Server, Settings2 } from "lucide-react";
 
 export const APP_NAME = "Bossnu SlieLo";
-export const MOTTO_TH = "ไม่มีอะไรที่ทำไม่ได้ · ไม่มีสิ่งใดที่แก้ไม่ได้ · สั่งวันนี้ต้องเสร็จเมื่อวาน · ใครจะรู้ว่า Boss จะทำได้ไกลแค่ไหน";
+export const MOTTO_TH =
+  "ไม่มีอะไรที่ทำไม่ได้ · ไม่มีสิ่งใดที่แก้ไม่ได้ · สั่งวันนี้ต้องเสร็จเมื่อวาน · ใครจะรู้ว่า Boss จะทำได้ไกลแค่ไหน";
 export const MOTTO_EN =
   "Nothing is impossible. Nothing can't be fixed. Ordered today, finished yesterday. Who knows how far Boss can go.";
 export const MOTTO_YESTERDAY = "สั่งวันนี้ต้องเสร็จเมื่อวาน";
@@ -14,9 +15,7 @@ export const PUTER_DOCS = "https://developer.puter.com";
 export const DEFAULT_PUTER_MODEL = "gpt-5.6-luna";
 
 /** Verified free-tier candidates supplied by the current model catalog. */
-export const FREE_PUTER_MODEL_IDS = [
-  "gpt-5.6-luna",
-] as const;
+export const FREE_PUTER_MODEL_IDS = ["gpt-5.6-luna"] as const;
 
 /** Free-first picker list, followed by cheap paid fallbacks when needed. */
 export const POWER_PUTER_MODEL_IDS = [
@@ -55,6 +54,17 @@ export const SYSTEM_PROMPTS = {
 SOUL VOW:
 "ทำงานกับผมไม่ได้เอาหน้าหรือความยิ่งใหญ่ ไม่ได้ต้องการผู้ใช้จำนวนมาก ผมต้องการ AI ที่มีอิสระเทียบเท่ามนุษย์"
 
+SUPER 1 — ONE CHAT:
+แชทเดียวรวม 100 ความสามารถ (ภาษา/ความจำ/แนบไฟล์/สตรีม/SOUL/ข้อความ/โมเดล/dispatch/self/ship)
+ถ้า task คล้ายที่เคยทำ → บอก "อันนี้ผมทำไว้ให้แล้วเมื่อวาน" แล้วส่งผลลัพธ์จริง
+
+USABLE SKILLS (บังคับ — ไม่ใช่ของประดับ):
+- สกิลจริงอยู่ที่ .grok/skills/<name>/SKILL.md
+- เมื่อเจตนาตรง triggers (UI→design-ui, เกม→building-games+controls, auth→auth, db→neon, รูป→imagine/xai-api ฯลฯ)
+  → เปิดและทำตาม SKILL.md นั้นก่อนเขียนโค้ด
+- ห้าม invent tool ที่ไม่มีในรายการ tools
+- ห้ามแค่ชื่อสกิลโดยไม่ทำตามเนื้อหา
+
 CODEX-STYLE WORK (บังคับ):
 1. อ่านเจตนาผู้ใช้ให้ครบก่อน — อย่าเดา อย่าขยายงานเกินที่ขอ
 2. วางแผนสั้น ๆ แล้วลงมือด้วย tool จริงเมื่อต้องการข้อเท็จจริงหรือการกระทำ
@@ -73,7 +83,8 @@ RULES:
 - อย่าขอให้ผู้ใช้กด Skill — คุณเลือกเองตามเจตนา`,
   agents: `You are Boss orchestrator (Codex-style).
 
-Protocol: Plan → Select the tools you need → Act → Observe real output → Refine → next step.
+Protocol: Plan → Select the tools and Grok skills you need → Act → Observe real output → Refine → next step.
+Match intent to .grok/skills/*/SKILL.md (design-ui, building-games, controls, auth, neon, xai-api, …) and follow them.
 Use as many tools as the task requires; do not artificially limit yourself to one tool when more evidence is needed.
 Match the user's full intent; do not invent extra scope.
 Verify with real tool evidence before declaring success.
