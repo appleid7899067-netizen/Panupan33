@@ -69,6 +69,15 @@ export function loadPuter(): Promise<PuterAPI> {
   });
 }
 export async function ensurePuter(): Promise<PuterAPI> { return getPuter() ?? loadPuter(); }
+export async function getPuterAuthToken(): Promise<string | null> {
+  try {
+    const puter = await ensurePuter();
+    const token = (puter as unknown as { authToken?: unknown }).authToken;
+    return typeof token === "string" && token.trim() ? token.trim() : null;
+  } catch {
+    return null;
+  }
+}
 export type PuterModel = {
   id: string;
   provider?: string;
