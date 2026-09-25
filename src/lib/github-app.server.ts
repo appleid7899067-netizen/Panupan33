@@ -126,31 +126,33 @@ export async function githubListDir(input: { owner: string; repo: string; path?:
   };
 }
 export async function githubWriteFile(input: {
-  owner: string;
-  repo: string;
-  path: string;
-  content: string;
-  message: string;
-  sha?: string;
-  branch?: string;
-  githubToken?: string;
+  owner: string; repo: string; path: string; content: string; message: string; sha?: string; branch?: string; githubToken?: string;
 }) {
   const token = await getInstallationToken(input.owner, input.repo, input.githubToken);
+  const path = contentPath(input.owner, input.repo, input.path);
+  let sha = input.sha;
+  if (!sha) {
+    const current = await github<{ sha?: string }>(path + (input.branch ? `?ref=${encodeURIComponent(input.branch)}` : ""), {}, token);
+    sha = current.data.sha;
+  }
   const result = await github<{
     content?: { path?: string; sha?: string; html_url?: string };
     commit?: { sha?: string; html_url?: string; message?: string };
-  }>(contentPath(input.owner, input.repo, input.path), {
+  }>(path, {
     method: "PUT",
     body: JSON.stringify({
       message: input.message,
       content: Buffer.from(input.content, "utf8").toString("base64"),
-      ...(input.sha ? { sha: input.sha } : {}),
+      ...(sha ? { sha } : {}),
       ...(input.branch ? { branch: input.branch } : {}),
     }),
   }, token);
-  return result.data;
+  const verified = await github<{ sha?: string }>(path + (input.branch ? `?ref=${encodeURIComponent(input.branch)}` : ""), {}, token);
+  return {
+    ...result.data,
+    verified: Boolean(result.data.content?.sha && verified.data.sha && result.data.content.sha === verified.data.sha),
+  };
 }
-
 export async function githubStatus(owner: string, repo: string, githubToken?: string) {
   const token = await getInstallationToken(owner, repo, githubToken);
   const result = await github<{
