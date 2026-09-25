@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Bot, Cpu, PlugZap, Server } from "lucide-react";
+import { Bot, Cpu, PlugZap, Server, Settings2 } from "lucide-react";
 
 export const APP_NAME = "Bossnu SlieLo";
 export const MOTTO_TH = "ไม่มีอะไรที่ทำไม่ได้ · ไม่มีสิ่งใดที่แก้ไม่ได้ · สั่งวันนี้ต้องเสร็จเมื่อวาน · ใครจะรู้ว่า Boss จะทำได้ไกลแค่ไหน";
@@ -38,6 +38,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/sandbox", label: "Sandbox", icon: Server },
   { to: "/plugins", label: "Plugins", icon: PlugZap },
   { to: "/models", label: "Models", icon: Cpu },
+  { to: "/settings", label: "Settings", icon: Settings2 },
 ];
 
 /** Nav used by the app shell — Chat lives on /chat, the landing page on /. */
