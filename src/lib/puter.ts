@@ -72,8 +72,16 @@ export async function ensurePuter(): Promise<PuterAPI> { return getPuter() ?? lo
 export async function getPuterAuthToken(): Promise<string | null> {
   try {
     const puter = await ensurePuter();
+    // Puter exposes the active browser session token on the Puter instance.
+    // Use the signed-in session directly. Do not invent a separate app token.
+    if (!puter.auth.isSignedIn()) return null;
     const token = (puter as unknown as { authToken?: unknown }).authToken;
-    return typeof token === "string" && token.trim() ? token.trim() : null;
+    if (typeof token === "string" && token.trim()) return token.trim();
+    // Some Puter builds expose authToken only after getUser() has hydrated
+    // the session, so force that hydration once before giving up.
+    await puter.auth.getUser();
+    const hydrated = (puter as unknown as { authToken?: unknown }).authToken;
+    return typeof hydrated === "string" && hydrated.trim() ? hydrated.trim() : null;
   } catch {
     return null;
   }
