@@ -271,3 +271,10 @@
 .boss-template-copy p{margin-top:8px;color:var(--color-muted);font-size:13px;line-height:1.65}
 @media(max-width:900px){.boss-template-grid{grid-template-columns:1fr}.boss-template-visual{height:190px}}
 @media(max-width:640px){.boss-template-grid{gap:14px}.boss-template-card{border-radius:24px}.boss-template-visual{height:175px}.boss-template-mark{font-size:10rem}}
+
+
+/* Messenger-inspired chat mood themes. Kept subtle so the conversation remains the focus. */
+.boss-chat-theme-violet{background:radial-gradient(circle at 50% 0%,rgba(139,92,246,.10),transparent 38%)}
+.boss-chat-theme-pink{background:radial-gradient(circle at 50% 0%,rgba(236,72,153,.09),transparent 38%)}
+.boss-chat-theme-cyan{background:radial-gradient(circle at 50% 0%,rgba(34,211,238,.09),transparent 38%)}
+.boss-chat-theme-warm{background:radial-gradient(circle at 50% 0%,rgba(245,158,11,.08),transparent 38%)}
