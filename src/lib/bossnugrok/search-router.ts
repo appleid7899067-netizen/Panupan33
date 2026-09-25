@@ -1,6 +1,4 @@
-import { searchYandex, type YandexSearchResult } from "./yandex-client";
-
-export type SearchEngine = "yandex" | "duckduckgo" | "brave" | "auto";
+export type SearchEngine = "duckduckgo" | "brave" | "auto";
 
 export interface SearchOptions {
   engine?: SearchEngine;
@@ -10,16 +8,16 @@ export interface SearchOptions {
 export interface SearchResult {
   engine: Exclude<SearchEngine, "auto">;
   query: string;
-  results: YandexSearchResult[];
+  results: Array<{ title: string; url: string; snippet: string }>;
 }
 
 export function getSearchEngine(): SearchEngine {
-  if (typeof window === "undefined") return "yandex";
+  if (typeof window === "undefined") return "duckduckgo";
   try {
     const value = window.localStorage.getItem("search_engine");
-    if (value === "yandex" || value === "duckduckgo" || value === "brave" || value === "auto") return value;
+    if (value === "duckduckgo" || value === "brave" || value === "auto") return value;
   } catch { /* intentionally ignored */ }
-  return "yandex";
+  return "duckduckgo";
 }
 
 export function setSearchEngine(engine: SearchEngine) {
@@ -30,17 +28,8 @@ export async function searchWeb(query: string, options: SearchOptions = {}): Pro
   const engine = options.engine || getSearchEngine();
   const maxResults = Math.min(Math.max(options.maxResults || 5, 1), 20);
 
-  if (engine === "duckduckgo") return searchDuckDuckGo(query, maxResults);
   if (engine === "brave") return searchBrave(query, maxResults);
-
-  try {
-    const data = await searchYandex(query, { maxResults });
-    return { engine: "yandex", query, results: data.results };
-  } catch (yandexError) {
-    // Keep search usable even when Yandex XML/CORS is unavailable.
-    console.warn("[Search] Yandex failed, falling back to DuckDuckGo", yandexError);
-    return searchDuckDuckGo(query, maxResults);
-  }
+  return searchDuckDuckGo(query, maxResults);
 }
 
 async function searchDuckDuckGo(query: string, maxResults: number): Promise<SearchResult> {
@@ -66,13 +55,10 @@ async function searchBrave(query: string, maxResults: number): Promise<SearchRes
     "https://api.search.brave.com/res/v1/web/search?q=" + encodeURIComponent(query) + "&count=" + maxResults,
     { headers: { "X-Subscription-Token": key } },
   );
-
   if (!res.ok) throw new Error("Brave HTTP " + res.status);
 
-  const data = await res.json() as {
-    web?: { results?: Array<{ title?: string; url?: string; description?: string }> };
+  const data = await res.json() as { web?: { results?: Array<{ title?: string; url?: string; description?: string }> };
   };
-
   return {
     engine: "brave",
     query,
