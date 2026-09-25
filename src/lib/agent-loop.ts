@@ -217,7 +217,7 @@ function buildContinuePrompt(
 EVIDENCE SO FAR:
 ${summary}
 
-Still need real verification (web_check / sandbox_run / github check). Call one verification tool, then answer.${reasoningRule}`;
+Still need real verification. For code/runtime work, call programming_lab, sandbox_run, or terminal_execute and inspect exitCode/stdout/stderr. For public web work, call web_check. For GitHub work, use a real repository or CI check. Then answer only from the evidence.${reasoningRule}`;
   }
   if (mode === "retry") {
     return `GOAL: ${prompt}
