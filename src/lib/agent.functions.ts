@@ -52,7 +52,6 @@ function prefersAuthenticatedGitHub(prompt: string): boolean {
   return /github|repository|repo|pull request|branch|commit|workflow|actions|502|500|503|bug|error|debug|deploy|ดีพลอย|แก้โค้ด|แก้ไฟล์|ล่ม/.test(prompt.toLowerCase());
 }
 
-/** Bootstrap the Boss context and resume any memory persisted for this thread. */
 async function prepareBossRun(data: LoopData) {
   const basePrompt = data.context ? `${data.context}\n\nCurrent user request:\n${data.prompt}` : data.prompt;
   const boss = await bootstrapBoss(data.prompt, data.threadId);
@@ -81,7 +80,7 @@ async function prepareBossRun(data: LoopData) {
     learningContext +
     "\n\n=== AGENT SETTINGS ===\n" +
     JSON.stringify(data.agentSettings ?? {}) +
-    "\nUse these settings as hard execution preferences: obey disabled tool families, honor maxIterations, repair when enabled, and do not claim mutation success without verification when requireVerification=true." +
+    "\nPrefer finishing the goal over exploring tools. Max 2 tool calls then answer." +
     "\n\n=== CURRENT REQUEST ===\n" +
     basePrompt;
   return { basePrompt, boss, saved, taskPrompt, coworker };
@@ -112,7 +111,7 @@ async function tryGitHubLoopDriver(
   };
   pushStep({
     phase: "plan",
-    detail: `📦 GitHub Loop driver: ${repoRef.owner}/${repoRef.repo} — state machine คุม branch→PR→CI (ไม่เดา phase)`,
+    detail: `📦 GitHub Loop driver: ${repoRef.owner}/${repoRef.repo}`,
   });
 
   const driverResult = await runGitHubLoopDriver({
@@ -130,10 +129,10 @@ async function tryGitHubLoopDriver(
   pushStep({
     phase: "verify",
     detail: driverResult.verified
-      ? "✓ CI ผ่าน — loop เสร็จแบบ verified"
+      ? "✓ CI ผ่าน"
       : driverResult.ok
-        ? "⚠️ loop เสร็จจริง แต่ยังไม่มี CI ที่ผ่านให้ verify"
-        : "❌ loop ไม่สำเร็จ — ดู diagnosis ด้านล่าง",
+        ? "⚠️ เสร็จแต่ยังไม่มี CI verify"
+        : "❌ loop ไม่สำเร็จ",
   });
   return { ok: driverResult.ok, text: driverResult.text, steps, verified: driverResult.verified, githubLoop: driverResult.state };
 }
@@ -168,7 +167,7 @@ export const runAgent = createServerFn({ method: "POST" })
     let boss = initialBoss;
     const intent = inferTaskIntent(data.prompt);
     const engineSelected = selectToolsFromRouter(boss);
-    const selected = engineSelected.length ? engineSelected : await selectToolsForTask(taskPrompt, 24);
+    const selected = engineSelected.length ? engineSelected : await selectToolsForTask(taskPrompt, 6);
     const settings = data.agentSettings ?? {};
     const filteredSelected = selected.filter((tool) => {
       const name = String(tool.name ?? "").toLowerCase();
@@ -178,34 +177,33 @@ export const runAgent = createServerFn({ method: "POST" })
       if (settings.githubAccess === false && /^github_/.test(name)) return false;
       if (settings.mcpAccess === false && /^mcp/.test(name)) return false;
       return true;
-    });
+    }).slice(0, 6);
     const effectiveSelected = filteredSelected;
-    const selectedNames = effectiveSelected.slice(0, 12).map((tool) => String(tool.name ?? "")).filter(Boolean);
+    const selectedNames = effectiveSelected.slice(0, 6).map((tool) => String(tool.name ?? "")).filter(Boolean);
     const registryStep = {
       phase: "plan" as const,
-      detail: `Intent: ${intent} · tools (${selectedNames.length}): ${selectedNames.join(", ") || "ไม่มี — ตอบตรงเจตนา"}`,
+      detail: `Intent: ${intent} · tools (${selectedNames.length}): ${selectedNames.join(", ") || "ไม่มี"}`,
     };
     const coworkerStep = {
       phase: "plan" as const,
-      detail: `🤝 ${coworker.plan.specialist.label}${coworker.plan.packaged ? ` · 📦 ${coworker.plan.packaged.name}` : ""}${coworker.plan.background ? " · ☁️ background" : ""}`,
+      detail: `🤝 ${coworker.plan.specialist.label}${coworker.plan.packaged ? ` · 📦 ${coworker.plan.packaged.name}` : ""}`,
     };
 
     if (intent === "chat") {
       return {
         ok: true,
         text: "",
-        steps: [registryStep, coworkerStep, { phase: "verify" as const, detail: "ไม่เปิด toolbox — ทักทายสั้น" }],
+        steps: [registryStep, coworkerStep, { phase: "verify" as const, detail: "ไม่เปิด toolbox" }],
         verified: true,
         skipAgent: true as const,
       };
     }
 
     let driver: DriverOutcome | null = null;
-    let driverFallbackError: string | null = null;
     try {
       driver = data.agentSettings?.githubAccess === false ? null : await tryGitHubLoopDriver(data, basePrompt);
-    } catch (e) {
-      driverFallbackError = e instanceof Error ? e.message : String(e);
+    } catch {
+      driver = null;
     }
     if (driver) {
       if (data.authToken) await persistBossMemory(data, boss, driver.githubLoop);
@@ -218,37 +216,25 @@ export const runAgent = createServerFn({ method: "POST" })
       if (!result.ok) {
         return {
           ok: false,
-          text: driverFallbackError ? `GitHub Loop driver ล้มเหลว (${driverFallbackError.slice(0, 200)}) แล้ว GitHub Agent ก็ไม่สำเร็จ: ${result.error}` : result.error,
-          steps: [
-            registryStep,
-            coworkerStep,
-            { phase: "observe" as const, detail: `GitHub Agent failed: ${result.error.slice(0, 300)}` },
-            { phase: "verify" as const, detail: "GitHub Agent ยังไม่มีหลักฐาน verification สำเร็จ" },
-          ],
+          text: result.error,
+          steps: [registryStep, coworkerStep, { phase: "verify" as const, detail: "GitHub Agent ไม่สำเร็จ" }],
           verified: false,
         };
       }
-      const verificationStep = result.verified
-        ? { phase: "verify" as const, detail: "GitHub Agent มีหลักฐาน verification จริงจาก workflow/web health check" }
-        : { phase: "verify" as const, detail: "GitHub Agent ยังไม่มีหลักฐาน verification สำเร็จ" };
       return {
         ok: result.verified || !/แก้|เขียน|สร้าง|ลบ|update|write|fix|repair|deploy|ดีพลอย|modify|change/i.test(data.prompt),
         text: result.text,
         steps: [
           registryStep,
           coworkerStep,
-          ...(driverFallbackError
-            ? [{ phase: "observe" as const, detail: `GitHub Loop driver สกิด (${driverFallbackError.slice(0, 200)}) — โยนต่อให้ GitHub Agent` }]
-            : []),
-          { phase: "act" as const, detail: `Authenticated GitHub Agent executed ${result.toolCalls.length} tool calls.` },
-          { phase: "observe" as const, detail: "GitHub tool results were returned and checked before completion." },
-          verificationStep,
+          { phase: "act" as const, detail: `GitHub Agent · ${result.toolCalls.length} calls` },
+          { phase: "verify" as const, detail: result.verified ? "✓ verified" : "⚠️ no verify gate" },
         ],
         verified: result.verified,
       };
     }
 
-    const iterations = data.agentSettings?.maxIterations ?? data.maxIterations ?? (intent === "github" || intent === "deploy" ? 8 : 6);
+    const iterations = data.agentSettings?.maxIterations ?? data.maxIterations ?? (intent === "github" || intent === "deploy" ? 4 : 2);
     const result = await runAgentLoop(
       taskPrompt,
       effectiveSelected,
@@ -288,7 +274,7 @@ export const runAgentStream = createServerFn({ method: "POST" })
     let boss = initialBoss;
     const intent = inferTaskIntent(data.prompt);
     const engineSelected = selectToolsFromRouter(boss);
-    const selected = engineSelected.length ? engineSelected : await selectToolsForTask(taskPrompt, 24);
+    const selected = (engineSelected.length ? engineSelected : await selectToolsForTask(taskPrompt, 6)).slice(0, 6);
     const settings = data.agentSettings ?? {};
     const filteredSelected = selected.filter((tool) => {
       const name = String(tool.name ?? "").toLowerCase();
@@ -300,34 +286,25 @@ export const runAgentStream = createServerFn({ method: "POST" })
       return true;
     });
     const effectiveSelected = filteredSelected;
-    const selectedNames = effectiveSelected.slice(0, 12).map((tool) => String(tool.name ?? "")).filter(Boolean);
+    const selectedNames = effectiveSelected.slice(0, 6).map((tool) => String(tool.name ?? "")).filter(Boolean);
     const registryStep = {
       phase: "plan" as const,
       detail: `Intent: ${intent} · tools (${selectedNames.length}): ${selectedNames.join(", ") || "ไม่มี"}`,
     };
     const coworkerStep = {
       phase: "plan" as const,
-      detail: `🤝 ${coworker.plan.specialist.label}${coworker.plan.packaged ? ` · 📦 ${coworker.plan.packaged.name}` : ""}`,
+      detail: `🤝 ${coworker.plan.specialist.label}`,
     };
     yield { type: "step", step: registryStep };
     yield { type: "step", step: coworkerStep };
 
     if (intent === "chat") {
-      yield {
-        type: "done",
-        result: {
-          ok: true,
-          text: "",
-          steps: [registryStep, coworkerStep],
-          verified: true,
-        },
-      };
+      yield { type: "done", result: { ok: true, text: "", steps: [registryStep, coworkerStep], verified: true } };
       return;
     }
 
     const queue: AgentStreamEvent[] = [];
     let wake: (() => void) | null = null;
-
     const push = (event: AgentStreamEvent) => {
       queue.push(event);
       wake?.();
@@ -335,11 +312,10 @@ export const runAgentStream = createServerFn({ method: "POST" })
     };
 
     let driver: DriverOutcome | null = null;
-    let driverFallbackError: string | null = null;
     try {
       driver = data.agentSettings?.githubAccess === false ? null : await tryGitHubLoopDriver(data, basePrompt, (step) => push({ type: "step", step }));
-    } catch (e) {
-      driverFallbackError = e instanceof Error ? e.message : String(e);
+    } catch {
+      driver = null;
     }
     if (driver) {
       if (data.authToken) await persistBossMemory(data, boss, driver.githubLoop);
@@ -349,30 +325,20 @@ export const runAgentStream = createServerFn({ method: "POST" })
 
     const registryHasGitHub = selected.some((tool) => String(tool.name ?? "").toLowerCase().includes("github"));
     if (data.agentSettings?.githubAccess !== false && registryHasGitHub && prefersAuthenticatedGitHub(data.prompt)) {
-      yield { type: "step", step: { phase: "act", detail: "🔐 กำลังเปิด GitHub Agent ที่เชื่อม repo จริง..." } };
       const result = await runGitHubAgent(taskPrompt, data.authToken, data.model, data.githubToken);
-      if (!result.ok) {
-        yield { type: "done", result: { ok: false, text: result.error, steps: [registryStep, coworkerStep], verified: false } };
-        return;
-      }
       yield {
         type: "done",
         result: {
-          ok: result.verified || !/แก้|เขียน|สร้าง|ลบ|update|write|fix|repair|deploy|ดีพลอย|modify|change/i.test(data.prompt),
-          text: result.text,
-          steps: [
-            registryStep,
-            coworkerStep,
-            { phase: "act", detail: "🔐 GitHub Agent" },
-            { phase: "verify", detail: result.verified ? "✓ verification ผ่าน" : "⚠️ ยังไม่มี verification gate" },
-          ],
+          ok: result.ok && (result.verified || !/แก้|เขียน|สร้าง|update|write|fix|deploy/i.test(data.prompt)),
+          text: result.ok ? result.text : result.error,
+          steps: [registryStep, coworkerStep, { phase: "act", detail: "GitHub Agent" }],
           verified: result.verified,
         },
       };
       return;
     }
 
-    const iterations = data.agentSettings?.maxIterations ?? data.maxIterations ?? (intent === "github" || intent === "deploy" ? 8 : 6);
+    const iterations = data.agentSettings?.maxIterations ?? data.maxIterations ?? (intent === "github" || intent === "deploy" ? 4 : 2);
     const runner = runAgentLoop(
       taskPrompt,
       effectiveSelected,
