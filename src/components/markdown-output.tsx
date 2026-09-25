@@ -1,7 +1,8 @@
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, WrapText } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { maskInternalUrls, softWrapClass } from "@/lib/ui-safe";
 
 type Block =
   | { type: "code"; lang: string; content: string }
@@ -69,13 +70,14 @@ function parseMarkdown(src: string): Block[] {
 }
 
 function Inline({ text }: { text: string }) {
-  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
+  const display = maskInternalUrls(text, "display");
+  const parts = display.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
   return (
     <>
       {parts.map((p, i) => {
         if (p.startsWith("`") && p.endsWith("`")) {
           return (
-            <code key={i} className="rounded-xs bg-elevated px-1 py-0.5 font-mono text-[0.85em] text-primary">
+            <code key={i} className="rounded-xs bg-elevated px-1 py-0.5 font-mono text-[0.85em] text-primary break-all">
               {p.slice(1, -1)}
             </code>
           );
@@ -95,30 +97,42 @@ function Inline({ text }: { text: string }) {
 
 function CodeBlock({ lang, content }: { lang: string; content: string }) {
   const [copied, setCopied] = useState(false);
+  const [wrap, setWrap] = useState(true);
   const isMermaid = lang.toLowerCase() === "mermaid";
   return (
-    <div className="group relative my-3 overflow-hidden rounded-lg bg-bg shadow-[var(--shadow-border)]">
-      <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
-        <span className="font-mono text-[11px] uppercase tracking-wider text-subtle">
+    <div className="group relative my-3 overflow-hidden rounded-lg bg-bg shadow-[var(--shadow-border)] ring-1 ring-border/60">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
+        <span className="font-mono text-[11px] uppercase tracking-wider text-muted">
           {lang || "code"}
         </span>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Copy code"
-          onClick={async () => {
-            await navigator.clipboard.writeText(content);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1200);
-          }}
-        >
-          {copied ? <Check className="size-3.5 text-ok" /> : <Copy className="size-3.5" />}
-        </Button>
+        <div className="flex items-center gap-0.5">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={wrap ? "Scroll horizontally" : "Wrap lines"}
+            title={wrap ? "เลื่อนแนวนอน" : "ตัดบรรทัด"}
+            onClick={() => setWrap((w) => !w)}
+          >
+            <WrapText className={cn("size-3.5", wrap && "text-primary")} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Copy code"
+            onClick={async () => {
+              await navigator.clipboard.writeText(content);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1200);
+            }}
+          >
+            {copied ? <Check className="size-3.5 text-ok" /> : <Copy className="size-3.5" />}
+          </Button>
+        </div>
       </div>
       {isMermaid ? (
         <MermaidBlock source={content} />
       ) : (
-        <pre className="overflow-x-auto p-3 font-mono text-[13px] leading-relaxed text-fg">
+        <pre className={cn("p-3 font-mono text-[13px] leading-relaxed text-fg", softWrapClass(wrap))}>
           <code>{content}</code>
         </pre>
       )}
@@ -129,7 +143,7 @@ function CodeBlock({ lang, content }: { lang: string; content: string }) {
 function MermaidBlock({ source }: { source: string }) {
   return (
     <div className="space-y-2 p-3">
-      <div className="rounded-md bg-elevated p-4 font-mono text-[12px] leading-relaxed text-primary whitespace-pre-wrap">
+      <div className="rounded-md bg-elevated p-4 font-mono text-[12px] leading-relaxed text-primary whitespace-pre-wrap break-all">
         {source}
       </div>
       <p className="text-[11px] text-subtle">Mermaid source — paste into any renderer, or keep it in the repo.</p>
@@ -146,16 +160,16 @@ export function MarkdownOutput({
 }) {
   const blocks = useMemo(() => parseMarkdown(text), [text]);
   return (
-    <div className={cn("text-sm leading-relaxed text-fg", className)}>
+    <div className={cn("text-sm leading-relaxed text-fg break-words", className)}>
       {blocks.map((b, i) => {
         if (b.type === "code") return <CodeBlock key={i} lang={b.lang} content={b.content} />;
         if (b.type === "h") {
           const cls =
             b.level === 1
-              ? "mt-5 mb-2 text-lg font-medium tracking-tight"
+              ? "mt-5 mb-2 text-lg font-medium tracking-tight text-fg"
               : b.level === 2
-                ? "mt-4 mb-1.5 text-base font-medium tracking-tight"
-                : "mt-3 mb-1 text-sm font-medium";
+                ? "mt-4 mb-1.5 text-base font-medium tracking-tight text-fg"
+                : "mt-3 mb-1 text-sm font-medium text-fg";
           return (
             <div key={i} className={cls}>
               <Inline text={b.content} />
@@ -166,7 +180,7 @@ export function MarkdownOutput({
           return (
             <div key={i} className="flex gap-2 py-0.5 text-muted">
               <span className="mt-2 size-1 shrink-0 rounded-full bg-primary" />
-              <span>
+              <span className="min-w-0 break-words">
                 <Inline text={b.content} />
               </span>
             </div>
@@ -180,7 +194,7 @@ export function MarkdownOutput({
           );
         }
         return (
-          <p key={i} className="my-1.5 text-muted">
+          <p key={i} className="my-1.5 text-muted break-words">
             <Inline text={b.content} />
           </p>
         );
