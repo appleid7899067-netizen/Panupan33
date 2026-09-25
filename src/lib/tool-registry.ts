@@ -33,7 +33,7 @@ export function getUrgencyProfile(prompt: string, intent?: TaskIntent): UrgencyP
   if (urgent) {
     return { urgent: true, parallel: resolvedIntent !== "chat", maxTools: resolvedIntent === "search" ? 4 : 8, maxRounds: resolvedIntent === "chat" ? 0 : 6, directPath: true };
   }
-  return { urgent: false, parallel: resolvedIntent === "github" || resolvedIntent === "code" || resolvedIntent === "search", maxTools: resolvedIntent === "search" ? 8 : resolvedIntent === "verify" ? 10 : 16, maxRounds: resolvedIntent === "chat" ? 0 : 8, directPath: false };
+  return { urgent: false, parallel: resolvedIntent === "github" || resolvedIntent === "code" || resolvedIntent === "search", maxTools: resolvedIntent === "search" ? 2 : resolvedIntent === "verify" ? 10 : 16, maxRounds: resolvedIntent === "chat" ? 0 : 8, directPath: false };
 }
 
 function sourceOf(tool: CodingFleetTool): ToolSource {
@@ -143,7 +143,8 @@ export async function selectToolsForTask(prompt: string, maxTools = 24): Promise
 
   const seedNames: string[] = [];
   if (intent === "code" || intent === "verify") seedNames.push("programming_lab", "sandbox_run", "sandbox_languages");
-  if (intent === "search" || intent === "general") seedNames.push("web_search", "web_browse", "web_check");
+  if (intent === "search") seedNames.push("web_search");
+  if (intent === "general") seedNames.push("web_search");
   if (intent === "github") seedNames.push("github_get_repo", "github_get_file", "github_list_dir");
   for (const name of seedNames) {
     const hit = ranked.find(({ tool }) => tool.name === name)?.tool;
