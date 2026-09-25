@@ -23,6 +23,34 @@ export type ChatThread = {
   messages: ChatMessage[];
 };
 
+export type AgentSettings = {
+  autonomy: "balanced" | "high" | "supervised";
+  maxIterations: 3 | 6 | 8 | 10;
+  requireVerification: boolean;
+  autoRepair: boolean;
+  autoTools: boolean;
+  webAccess: boolean;
+  sandboxAccess: boolean;
+  githubAccess: boolean;
+  mcpAccess: boolean;
+  showProgress: boolean;
+  rememberContext: boolean;
+};
+
+export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
+  autonomy: "high",
+  maxIterations: 8,
+  requireVerification: true,
+  autoRepair: true,
+  autoTools: true,
+  webAccess: true,
+  sandboxAccess: true,
+  githubAccess: true,
+  mcpAccess: true,
+  showProgress: true,
+  rememberContext: true,
+};
+
 export type MemoryNote = {
   id: string;
   text: string;
@@ -35,8 +63,11 @@ type FleetState = {
   threads: ChatThread[];
   activeThreadId: string | null;
   memory: MemoryNote[];
+  agentSettings: AgentSettings;
   setModel: (id: string) => void;
   setModelGateway: (gateway: FleetState["modelGateway"]) => void;
+  setAgentSettings: (settings: Partial<AgentSettings>) => void;
+  resetAgentSettings: () => void;
   newThread: () => string;
   setActiveThread: (id: string) => void;
   pinThread: (id: string) => void;
@@ -76,8 +107,11 @@ export const useFleet = create<FleetState>()(
       threads: [seedThread()],
       activeThreadId: "welcome",
       memory: [],
+      agentSettings: DEFAULT_AGENT_SETTINGS,
       setModel: (id) => set({ modelId: id }),
       setModelGateway: (modelGateway) => set({ modelGateway }),
+      setAgentSettings: (settings) => set({ agentSettings: { ...get().agentSettings, ...settings } }),
+      resetAgentSettings: () => set({ agentSettings: DEFAULT_AGENT_SETTINGS }),
       newThread: () => {
         const id = uid("chat");
         const thread: ChatThread = {
