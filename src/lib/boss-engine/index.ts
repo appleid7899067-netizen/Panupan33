@@ -1,7 +1,7 @@
 /**
  * Boss Engine — full roadmap modules
  * Phase 1–5 + Mini RAG + Prompt Vote + MLP
- * + Puter-first AI Coworker pipeline (Grok Bot-style targets)
+ * + Puter-first AI Coworker pipeline (Grok Bot-style)
  */
 
 export * from "./boss-planner";
@@ -61,5 +61,14 @@ export * from "./core-skill-router";
 export * from "./grok-skills";
 export * from "./coworker-pipeline";
 export * from "./capabilities";
+
+export * from "./approve-gate";
+export * from "./specialist-lanes";
+export * from "./routine-store";
+export * from "./cloud-runtime";
+export * from "./connector-vault";
+export * from "./packaged-jobs";
+export * from "./coworker-session";
+export * from "./notifications";
 
 export * from "./web-development-learning";
