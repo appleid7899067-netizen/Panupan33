@@ -62,10 +62,16 @@ function IdentityChip() {
   );
 }
 
+function navClass(active: boolean) {
+  return active
+    ? "text-fg bg-elevated font-medium ring-1 ring-border shadow-sm"
+    : "text-muted hover:text-fg hover:bg-elevated/50";
+}
+
 function Header() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-bg/90 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-border bg-bg/90 backdrop-blur-xl pt-[env(safe-area-inset-top)]">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-2 px-4 sm:px-6">
         <Sheet>
           <SheetTrigger asChild>
@@ -76,28 +82,44 @@ function Header() {
           <SheetContent side="left" className="p-4 pt-12">
             <Logo />
             <nav className="mt-6 flex flex-col gap-1">
-              {APP_NAV.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className="boss-nav-item flex min-h-11 items-center gap-2 rounded-md px-2 py-2 text-sm text-muted hover:bg-elevated hover:text-fg"
-                >
-                  <item.icon className="size-4" />
-                  {item.label}
-                </Link>
-              ))}
+              {APP_NAV.map((item) => {
+                const active = path.startsWith(item.to);
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={
+                      "boss-nav-item flex min-h-11 items-center gap-2 rounded-md px-2 py-2 text-sm " + navClass(active)
+                    }
+                  >
+                    <item.icon className="size-4" />
+                    {item.label}
+                    {active && <span className="ml-auto h-0.5 w-4 rounded-full bg-primary" />}
+                  </Link>
+                );
+              })}
             </nav>
           </SheetContent>
         </Sheet>
         <Logo />
-        <nav className="ml-6 hidden items-center gap-1 md:flex">
-          {APP_NAV.map((item) => (
-            <Button key={item.to} variant="ghost" size="sm" asChild>
-              <Link to={item.to} className={"boss-nav-item " + (path.startsWith(item.to) ? "text-fg bg-elevated/70" : "text-muted")}>
-                {item.label}
-              </Link>
-            </Button>
-          ))}
+        <nav className="ml-6 hidden items-center gap-1 md:flex" aria-label="Primary">
+          {APP_NAV.map((item) => {
+            const active = path.startsWith(item.to);
+            return (
+              <Button key={item.to} variant="ghost" size="sm" asChild>
+                <Link
+                  to={item.to}
+                  className={"boss-nav-item relative " + navClass(active)}
+                  aria-current={active ? "page" : undefined}
+                >
+                  {item.label}
+                  {active && (
+                    <span className="absolute inset-x-2 -bottom-0.5 h-0.5 rounded-full bg-primary" aria-hidden />
+                  )}
+                </Link>
+              </Button>
+            );
+          })}
         </nav>
         <div className="ml-auto flex items-center gap-2">
           <IdentityChip />
