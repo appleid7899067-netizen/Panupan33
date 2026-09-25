@@ -52,7 +52,7 @@ function sourceOf(tool: CodingFleetTool): ToolSource {
 
 function capabilityOf(tool: CodingFleetTool): string {
   const text = `${tool.name ?? ""} ${tool.description ?? ""}`.toLowerCase();
-  if (tool.name === "programming_lab") return "code";
+  if (tool.name === "programming_lab" || tool.name === "terminal_execute") return "terminal";
   if (/^(write_continue|rewrite_text|fix_grammar|change_tone|generate_reply|translate_text|summarize_text)$/.test(String(tool.name ?? ""))) return "writing";
   if (/deploy|hosting|railway|vercel|netlify/.test(text)) return "deploy";
   if (/github|git|repo|commit|pull request|branch/.test(text)) return "code-repository";
@@ -77,6 +77,7 @@ function score(tool: ToolRegistryEntry, prompt: string): number {
   if (capability === "debug" && /bug|error|502|500|503|ล่ม|แก้|debug|diagnos/.test(text)) value += 7;
   if (capability === "verify" && /test|verify|ตรวจ|เช็ก|build|ci|ผ่าน|sandbox|รัน|run|เว็บ|http|health|502|500|503|timeout|url/.test(text)) value += 6;
   if (capability === "deploy" && /deploy|ดีพลอย|vercel|netlify|railway/.test(text)) value += 7;
+  if (capability === "terminal" && /terminal|shell|command|cli|คอนโซล|เทอร์มินัล|คำสั่ง|npm run|pnpm|yarn|bash/.test(text)) value += 16;
   if (capability === "code" && /code|โค้ด|แก้ไฟล์|ไฟล์/.test(text)) value += 5;
   if (capability === "search" && /ค้นหา|search|หาข้อมูล|เว็บ/.test(text)) value += 9;
   if (tool.name === "sandbox_run" && /code|โค้ด|รัน|run|error|bug|debug|แก้|test|verify/.test(text)) value += 10;
