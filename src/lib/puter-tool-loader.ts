@@ -125,6 +125,21 @@ function nativeWebTools(): CodingFleetTool[] {
   const urlProp = { type: "string", minLength: 8, maxLength: 2048 };
   return [
     {
+      name: "visual_search",
+      webSource: true,
+      description:
+        "Visual-search layer inspired by Lens-style apps. Given a PUBLIC HTTPS image URL, open Bing Visual Search and return the live visual-search page plus extracted result text. Use automatically when the task asks to identify an image, find its source, find similar images, inspect an object, or search by image. Do not expose this as a manual UI requirement.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          imageUrl: { type: "string", minLength: 12, maxLength: 4096, description: "Public HTTPS URL of the image to search" },
+          query: { type: "string", maxLength: 500, description: "Optional text hint to refine the visual search" },
+        },
+        required: ["imageUrl"],
+        additionalProperties: false,
+      },
+    },
+    {
       name: "web_search",
       webSource: true,
       description:
@@ -254,6 +269,32 @@ async function executePublicGitHub(name: string, args: Record<string, unknown>):
   throw new Error(`Unsupported public GitHub tool: ${name}`);
 }
 
+async function executeVisualSearch(args: Record<string, unknown>): Promise<unknown> {
+  const rawImageUrl = String(args.imageUrl ?? "").trim();
+  const imageUrl = assertPublicHttpsUrl(rawImageUrl).toString();
+  const hint = String(args.query ?? "").trim();
+  // Bing exposes a public Visual Search experience that accepts an image URL.
+  // Keep the image URL server-side and let the live browser fetch the result page.
+  const visualUrl = new URL("https://www.bing.com/images/search");
+  visualUrl.searchParams.set("view", "detailv2");
+  visualUrl.searchParams.set("iss", "sbi");
+  visualUrl.searchParams.set("FORM", "SBIHMP");
+  visualUrl.searchParams.set("sbisrc", "UrlPaste");
+  visualUrl.searchParams.set("q", `imgurl:${imageUrl}${hint ? ` ${hint}` : ""}`);
+  const page = await browserNavigate(visualUrl.toString(), { timeoutMs: 30000, maxBytes: 1_500_000 });
+  return {
+    ok: page.ok,
+    imageUrl,
+    visualSearchUrl: visualUrl.toString(),
+    status: page.status,
+    title: page.title,
+    text: page.text.slice(0, 50000),
+    responseTimeMs: page.responseTimeMs,
+    via: "bing-visual-search",
+    ...(page.error ? { error: page.error } : {}),
+  };
+}
+
 async function executeWebSearch(args: Record<string, unknown>): Promise<unknown> {
   const query = String(args.query ?? "").trim();
   if (!query) throw new Error("web_search requires query");
@@ -358,6 +399,7 @@ async function executeTool(
       memory: mem,
     };
   }
+  if (name === "visual_search") return executeVisualSearch(args);
   if (name === "web_search") return executeWebSearch(args);
   if (name === "web_browse" || name === "web_check" || name === "web_fetch") return executeWeb(name, args);
   if (isBuilderTool(name) || tool.builderSource) {
