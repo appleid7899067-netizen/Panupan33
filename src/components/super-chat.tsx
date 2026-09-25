@@ -756,9 +756,9 @@ export function SuperChat() {
         </div>
       )}
 
-      <main className={themeClass}
+      <main
         ref={scrollerRef}
-        className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y px-4 py-5 pb-8 sm:px-6 sm:py-7 [scrollbar-gutter:stable]"
+        className={`relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y px-3 py-4 pb-8 sm:px-6 sm:py-7 [scrollbar-gutter:stable] ${themeClass}`}
         style={{ overflowAnchor: "none", WebkitOverflowScrolling: "touch" }}
         onScroll={(e) => {
           const el = e.currentTarget;
@@ -769,16 +769,16 @@ export function SuperChat() {
       >
         <div className="flex w-full flex-col gap-6 px-0">
           {thread?.messages.map((m) => (
-            <div key={m.id} className={`group flex w-full gap-2 boss-message-in ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div key={m.id} className={`group flex w-full gap-0 boss-message-in ${m.role === "user" ? "justify-end" : "justify-start"}`}>
               {m.role === "assistant" && (
-                <div className={`size-7 rounded-full bg-zinc-800 border border-zinc-700 grid place-items-center shrink-0 mt-0.5 ${m.id === liveStream.id && liveStream.active ? "boss-avatar-working" : ""}`}>
+                <div className={`hidden sm:grid size-7 rounded-full bg-zinc-800 border border-zinc-700 place-items-center shrink-0 mt-0.5 mr-2 ${m.id === liveStream.id && liveStream.active ? "boss-avatar-working" : ""}`}>
                   <span className="text-[11px]">B</span>
                 </div>
               )}
-              <div className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 ${
+              <div className={`max-w-full rounded-2xl text-[15px] leading-7 sm:text-sm sm:leading-6 ${
                 m.role === "user"
-                  ? "ml-auto max-w-[78%] bg-white px-4 py-3 text-black"
-                  : "w-full max-w-none bg-transparent border-0 text-zinc-100 px-0 py-2"
+                  ? "ml-auto max-w-[88%] bg-white px-4 py-3 text-black"
+                  : "w-full max-w-none bg-transparent border-0 text-zinc-100 px-0 py-1 sm:py-2"
               }`}>
                 <BossMarkdown content={m.content} onCopyCode={copyCode} onDownloadCode={downloadCode} />{m.role === "assistant" && m.id === liveStream.id && liveStream.active ? <span className="boss-stream-caret" aria-hidden="true" /> : null}
                 {m.role === "assistant" && m.activity && m.activity.length > 0 && (
