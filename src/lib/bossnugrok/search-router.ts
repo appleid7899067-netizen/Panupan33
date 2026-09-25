@@ -1,4 +1,4 @@
-export type SearchEngine = "duckduckgo" | "brave" | "auto";
+export type SearchEngine = "google";
 
 export interface SearchOptions {
   engine?: SearchEngine;
@@ -6,66 +6,76 @@ export interface SearchOptions {
 }
 
 export interface SearchResult {
-  engine: Exclude<SearchEngine, "auto">;
+  engine: "google";
   query: string;
   results: Array<{ title: string; url: string; snippet: string }>;
 }
 
+/**
+ * Google-first search.
+ *
+ * Uses Google's Custom Search JSON API server-side so the agent gets real
+ * Google web results without exposing credentials to the browser.
+ *
+ * Required server env:
+ *   GOOGLE_API_KEY
+ *   GOOGLE_CSE_ID (or GOOGLE_SEARCH_ENGINE_ID)
+ */
 export function getSearchEngine(): SearchEngine {
-  if (typeof window === "undefined") return "duckduckgo";
-  try {
-    const value = window.localStorage.getItem("search_engine");
-    if (value === "duckduckgo" || value === "brave" || value === "auto") return value;
-  } catch { /* intentionally ignored */ }
-  return "duckduckgo";
+  return "google";
 }
 
-export function setSearchEngine(engine: SearchEngine) {
-  if (typeof window !== "undefined") window.localStorage.setItem("search_engine", engine);
+export function setSearchEngine(_engine: SearchEngine) {
+  // Google is intentionally the only search provider.
 }
 
 export async function searchWeb(query: string, options: SearchOptions = {}): Promise<SearchResult> {
-  const engine = options.engine || getSearchEngine();
-  const maxResults = Math.min(Math.max(options.maxResults || 5, 1), 20);
-
-  if (engine === "brave") return searchBrave(query, maxResults);
-  return searchDuckDuckGo(query, maxResults);
+  const maxResults = Math.min(Math.max(options.maxResults || 5, 1), 10);
+  return searchGoogle(query, maxResults);
 }
 
-async function searchDuckDuckGo(query: string, maxResults: number): Promise<SearchResult> {
-  const res = await fetch("https://api.duckduckgo.com/?q=" + encodeURIComponent(query) + "&format=json&no_html=1");
-  if (!res.ok) throw new Error("DuckDuckGo HTTP " + res.status);
+async function searchGoogle(query: string, maxResults: number): Promise<SearchResult> {
+  const apiKey = typeof process !== "undefined" ? process.env.GOOGLE_API_KEY : undefined;
+  const cx =
+    typeof process !== "undefined"
+      ? process.env.GOOGLE_CSE_ID || process.env.GOOGLE_SEARCH_ENGINE_ID
+      : undefined;
 
-  const data = await res.json() as { RelatedTopics?: Array<{ Text?: string; FirstURL?: string }> };
-  const results = (data.RelatedTopics || [])
-    .filter(item => item.FirstURL)
-    .slice(0, maxResults)
-    .map(item => ({ title: item.Text || "", url: item.FirstURL || "", snippet: item.Text || "" }));
+  if (!apiKey || !cx) {
+    throw new Error(
+      "Google Search ยังไม่ได้ตั้งค่า: ต้องมี GOOGLE_API_KEY และ GOOGLE_CSE_ID (หรือ GOOGLE_SEARCH_ENGINE_ID) ใน server environment",
+    );
+  }
 
-  return { engine: "duckduckgo", query, results };
-}
+  const url =
+    "https://www.googleapis.com/customsearch/v1?key=" +
+    encodeURIComponent(apiKey) +
+    "&cx=" +
+    encodeURIComponent(cx) +
+    "&q=" +
+    encodeURIComponent(query) +
+    "&num=" +
+    String(maxResults);
 
-async function searchBrave(query: string, maxResults: number): Promise<SearchResult> {
-  if (typeof window === "undefined") throw new Error("Brave search must use a server route");
+  const res = await fetch(url);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error("Google Search HTTP " + res.status + (body ? ": " + body.slice(0, 240) : ""));
+  }
 
-  const key = window.localStorage.getItem("brave_api_key");
-  if (!key) throw new Error("Brave API key is not configured");
-
-  const res = await fetch(
-    "https://api.search.brave.com/res/v1/web/search?q=" + encodeURIComponent(query) + "&count=" + maxResults,
-    { headers: { "X-Subscription-Token": key } },
-  );
-  if (!res.ok) throw new Error("Brave HTTP " + res.status);
-
-  const data = await res.json() as { web?: { results?: Array<{ title?: string; url?: string; description?: string }> };
+  const data = (await res.json()) as {
+    items?: Array<{ title?: string; link?: string; snippet?: string }>;
   };
+
   return {
-    engine: "brave",
+    engine: "google",
     query,
-    results: (data.web?.results || []).map(item => ({
-      title: item.title || "",
-      url: item.url || "",
-      snippet: item.description || "",
-    })),
+    results: (data.items || [])
+      .filter((item) => item.link)
+      .map((item) => ({
+        title: item.title || "",
+        url: item.link || "",
+        snippet: item.snippet || "",
+      })),
   };
 }
