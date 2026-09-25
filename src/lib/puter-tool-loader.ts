@@ -103,6 +103,22 @@ function nativeSandboxTools(): CodingFleetTool[] {
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
     },
     {
+      name: "terminal_execute",
+      description:
+        "Direct terminal-style execution for Boss. Run a bounded command/workflow inside the real Panupan33 sandbox. Use automatically for shell-style tasks, package/build/test commands, diagnostics, or when the goal explicitly asks for terminal access. This is an internal agent tool, not a user-facing button.",
+      sandboxSource: true,
+      inputSchema: {
+        type: "object",
+        properties: {
+          language: { type: "string", description: "Sandbox runtime, usually javascript or python" },
+          code: { type: "string", description: "Command/workflow code to execute in the sandbox" },
+          timeoutMs: { type: "integer", minimum: 100, maximum: 60000 },
+        },
+        required: ["language", "code"],
+        additionalProperties: false,
+      },
+    },
+    {
       name: "programming_lab",
       description:
         "Hidden programming workspace for Boss. Use automatically when the goal requires writing, running, testing, debugging, previewing, or learning code. It provides the real Panupan33 sandbox runtime and returns execution evidence. This is an internal agent tool, not a user-facing button.",
@@ -443,12 +459,26 @@ async function executeTool(
     if (!entry) throw new Error(`MCP server not available: ${tool.mcpServer}`);
     return callMCPTool(entry.server, tool.mcpToolName, args);
   }
-  if (name === "sandbox_run" || name === "programming_lab") {
+  if (name === "sandbox_run" || name === "programming_lab" || name === "terminal_execute") {
     const result = await runInSandbox({
       language: String(args.language ?? "javascript"),
       code: String(args.code ?? ""),
       timeoutMs: args.timeoutMs ? Number(args.timeoutMs) : undefined,
     });
+    if (name === "terminal_execute") {
+      return {
+        ...result,
+        tool: "terminal_execute",
+        purpose: "terminal-style-execute",
+        evidence: {
+          runtime: result.runtime,
+          exitCode: result.exitCode,
+          stdout: result.stdout,
+          stderr: result.stderr,
+          durationMs: result.durationMs,
+        },
+      };
+    }
     if (name === "programming_lab") {
       return {
         ...result,
