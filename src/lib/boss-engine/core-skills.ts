@@ -4,6 +4,7 @@ import { WEB_SEARCH_SCRAPING_SKILL } from "./skills/core/web-search-scraping/ski
 import { CODE_EXECUTION_MATH_SKILL } from "./skills/core/code-execution-math/skill";
 import { API_CALLING_SKILL } from "./skills/core/api-calling/skill";
 import { MEMORY_CONTEXT_SKILL } from "./skills/core/memory-context/skill";
+import { getGrokSkills } from "./grok-skills";
 
 export const CORE_SKILLS: readonly SkillRecord[] = [
   DATA_PARSING_FORMATTING_SKILL,
@@ -11,6 +12,7 @@ export const CORE_SKILLS: readonly SkillRecord[] = [
   CODE_EXECUTION_MATH_SKILL,
   API_CALLING_SKILL,
   MEMORY_CONTEXT_SKILL,
+  ...getGrokSkills(),
 ];
 
 export function getCoreSkills(): SkillRecord[] {
