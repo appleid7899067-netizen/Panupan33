@@ -16,6 +16,7 @@ import { DEFAULT_PUTER_MODEL } from "@/lib/catalog";
 import { BossLiveActivity } from "@/components/boss-live-activity";
 import { McpUiBlock, type McpUiPayload } from "@/components/mcp-ui-block";
 import { createArenaSession, createArenaChoiceContext, type ArenaSession } from "@/lib/boss-engine/boss-arena";
+import { getGithubPat, setGithubPat } from "@/lib/github-pat";
 
 /**
  * MCP tools can return a structured UI payload; the agent loop forwards it as a step
@@ -186,38 +187,21 @@ export function SuperChat() {
   };
 
   useEffect(() => {
-    try {
-      const raw = window.sessionStorage.getItem("bossnu_github_token");
-      if (!raw) return;
-      const saved = JSON.parse(raw) as { token?: string; expiresAt?: number };
-      if (saved.token && saved.expiresAt && saved.expiresAt > Date.now()) {
-        setGithubToken(saved.token);
-        window.setTimeout(() => clearGithubToken(), Math.max(0, saved.expiresAt - Date.now()));
-      } else {
-        window.sessionStorage.removeItem("bossnu_github_token");
-      }
-    } catch {
-      try { window.sessionStorage.removeItem("bossnu_github_token"); } catch { /* intentionally ignored */ }
-    }
+    const saved = getGithubPat();
+    if (saved) setGithubToken(saved);
   }, []);
 
   const saveGithubToken = () => {
     const value = githubTokenInput.trim();
     if (value.length < 20) return;
-    const expiresAt = Date.now() + 5 * 60 * 1000;
-    try { window.sessionStorage.setItem("bossnu_github_token", JSON.stringify({ token: value, expiresAt })); } catch { /* intentionally ignored */ }
+    setGithubPat(value);
     setGithubToken(value);
     setGithubTokenInput("");
     setGithubTokenOpen(false);
-    window.setTimeout(() => clearGithubToken(), 5 * 60 * 1000);
   };
 
   const clearGithubToken = () => {
-    try {
-      window.sessionStorage.removeItem("bossnu_github_token");
-      window.sessionStorage.removeItem("github_token");
-      window.sessionStorage.removeItem("githubToken");
-    } catch { /* intentionally ignored */ }
+    setGithubPat(null);
     setGithubToken("");
     setGithubTokenInput("");
   };
@@ -654,7 +638,7 @@ export function SuperChat() {
           </div>
         </div>
         <div className="flex min-w-0 shrink-0 items-center gap-1 sm:gap-1.5">
-          <button type="button" onClick={() => setGithubTokenOpen((open) => !open)} className={"flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-left hover:bg-zinc-800 " + (githubToken ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : "border-zinc-700 bg-zinc-900/90 text-zinc-400")} aria-label="GitHub Token">
+          <button type="button" onClick={() => setGithubTokenOpen((open) => !open)} className={"flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-left hover:bg-zinc-800 " + (githubToken ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : "border-zinc-700 bg-zinc-900/90 text-zinc-400")} aria-label="Master Token">
             <Github className="size-3.5 shrink-0" />
             <span className="hidden sm:inline text-[11px]">{githubToken ? "GitHub พร้อม" : "GitHub"}</span>
             <span className={"size-1.5 rounded-full " + (githubToken ? "bg-emerald-400" : "bg-zinc-600")} />
@@ -670,19 +654,19 @@ export function SuperChat() {
             <div className="flex items-center gap-2">
               <KeyRound className="size-4 text-zinc-300" />
               <div>
-                <div className="text-xs font-semibold text-zinc-100">GitHub Token</div>
-                <div className="text-[10px] text-zinc-500">ใช้เฉพาะ browser session นี้ ไม่เก็บลง server</div>
+                <div className="text-xs font-semibold text-zinc-100">Master Token</div>
+                <div className="text-[10px] text-zinc-500">สิทธิ์จริงมาจาก Token นี้ และ Boss จะส่งต่อให้เครื่องมือที่ต้องใช้สิทธิ์ GitHub</div>
               </div>
             </div>
             {githubToken ? (
               <div className="mt-3 flex items-center justify-between rounded-xl bg-emerald-950/30 px-3 py-2">
-                <span className="text-[11px] text-emerald-300">✓ GitHub tools ปลดล็อกแล้ว</span>
+                <span className="text-[11px] text-emerald-300">✓ Master Token พร้อม · GitHub tools ใช้สิทธิ์ตาม Token</span>
                 <button type="button" onClick={clearGithubToken} className="rounded-lg px-2 py-1 text-[10px] text-zinc-400 hover:bg-zinc-800 hover:text-red-300">ล้าง Token</button>
               </div>
             ) : (
               <div className="mt-3 space-y-2">
                 <input type="password" value={githubTokenInput} onChange={(e) => setGithubTokenInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveGithubToken(); }} placeholder="ghp_… / github_pat_…" autoComplete="off" className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-zinc-100 outline-none focus:border-zinc-600" />
-                <button type="button" onClick={saveGithubToken} disabled={githubTokenInput.trim().length < 20} className="w-full rounded-xl bg-white px-3 py-2 text-xs font-medium text-black disabled:opacity-30">เชื่อม GitHub</button>
+                <button type="button" onClick={saveGithubToken} disabled={githubTokenInput.trim().length < 20} className="w-full rounded-xl bg-white px-3 py-2 text-xs font-medium text-black disabled:opacity-30">เชื่อม Master Token</button>
               </div>
             )}
           </div>
