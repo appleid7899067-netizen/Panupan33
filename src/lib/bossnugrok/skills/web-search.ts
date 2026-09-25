@@ -33,7 +33,7 @@ export async function executeWebSearch(
     if (!query) throw new Error("ต้องระบุคำค้นหา");
 
     onStream?.("🌐 ค้นหา: " + query + "\n");
-    onStream?.("📡 Search engine: " + (args.engine || "yandex") + "\n\n");
+    onStream?.("📡 Search engine: " + (args.engine || "google") + "\n\n");
 
     const search = await searchWeb(query, {
       engine: args.engine,
