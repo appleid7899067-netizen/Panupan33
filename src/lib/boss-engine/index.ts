@@ -24,6 +24,7 @@ export * from "./task-persist";
 export * from "./post-publish";
 export * from "./mini-rag";
 export * from "./prompt-vote";
+export * from "./boss-arena";
 export * from "./mlp";
 
 export * from "./boss-boundary";
