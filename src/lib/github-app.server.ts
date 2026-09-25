@@ -66,10 +66,16 @@ async function getInstallationToken(owner: string, repo: string, githubToken?: s
   if (serverToken) return serverToken;
 
   const jwt = createAppJwt();
-  const installation = await github<{ id: number }>(
-    `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/installation`,
-    { headers: { Authorization: `Bearer ${jwt}` } },
-  );
+  const configuredInstallationId = process.env.GITHUB_APP_INSTALLATION_ID?.trim();
+  const installation = configuredInstallationId
+    ? { data: { id: Number(configuredInstallationId) } }
+    : await github<{ id: number }>(
+        "/repos/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo) + "/installation",
+        { headers: { Authorization: "Bearer " + jwt } },
+      );
+  if (!Number.isInteger(installation.data.id) || installation.data.id <= 0) {
+    throw new Error("Invalid GITHUB_APP_INSTALLATION_ID");
+  }
   const token = await github<{ token: string }>(
     `/app/installations/${installation.data.id}/access_tokens`,
     {
