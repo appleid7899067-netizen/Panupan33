@@ -93,7 +93,7 @@ function Header() {
         <nav className="ml-6 hidden items-center gap-1 md:flex">
           {APP_NAV.map((item) => (
             <Button key={item.to} variant="ghost" size="sm" asChild>
-              <Link to={item.to} className={"boss-nav-item " + (path.startsWith(item.to) ? "text-fg bg-elevated/70" : "text-muted")}>
+              <Link to={item.to} className={"boss-nav-item rounded-md px-2 py-1.5 transition " + (path.startsWith(item.to) ? "text-fg bg-elevated/70 ring-1 ring-primary/25 after:mt-1 after:block after:h-0.5 after:w-full after:rounded-full after:bg-primary" : "text-muted hover:text-fg")}>
                 {item.label}
               </Link>
             </Button>
