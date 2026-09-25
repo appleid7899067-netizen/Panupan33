@@ -828,6 +828,7 @@ export function SuperChat() {
       <div className="shrink-0 overflow-x-auto px-3 pt-2 pb-1 sm:px-4" aria-label="Boss Quick Actions">
         <div className="mx-auto flex w-full max-w-[1400px] gap-1.5 whitespace-nowrap">
           {[
+            ["ทำต่อ", "ทำงานล่าสุดต่อจากจุดที่ค้างอยู่ ตรวจสิ่งที่ทำไปแล้วก่อน แล้วลงมือขั้นถัดไปทันที"],
             ["สรุป", "สรุปข้อความ/งานล่าสุดให้กระชับ พร้อมประเด็นสำคัญและสิ่งที่ต้องทำต่อ"],
             ["วางแผน", "วางแผนงานนี้เป็นขั้นตอนที่ทำได้จริง แล้วเริ่มทำขั้นตอนแรกถ้าทำได้"],
             ["จัดเป็นงาน", "แปลงเป้าหมายนี้เป็นงานย่อยที่ชัดเจน พร้อมลำดับการลงมือและตรวจสอบผล"],
@@ -840,7 +841,13 @@ export function SuperChat() {
             <button
               key={label}
               type="button"
-              onClick={() => void handleSend(prompt)}
+              onClick={() => {
+                const latestUser = [...(thread?.messages ?? [])].reverse().find((m) => m.role === "user")?.content;
+                if (latestUser) {
+                  useFleet.getState().learnMemory(`DOLA_ACTION: ${label} | งานล่าสุด: ${latestUser.slice(0, 240)}`);
+                }
+                void handleSend(prompt);
+              }}
               className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-1.5 text-[11px] text-zinc-400 transition hover:border-violet-400/20 hover:bg-violet-500/10 hover:text-violet-200"
             >
               {label}
