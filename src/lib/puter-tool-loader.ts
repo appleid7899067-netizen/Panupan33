@@ -81,7 +81,7 @@ function nativeSandboxTools(): CodingFleetTool[] {
     {
       name: "sandbox_run",
       description:
-        "Run code in the REAL browser sandbox. Languages: javascript, typescript, html, css, python (Pyodide), lua, sql, ruby/php lite, shell subset, json. Auto-installs runtime and remembers success so the 2nd run never misses install.",
+        "Run code through the stable sandbox route. Browser: real runtime; server/Render: safe server verification for JS/HTML/CSS and Python is routed to the Python server runner. Auto-installs runtimes when needed. Do NOT call a separate install tool.",
       sandboxSource: true,
       inputSchema: {
         type: "object",
@@ -91,19 +91,6 @@ function nativeSandboxTools(): CodingFleetTool[] {
           timeoutMs: { type: "integer" },
         },
         required: ["language", "code"],
-        additionalProperties: false,
-      },
-    },
-    {
-      name: "sandbox_install",
-      description: "Install a browser language runtime (or language=all). Idempotent — remembered in localStorage.",
-      sandboxSource: true,
-      inputSchema: {
-        type: "object",
-        properties: {
-          language: { type: "string", description: "python|lua|sql|ruby|php|all|..." },
-        },
-        required: ["language"],
         additionalProperties: false,
       },
     },
