@@ -53,6 +53,7 @@ function sourceOf(tool: CodingFleetTool): ToolSource {
 function capabilityOf(tool: CodingFleetTool): string {
   const text = `${tool.name ?? ""} ${tool.description ?? ""}`.toLowerCase();
   if (tool.name === "programming_lab") return "code";
+  if (/^(write_continue|rewrite_text|fix_grammar|change_tone|generate_reply|translate_text|summarize_text)$/.test(String(tool.name ?? ""))) return "writing";
   if (/deploy|hosting|railway|vercel|netlify/.test(text)) return "deploy";
   if (/github|git|repo|commit|pull request|branch/.test(text)) return "code-repository";
   if (/test|verify|check|lint|build|ci|workflow|sandbox_run|sandbox|web_check|health|http|502|500|503|timeout/.test(text)) return "verify";
@@ -83,6 +84,7 @@ function score(tool: ToolRegistryEntry, prompt: string): number {
   if (tool.name === "web_search" && /ค้น|search|หา|ข่าว|ข้อมูล|internet|เว็บ|ใคร|อะไร|เมื่อไหร่|where|what|who|when|latest|ราคา/.test(text)) value += 14;
   if (tool.name === "web_browse" && /https?:\/\/|เปิดหน้า|อ่านหน้า|browse/.test(text)) value += 12;
   if (String(tool.name ?? "").startsWith("builder_") && /สร้าง|เว็บ|แอป|landing|website|app|builder/.test(text)) value += 11;
+  if (/^(write_continue|rewrite_text|fix_grammar|change_tone|generate_reply|translate_text|summarize_text)$/.test(String(tool.name ?? "")) && /เขียน|บทความ|blog|article|email|อีเมล|โฆษณา|โพสต์|social|rewrite|paraphrase|proofread|grammar|แปล|translate|สรุป|summary/i.test(text)) value += 16;
   if (String(tool.name ?? "").startsWith("github_") && /github|repo|pr|commit|branch/.test(text)) value += 6;
   if (tool.name === "web_fetch" && /api|json|fetch|endpoint|ดึงข้อมูล|เรียก url/.test(text)) value += 15;
   if (tool.name === "web_check" && /เว็บ|website|url|http|502|500|503|timeout|deploy|ดีพลอย|ตรวจ|เช็ก|สถานะ/.test(text)) value += 12;
