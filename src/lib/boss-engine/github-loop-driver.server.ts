@@ -16,8 +16,7 @@ import {
   githubWorkflowDiagnostics,
   githubWriteFile,
 } from "@/lib/github-app.server";
-import { extractText } from "@/lib/puter";
-import { createRequire } from "node:module";
+import { runModelGateway } from "@/lib/model-gateway.server";
 import type { DriverGitHub, DriverModel } from "./github-loop-driver";
 
 export function createHttpGitHubDriver(githubToken?: string): DriverGitHub {
@@ -80,17 +79,24 @@ export function createHttpGitHubDriver(githubToken?: string): DriverGitHub {
 export function createPuterModelDriver(authToken?: string, model = "gpt-5.6-luna"): DriverModel {
   return {
     async chat(prompt) {
-      const token = authToken ?? process.env.PUTER_AUTH_TOKEN?.trim();
+      const token = authToken?.trim() || process.env.PUTER_AUTH_TOKEN?.trim();
       if (!token) throw new Error("Puter auth token is missing — cannot ask the model to write files.");
-      const require = createRequire(import.meta.url);
-      const { init } = require("@heyputer/puter.js/src/init.cjs") as {
-        init: (t: string) => { ai: { chat: (p: unknown, o: Record<string, unknown>) => Promise<unknown> } };
-      };
-      const puter = init(token);
-      const resp = await puter.ai.chat(prompt, { model, stream: false, normalize: true });
-      const text = extractText(resp);
-      if (!text.trim()) throw new Error("Model returned an empty response.");
-      return text;
+
+      // Keep the GitHub loop on the same Puter-first model path as the normal
+      // Boss agent. The user's Puter session is the first model authority.
+      const result = await runModelGateway({
+        messages: [{ role: "user", content: prompt }],
+        tools: [],
+        requestedModel: model,
+        puterToken: token,
+        maxAttempts: 4,
+      });
+      if (!result.ok) throw new Error(result.error);
+      if (result.result.provider !== "puter") {
+        throw new Error(`GitHub loop requires Puter model access, but gateway selected ${result.result.provider}.`);
+      }
+      if (!result.result.text.trim()) throw new Error("Puter model returned an empty response.");
+      return result.result.text;
     },
   };
 }
