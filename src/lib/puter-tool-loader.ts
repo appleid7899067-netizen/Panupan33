@@ -60,6 +60,8 @@ const MAX_TOOL_ROUNDS = 8;
 // Puter is the default authority for model access. Qualified model IDs are
 // also passed to Puter first because Puter can route across many vendors.
 const DEFAULT_MODELS = [
+  "deepseek-chat",
+  "deepseek-reasoner",
   "gpt-5.6-luna",
   "claude-opus-4-8",
   "gemini-3.1-flash-lite",

@@ -47,6 +47,13 @@ export type ModelAttempt = {
   label: string;
 };
 
+type PuterModelInfo = {
+  id?: string;
+  provider?: string;
+  name?: string;
+  aliases?: string[];
+};
+
 /** Current Puter fallback. Keep the server pool small and reliable. */
 export const PUTER_FALLBACK_POOL = [
   "deepseek-chat",
@@ -72,6 +79,39 @@ function dedupe(values: string[]): string[] {
   return Array.from(new Set(values.filter((v) => v.trim())));
 }
 
+async function discoverPuterModelIds(token?: string): Promise<string[]> {
+  if (!token) return [];
+  try {
+    const require = createRequire(import.meta.url);
+    const { init } = require("@heyputer/puter.js/src/init.cjs") as {
+      init: (t: string) => {
+        ai: {
+          listModels?: (provider?: string | null) => Promise<PuterModelInfo[]>;
+        };
+      };
+    };
+    const puter = init(token);
+    if (typeof puter.ai.listModels !== "function") return [];
+    const models = await puter.ai.listModels();
+    return (Array.isArray(models) ? models : [])
+      .flatMap((m) => [m.id, ...(Array.isArray(m.aliases) ? m.aliases : [])])
+      .filter((id): id is string => typeof id === "string" && id.trim().length > 0);
+  } catch {
+    // Discovery is advisory. A temporarily unavailable catalog must never
+    // prevent the normal Puter request path from being attempted.
+    return [];
+  }
+}
+
+function matchesModel(candidates: string[], wanted: string): string | undefined {
+  const target = wanted.trim().toLowerCase();
+  if (!target) return undefined;
+  const exact = candidates.find((id) => id.toLowerCase() === target);
+  if (exact) return exact;
+  const bare = stripVendorPrefix(target);
+  return candidates.find((id) => id.toLowerCase() === bare);
+}
+
 function readableError(value: unknown): string {
   if (value instanceof Error) return value.message;
   if (typeof value === "string") return value;
@@ -94,6 +134,49 @@ function readableError(value: unknown): string {
 export function stripVendorPrefix(modelId: string): string {
   const idx = modelId.lastIndexOf("/");
   return idx > 0 ? modelId.slice(idx + 1) : modelId;
+}
+
+export async function buildModelPlanAsync(opts: {
+  requested?: string;
+  puterUserToken?: string;
+  puterServerToken?: string;
+  openrouterKey?: string;
+  maxAttempts?: number;
+}): Promise<ModelAttempt[]> {
+  const requested = (opts.requested ?? "").trim();
+  const puterToken = opts.puterUserToken?.trim() || opts.puterServerToken?.trim();
+  const catalog = await discoverPuterModelIds(puterToken);
+
+  // Live catalog first. This prevents stale hard-coded model IDs from becoming
+  // the main failure mode when Puter changes its available model set.
+  const livePreferred = [
+    matchesModel(catalog, requested),
+    matchesModel(catalog, "deepseek-chat"),
+    matchesModel(catalog, "deepseek-reasoner"),
+    matchesModel(catalog, "gpt-5.6-luna"),
+    matchesModel(catalog, "claude-opus-4-8"),
+    matchesModel(catalog, "gemini-3.1-flash-lite"),
+  ].filter((id): id is string => Boolean(id));
+
+  const fallbackRequested = [requested, ...PUTER_FALLBACK_POOL];
+  const ordered = dedupe([...livePreferred, ...fallbackRequested]);
+  const plan = buildModelPlan({
+    ...opts,
+    requested: ordered[0] ?? requested,
+  });
+
+  // Preserve the live ordering while keeping the existing token/provider
+  // semantics from buildModelPlan.
+  if (!catalog.length) return plan;
+
+  const liveSet = new Set(catalog.map((id) => id.toLowerCase()));
+  return plan
+    .filter((attempt) => {
+      if (attempt.provider !== "puter") return true;
+      const id = attempt.model.toLowerCase();
+      return liveSet.has(id) || liveSet.has(stripVendorPrefix(id));
+    })
+    .slice(0, opts.maxAttempts ?? 8);
 }
 
 export function buildModelPlan(opts: {
@@ -308,8 +391,8 @@ export type GatewaySuccess = { ok: true; result: CompletionResult; attempt: Mode
 export type GatewayFailure = { ok: false; error: string; attempts: string[] };
 
 export async function runModelGateway(opts: GatewayRunOptions): Promise<GatewaySuccess | GatewayFailure> {
-  const plan = buildModelPlan({
-    requested: opts.requestedModel || process.env.PUTER_PRIMARY_MODEL || "gpt-5.6-luna",
+  const plan = await buildModelPlanAsync({
+    requested: opts.requestedModel || process.env.PUTER_PRIMARY_MODEL || "deepseek-chat",
     puterUserToken: opts.puterToken,
     puterServerToken: process.env.PUTER_AUTH_TOKEN,
     openrouterKey: process.env.OPENROUTER_API_KEY,
