@@ -177,7 +177,7 @@ export const runAgent = createServerFn({ method: "POST" })
     const filteredSelected = selected.filter((tool) => {
       const name = String(tool.name ?? "").toLowerCase();
       if (settings.autoTools === false) return false;
-      if (settings.webAccess === false && /^(web_|yandex)/.test(name)) return false;
+      if (settings.webAccess === false && /^web_/.test(name)) return false;
       if (settings.sandboxAccess === false && /^sandbox_/.test(name)) return false;
       if (settings.githubAccess === false && /^github_/.test(name)) return false;
       if (settings.mcpAccess === false && /^mcp/.test(name)) return false;
