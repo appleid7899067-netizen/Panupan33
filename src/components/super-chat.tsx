@@ -14,6 +14,8 @@ import { executeWebSearch } from "@/lib/bossnugrok/skills/web-search";
 import { compileChatContext } from "@/lib/context-compiler";
 import { DEFAULT_PUTER_MODEL } from "@/lib/catalog";
 import { BossLiveActivity } from "@/components/boss-live-activity";
+import { BossMarkdown } from "@/components/boss-markdown";
+import { maskUrlForDisplay } from "@/lib/ui-safe";
 import { McpUiBlock, type McpUiPayload } from "@/components/mcp-ui-block";
 import { createArenaSession, createArenaChoiceContext, type ArenaSession } from "@/lib/boss-engine/boss-arena";
 import { getGithubPat, setGithubPat, executeGithubWithPat } from "@/lib/github-pat";
@@ -38,68 +40,6 @@ function extractMcpUi(steps: string[]): McpUiPayload | null {
     }
   }
   return null;
-}
-
-function BossMarkdown({ content, onCopyCode, onDownloadCode }: { content: string; onCopyCode?: (code: string) => void; onDownloadCode?: (code: string, language: string) => void }) {
-  const fence = String.fromCharCode(96, 96, 96);
-  const parts = content.split(fence);
-  return (
-    <div className="space-y-3 break-words">
-      {parts.map((part, i) => {
-        if (i % 2 === 1) {
-          const lines = part.split("\n");
-          const language = lines[0]?.trim() || "";
-          const code = lines.slice(1).join("\n");
-          const isHtml = /^(html|htm|xhtml)$/i.test(language);
-          return (
-            <div key={i} className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/90">
-              <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-1.5">
-                <span className="text-[10px] uppercase tracking-wider text-zinc-500">{isHtml ? "HTML Preview" : language || "CODE"}</span>
-                <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => onCopyCode?.(code)} className="rounded-md px-2 py-1 text-[10px] text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" title="คัดลอกโค้ด">คัดลอก</button>
-                  <button type="button" onClick={() => onDownloadCode?.(code, language)} className="rounded-md px-2 py-1 text-[10px] text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" title="ดาวน์โหลดโค้ด">ดาวน์โหลด</button>
-                </div>
-              </div>
-              {isHtml && (
-                <div className="bg-white">
-                  <iframe
-                    title="HTML Preview"
-                    srcDoc={code}
-                    sandbox="allow-scripts"
-                    className="block h-[min(520px,65vh)] w-full border-0"
-                    style={{ colorScheme: "light" }}
-                  />
-                </div>
-              )}
-              <pre className="overflow-x-auto border-t border-zinc-800 p-3 text-[12px] leading-5 text-zinc-200"><code>{code}</code></pre>
-            </div>
-          );
-        }
-        return (
-          <div key={i} className="space-y-1.5">
-            {part.split("\n").map((line, j) => {
-              const trimmed = line.trim();
-              if (!trimmed) return <div key={j} className="h-1" />;
-              if (/^#{1,6}\s/.test(trimmed)) return <div key={j} className="font-semibold text-zinc-100">{formatInline(trimmed.replace(/^#{1,6}\s+/, ""))}</div>;
-              if (/^[-*]\s+/.test(trimmed)) return <div key={j} className="pl-3">{formatInline("• " + trimmed.replace(/^[-*]\s+/, ""))}</div>;
-              if (/^\d+\.\s+/.test(trimmed)) return <div key={j}>{formatInline(trimmed)}</div>;
-              if (/^>\s?/.test(trimmed)) return <div key={j} className="border-l-2 border-zinc-700 pl-3 text-zinc-400">{formatInline(trimmed.replace(/^>\s?/, ""))}</div>;
-              return <div key={j}>{formatInline(line)}</div>;
-            })}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function formatInline(text: string) {
-  const tokens = text.split(/(\*\*[^*]+\*\*|<br\s*\/?\s*>)/gi);
-  return tokens.map((token, i) => {
-    if (/^\*\*[^*]+\*\*$/.test(token)) return <strong key={i}>{token.slice(2, -2)}</strong>;
-    if (/^<br\s*\/?\s*>$/i.test(token)) return <br key={i} />;
-    return <span key={i}>{token}</span>;
-  });
 }
 
 function extractInlineGithubToken(value: string): { token: string; redacted: string } | null {
@@ -873,7 +813,7 @@ export function SuperChat() {
         )}
       </main>
 
-      <div className="relative z-30 shrink-0 border-t border-white/[0.06] bg-zinc-950/90 p-3 backdrop-blur-2xl sm:p-4">
+      <div className="relative z-30 shrink-0 border-t border-white/[0.06] bg-zinc-950/90 p-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-2xl sm:p-4 sm:pb-4">
         <div className="mx-auto mb-2 flex max-w-[1400px] justify-end">
           <div className="flex items-center gap-1 rounded-full bg-white/[0.035] px-1 py-1">
             <Palette className="mx-1 size-3.5 text-zinc-500" />
@@ -882,7 +822,7 @@ export function SuperChat() {
             ))}
           </div>
         </div>
-        <div className="relative flex items-end gap-2 rounded-[22px] bg-white/[0.045] border border-white/[0.08] p-2 shadow-[0_12px_50px_rgba(0,0,0,0.2)] focus-within:border-violet-400/20">
+        <div className="mx-auto mb-2 flex max-w-[1400px] gap-2 overflow-x-auto pb-0.5" aria-label="คำแนะนำการเริ่มงาน">          {["ตรวจสอบ GitHub", "อ่านไฟล์ล่าสุด", "แก้แล้ว Commit", "ตรวจสอบ Build"].map((suggestion) => (            <button key={suggestion} type="button" onClick={() => setInput(suggestion)} className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-1.5 text-[11px] text-zinc-400 transition hover:bg-white/[0.07] hover:text-zinc-200">{suggestion}</button>          ))}        </div>        <div className="relative flex items-end gap-2 rounded-[22px] bg-white/[0.045] border border-white/[0.08] p-2 shadow-[0_12px_50px_rgba(0,0,0,0.2)] focus-within:border-violet-400/20">
           <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => { handleAttachment(e.target.files?.[0]); e.currentTarget.value = ""; }} />
           <button type="button" onClick={() => fileInputRef.current?.click()} className="size-8 grid place-items-center rounded-full hover:bg-zinc-800 text-zinc-500" aria-label="แนบไฟล์">
             <Paperclip className="size-4" />
