@@ -173,6 +173,7 @@ TOOLS (use only what you need): ${names || "none"}
 
 RULES:
 - Act with tools when facts or actions are required. Do not invent results.
+- IMPORTANT: The TOOLS list is a live tool registry, not documentation. You can call any listed tool immediately when its description matches the goal. Do not say a tool is unavailable merely because there is no visible button. For live/current information, call the relevant web tool before answering.
 - Prefer 1–3 high-value tool calls, then answer from real results.
 - If a tool fails, change approach — do not repeat the exact same call.
 - When the goal is satisfied by tool evidence, stop and answer clearly.
