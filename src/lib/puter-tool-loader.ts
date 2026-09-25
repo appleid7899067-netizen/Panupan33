@@ -121,6 +121,89 @@ function nativeSandboxTools(): CodingFleetTool[] {
   ];
 }
 
+function nativeWritingTools(): CodingFleetTool[] {
+  const textProp = { type: "string", minLength: 1, maxLength: 50000 };
+  return [
+    {
+      name: "write_continue",
+      description: "Writing assistant. Continue or complete user-provided text while preserving its intent, facts, language, and structure. Use automatically when the user asks to continue, finish, expand, or draft from notes.",
+      inputSchema: {
+        type: "object",
+        properties: { text: textProp, instruction: { type: "string", maxLength: 2000 } },
+        required: ["text"],
+        additionalProperties: false,
+      },
+      codingFleetSource: true,
+    },
+    {
+      name: "rewrite_text",
+      description: "Rewrite text for clarity and natural language while preserving meaning. Use automatically for rewrite, paraphrase, polish, shorten, or expand requests.",
+      inputSchema: {
+        type: "object",
+        properties: { text: textProp, instruction: { type: "string", maxLength: 2000 } },
+        required: ["text"],
+        additionalProperties: false,
+      },
+      codingFleetSource: true,
+    },
+    {
+      name: "fix_grammar",
+      description: "Correct spelling, grammar, punctuation, and awkward wording without changing the intended meaning. Use automatically when the user asks to proofread or fix language.",
+      inputSchema: {
+        type: "object",
+        properties: { text: textProp, language: { type: "string", maxLength: 80 } },
+        required: ["text"],
+        additionalProperties: false,
+      },
+      codingFleetSource: true,
+    },
+    {
+      name: "change_tone",
+      description: "Change the tone of text to the requested style while preserving meaning. Examples: professional, friendly, concise, persuasive, casual, formal.",
+      inputSchema: {
+        type: "object",
+        properties: { text: textProp, tone: { type: "string", minLength: 1, maxLength: 120 }, instruction: { type: "string", maxLength: 1000 } },
+        required: ["text", "tone"],
+        additionalProperties: false,
+      },
+      codingFleetSource: true,
+    },
+    {
+      name: "generate_reply",
+      description: "Draft a reply to a message using the requested relationship, language, tone, and constraints. Use automatically when the user asks what to reply.",
+      inputSchema: {
+        type: "object",
+        properties: { message: textProp, context: { type: "string", maxLength: 10000 }, tone: { type: "string", maxLength: 120 }, language: { type: "string", maxLength: 80 } },
+        required: ["message"],
+        additionalProperties: false,
+      },
+      codingFleetSource: true,
+    },
+    {
+      name: "translate_text",
+      description: "Translate text between languages while preserving meaning, names, formatting, and technical terms where appropriate.",
+      inputSchema: {
+        type: "object",
+        properties: { text: textProp, targetLanguage: { type: "string", minLength: 2, maxLength: 80 }, sourceLanguage: { type: "string", maxLength: 80 }, preserveFormatting: { type: "boolean" } },
+        required: ["text", "targetLanguage"],
+        additionalProperties: false,
+      },
+      codingFleetSource: true,
+    },
+    {
+      name: "summarize_text",
+      description: "Create a concise summary of provided text. Use automatically for summarize, key points, TL;DR, or extracting the main ideas.",
+      inputSchema: {
+        type: "object",
+        properties: { text: textProp, style: { type: "string", maxLength: 120 }, maxWords: { type: "integer", minimum: 20, maximum: 3000 } },
+        required: ["text"],
+        additionalProperties: false,
+      },
+      codingFleetSource: true,
+    },
+  ];
+}
+
 function nativeWebTools(): CodingFleetTool[] {
   const urlProp = { type: "string", minLength: 8, maxLength: 2048 };
   return [
@@ -207,6 +290,7 @@ export async function loadCodingFleetTools(_forceRefresh = false): Promise<Codin
   const byName = new Map<string, CodingFleetTool>();
   for (const t of [
     ...nativeSandboxTools(),
+    ...nativeWritingTools(),
     ...nativeWebTools(),
     ...nativeAuthenticatedGitHubTools(),
     ...nativeGitHubPublicTools(),
@@ -397,6 +481,15 @@ async function executeTool(
         lastError: mem.installs[item.id]?.error,
       })),
       memory: mem,
+    };
+  }
+  if (/^(write_continue|rewrite_text|fix_grammar|change_tone|generate_reply|translate_text|summarize_text)$/.test(name)) {
+    return {
+      ok: true,
+      tool: name,
+      instruction: args,
+      mode: "writing-intent",
+      nextStep: "Use the active model to produce the requested transformation; this tool supplies structured intent and should remain invisible in the user UI.",
     };
   }
   if (name === "visual_search") return executeVisualSearch(args);
