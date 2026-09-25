@@ -52,6 +52,7 @@ export function inferCapabilityNeeds(prompt: string): CapabilityNeed {
     plugins: /plugin|ปลั๊กอิน|integration|แอปภายนอก/.test(text),
     builder: /สร้าง.*(?:เว็บ|แอป)|(?:เว็บ|แอป).*(?:สร้าง|ทำ)|landing|website|web app|mobile app|builder|preview|พรีวิว/.test(text),
     writing: /เขียน(?:บทความ|บล็อก|อีเมล|โฆษณา|โพสต์|สคริปต์)|บทความ|blog|article|email|copywriting|โฆษณา|social media|rewrite|paraphrase|proofread|grammar|แปล|translate|สรุป/.test(text),
+    maps: /แผนที่|map|maps|street view|streetview|satellite|ดาวเทียม|earth map|earthcam|live cam|webcam|360|gps|พิกัด|สถานที่|landmark|เส้นทาง|route|นำทาง|navigation|traffic|จราจร|nearby|ใกล้ฉัน/.test(text),
   };
 }
 
@@ -86,6 +87,7 @@ function matchesNeeds(tool: ToolRegistryEntry, needs: CapabilityNeed): boolean {
   if (needs.plugins && (src === "plugin" || name.startsWith("plugin_"))) return true;
   if (needs.builder && (name.startsWith("builder_") || cap === "builder" || cap === "deploy" || cap === "verify")) return true;
   if (needs.writing && /^(write_continue|rewrite_text|fix_grammar|change_tone|generate_reply|translate_text|summarize_text)$/.test(name)) return true;
+  if (needs.maps && (src === "web" || name.includes("web_") || /map|location|gps|street|satellite|earth|camera|cam|weather|traffic|route|nearby|search/.test(name))) return true;
 
   if ((needs.sandbox || needs.deploy || needs.web) && cap === "verify") return true;
 
@@ -133,6 +135,7 @@ export async function routeToolsForTask(prompt: string, maxTools = 12): Promise<
   if (needs.plugins) seedNames.push("plugin_list");
   if (needs.builder) seedNames.push("builder_read", "builder_write", "builder_edit", "builder_update_preview", "builder_publish_site", "web_check");
   if (needs.writing) seedNames.push("write_continue", "rewrite_text", "fix_grammar", "change_tone", "generate_reply", "translate_text", "summarize_text");
+  if (needs.maps) seedNames.push("web_search", "web_browse", "web_fetch", "web_check");
 
   const priorityName = (name: string) => {
     const n = name.toLowerCase();
