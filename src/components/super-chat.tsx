@@ -615,8 +615,8 @@ export function SuperChat() {
   };
 
   return (
-    <div className="relative flex flex-col h-full min-h-0 w-full max-w-[1400px] mx-auto overflow-hidden bg-[radial-gradient(circle_at_top,rgba(139,92,246,0.08),transparent_34%),radial-gradient(circle_at_bottom,rgba(236,72,153,0.05),transparent_30%)]">
-      <div className="relative z-50 shrink-0 flex min-h-14 items-center justify-between gap-3 px-4 py-2.5 border-b border-white/[0.06] bg-zinc-950/90 backdrop-blur-2xl">
+    <div className="relative flex flex-col h-full min-h-0 w-full max-w-[1400px] mx-auto overflow-hidden bg-zinc-950">
+      <div className="relative z-50 shrink-0 flex min-h-14 items-center justify-between gap-3 px-3 py-2 border-b border-white/[0.04] bg-zinc-950/85 backdrop-blur-2xl">
         <div className="flex min-w-0 items-center gap-2">
           <button type="button" onClick={() => setHistoryOpen(true)} className="size-9 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 grid place-items-center" aria-label="ประวัติแชท">
             <History className="size-4" />
@@ -633,18 +633,6 @@ export function SuperChat() {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <button type="button" onClick={() => {
-            const goal = input.trim() || [...(thread?.messages ?? [])].reverse().find((m) => m.role === "user")?.content || "งานล่าสุดของ Boss";
-            setArenaSession(createArenaSession(goal));
-            setArenaChoice(null);
-            setArenaOpen(true);
-          }} className={"flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-left " + (arenaOpen ? "border-amber-400/30 bg-amber-500/10 text-amber-200" : "border-zinc-700 bg-zinc-900/90 text-zinc-400 hover:bg-zinc-800")} aria-label="เปิด Boss Arena">
-            <span className="text-sm">⚔️</span><span className="hidden sm:inline text-[11px]">Arena</span>
-          </button>
-          <button type="button" onClick={openPreviewRoom} className="flex items-center gap-1.5 rounded-xl border border-violet-400/20 bg-violet-500/10 px-2.5 py-2 text-left text-violet-200 hover:bg-violet-500/15" aria-label="เปิดห้อง Preview">
-            <Eye className="size-3.5 shrink-0" />
-            <span className="hidden sm:inline text-[11px]">Preview</span>
-          </button>
           <button type="button" onClick={() => setGithubTokenOpen((open) => !open)} className={"flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-left hover:bg-zinc-800 " + (githubToken ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : "border-zinc-700 bg-zinc-900/90 text-zinc-400")} aria-label="GitHub Token">
             <Github className="size-3.5 shrink-0" />
             <span className="hidden sm:inline text-[11px]">{githubToken ? "GitHub พร้อม" : "GitHub"}</span>
@@ -749,7 +737,7 @@ export function SuperChat() {
 
       <main
         ref={scrollerRef}
-        className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y px-4 py-6 pb-8 sm:px-6 sm:py-7 [scrollbar-gutter:stable] scroll-smooth"
+        className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y px-4 py-5 pb-8 sm:px-6 sm:py-7 [scrollbar-gutter:stable]"
         style={{ overflowAnchor: "none", WebkitOverflowScrolling: "touch" }}
         onScroll={(e) => {
           const el = e.currentTarget;
@@ -758,7 +746,7 @@ export function SuperChat() {
           setIsPinnedToBottom(pinned);
         }}
       >
-        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 px-1 sm:px-2">
+        <div className="mx-auto flex w-full max-w-[920px] flex-col gap-6 px-1 sm:px-2">
           {thread?.messages.map((m) => (
             <div key={m.id} className={`group flex gap-3 boss-message-in ${m.role === "user" ? "justify-end" : ""}`}>
               {m.role === "assistant" && (
@@ -824,43 +812,6 @@ export function SuperChat() {
           </button>
         )}
       </main>
-
-      <div className="shrink-0 overflow-x-auto px-3 pt-2 pb-1 sm:px-4" aria-label="Boss Quick Actions">
-        <div className="mx-auto flex w-full max-w-[1400px] gap-1.5 whitespace-nowrap">
-          {[
-            ["ทำต่อ", "ทำงานล่าสุดต่อจากจุดที่ค้างอยู่ ตรวจสิ่งที่ทำไปแล้วก่อน แล้วลงมือขั้นถัดไปทันที"],
-            ["ตอบให้", "สร้างคำตอบพร้อมส่ง 3 แบบจากข้อความล่าสุด: เป็นกันเอง, สุภาพ/มืออาชีพ, และมีลูกเล่นเล็กน้อย เลือกคำที่เป็นธรรมชาติ ไม่ยาวเกินจำเป็น และแยกแต่ละแบบให้คัดลอกได้ง่าย"],
-            ["ปรับโทน", "ปรับข้อความล่าสุดให้เลือกได้ 3 โทน: สั้นกระชับ, อบอุ่นเป็นกันเอง, และมั่นใจมีเสน่ห์ โดยรักษาความหมายเดิม"],
-            ["เว็บ→แอป", "วิเคราะห์เว็บไซต์หรือเว็บแอปที่ระบุ แล้ววางแผนแปลงเป็น Android WebView app: ตรวจ URL, responsive/mobile readiness, login, file upload/download, external links, back button, pull-to-refresh, offline fallback, deep links และความเสี่ยง จากนั้นสร้างโครง/config ที่พร้อมนำไป build โดยไม่อ้างว่าสร้าง APK สำเร็จจนกว่าจะมี artifact ให้ตรวจจริง"],
-            ["เรียนเว็บ", "เข้าสู่ Web Development Learning Lab: ประเมินระดับจากบริบทล่าสุด แล้วสอน HTML/CSS/JavaScript/DOM แบบสั้น ๆ พร้อมตัวอย่างที่รันได้ แบบฝึกหัด และตรวจคำตอบหรือ Preview จริงก่อนให้ผ่าน"],
-            ["สนามโค้ด", "สร้างโจทย์ Web Development แบบโปรเจกต์จริง ให้ลงมือเขียนโค้ด แล้วตรวจ syntax, logic และ Preview ก่อนสรุปผล"],
-            ["ทบทวนโค้ด", "ทบทวนสิ่งที่เรียนหรือโค้ดล่าสุด สรุปจุดสำคัญ ตั้งแบบฝึกหัด 3 ข้อ ตรวจคำตอบ และเลือกหัวข้อถัดไปจากจุดที่ยังพลาด"],
-            ["สรุป", "สรุปข้อความ/งานล่าสุดให้กระชับ พร้อมประเด็นสำคัญและสิ่งที่ต้องทำต่อ"],
-            ["วางแผน", "วางแผนงานนี้เป็นขั้นตอนที่ทำได้จริง แล้วเริ่มทำขั้นตอนแรกถ้าทำได้"],
-            ["จัดเป็นงาน", "แปลงเป้าหมายนี้เป็นงานย่อยที่ชัดเจน พร้อมลำดับการลงมือและตรวจสอบผล"],
-            ["เขียน", "ช่วยเขียนหรือปรับข้อความนี้ให้พร้อมใช้งาน โดยรักษาเจตนาเดิม"],
-            ["แปล", "แปลข้อความล่าสุดให้เป็นภาษาที่เหมาะสมและเป็นธรรมชาติ"],
-            ["วิเคราะห์", "วิเคราะห์ปัญหาหรือข้อมูลนี้ แยกข้อเท็จจริง สมมติฐาน ความเสี่ยง และทางเลือก"],
-            ["แก้โค้ด", "ตรวจโค้ดล่าสุด หา root cause แล้วแก้ไขพร้อมตรวจสอบผล"],
-            ["อธิบาย", "อธิบายเรื่องนี้แบบเข้าใจง่าย พร้อมตัวอย่างที่จำเป็น"],
-          ].map(([label, prompt]) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => {
-                const latestUser = [...(thread?.messages ?? [])].reverse().find((m) => m.role === "user")?.content;
-                if (latestUser) {
-                  useFleet.getState().learnMemory(`DOLA_ACTION: ${label} | งานล่าสุด: ${latestUser.slice(0, 240)}`);
-                }
-                void handleSend(prompt);
-              }}
-              className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-1.5 text-[11px] text-zinc-400 transition hover:border-violet-400/20 hover:bg-violet-500/10 hover:text-violet-200"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <div className="relative z-30 shrink-0 border-t border-white/[0.06] bg-zinc-950/90 p-3 backdrop-blur-2xl sm:p-4">
         <div className="relative flex items-end gap-2 rounded-[22px] bg-white/[0.045] border border-white/[0.08] p-2 shadow-[0_12px_50px_rgba(0,0,0,0.2)] focus-within:border-violet-400/20">
