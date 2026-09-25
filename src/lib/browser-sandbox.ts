@@ -159,6 +159,43 @@ export async function runInBrowserSandbox(input: SandboxRunInput): Promise<Brows
   const iframeLang = /^(js|javascript|ts|typescript|html|htm|css)$/i.test(language);
 
   if (typeof window === "undefined") {
+    if (/^(html|htm|js|javascript|node|nodejs|ts|typescript|css)$/i.test(language)) {
+      try {
+        const { runServerBrowserSandbox } = await import("@/lib/server-browser-sandbox");
+        const html = wrapRunnable(
+          language === "typescript" || language === "ts" ? "javascript" : language,
+          input.code,
+        );
+        const result = await runServerBrowserSandbox(html, timeoutMs);
+        return {
+          ok: result.ok,
+          runtime: "server",
+          stdout: result.snapshot ? JSON.stringify(result.snapshot) : "",
+          stderr: [...result.pageErrors, ...result.consoleErrors].join("\n"),
+          logs: [
+            ...result.consoleErrors.map((text) => ({ level: "error" as const, text })),
+            ...result.pageErrors.map((text) => ({ level: "error" as const, text })),
+          ],
+          previewHtml: html,
+          durationMs: result.durationMs,
+          exitCode: result.ok ? 0 : 1,
+          ...(result.error ? { error: result.error } : {}),
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          ok: false,
+          runtime: "server",
+          stdout: "",
+          stderr: message,
+          logs: [{ level: "error" as const, text: message }],
+          durationMs: Date.now() - started,
+          exitCode: 1,
+          error: "BROWSER_SANDBOX_FAILED",
+        };
+      }
+    }
+
     if (/^(py|python|python3)$/i.test(language)) {
       try {
         const { runPythonServer } = await import("@/lib/python-server");
