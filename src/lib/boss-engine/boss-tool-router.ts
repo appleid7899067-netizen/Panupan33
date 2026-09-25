@@ -3,6 +3,7 @@
  * ตัดสินใจระดับ: "งานนี้ต้องใช้ GitHub + Sandbox แต่ไม่ต้องใช้ Web" โดยอัตโนมัติ
  */
 
+import { AUTH_GITHUB_FULL } from "@/lib/github-tools-expand";
 import {
   getToolRegistry,
   inferTaskIntent,
@@ -116,7 +117,7 @@ export async function routeToolsForTask(prompt: string, maxTools = 12): Promise<
   }
 
   const registry = await getToolRegistry();
-  const limit = intent === "search" ? 1 : Math.max(1, Math.min(maxTools, urgency.maxTools));
+  // GitHub work is a dedicated execution path. Do not starve the model of authenticated GitHub tools: when the user asks for GitHub, expose the full installed GitHub surface so read/write/branch/PR/Actions/search operations cannot disappear merely because the generic router budget is small.\n  const limit = intent === "github"\n    ? Math.min(AUTH_GITHUB_FULL.length, Math.max(maxTools, AUTH_GITHUB_FULL.length))\n    : intent === "search" ? 1 : Math.max(1, Math.min(maxTools, urgency.maxTools));
 
   const excludedSources: string[] = [];
   if (!needs.web && !needs.search && !needs.deploy) excludedSources.push("optional-web");
@@ -127,7 +128,7 @@ export async function routeToolsForTask(prompt: string, maxTools = 12): Promise<
   const candidates = registry.filter((tool) => matchesNeeds(tool, needs));
 
   // Seed concrete tools first, then let ranking fill the remaining slots.
-  const seedNames: string[] = [];
+  const seedNames: string[] = [];\n  if (intent === "github") seedNames.push(...AUTH_GITHUB_FULL);
   if (needs.github) seedNames.push("github_get_repo", "github_get_file", "github_list_dir");
   if (needs.search) seedNames.push("web_search");
   if (needs.web) seedNames.push("web_check", "web_browse");
