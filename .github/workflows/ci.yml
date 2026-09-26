@@ -29,6 +29,16 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Expose master agent token to Grok tools
+        env:
+          MASTER_TOKEN: ${{ secrets.MASTER_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MASTER_TOKEN:-}" ]; then
+            echo "MASTER_TOKEN secret is not configured; continuing without printing or synthesizing a token."
+          else
+            echo "MASTER_TOKEN is available to this job; value is masked by GitHub Actions."
+          fi
       - name: Import Grok Build source
         shell: bash
         run: |
