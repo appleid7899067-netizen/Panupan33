@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "boss/**", "fix/**", "feat/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_build:
+        description: "Run production build"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Typecheck · Test · Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+  build:
+    name: Production build
+    needs: quality
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_build }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+        env:
+          # Build must not require live secrets in CI
+          NODE_ENV: production
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: |
+            .output
+            dist
+          if-no-files-found: warn
+          retention-days: 7
+
+  summary:
+    name: CI summary
+    needs: [quality, build]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report
+        run: |
+          echo "### Panupan33 CI" >> $GITHUB_STEP_SUMMARY
+          echo "- quality: **${{ needs.quality.result }}**" >> $GITHUB_STEP_SUMMARY
+          echo "- build: **${{ needs.build.result }}**" >> $GITHUB_STEP_SUMMARY
+          echo "- commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- ref: \`${{ github.ref }}\`" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.quality.result }}" != "success" ]; then exit 1; fi
+          if [ "${{ needs.build.result }}" != "success" ] && [ "${{ needs.build.result }}" != "skipped" ]; then exit 1; fi
