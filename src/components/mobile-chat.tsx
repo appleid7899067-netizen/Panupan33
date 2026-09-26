@@ -128,8 +128,30 @@ function threadTitleFrom(text: string): string {
   return oneLine.length > 42 ? `${oneLine.slice(0, 41)}…` : oneLine;
 }
 
-function dayBucket(ts: number): string {
-  const now = new Date();
+/** แปล error ดิบจาก Puter/เบราว์เซอร์เป็นภาษาไทยที่เข้าใจง่าย */
+function thaiPuterError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  const lower = msg.toLowerCase();
+  if (!msg) return "เกิดข้อผิดพลาดที่ไม่รู้จัก ลองใหม่อีกครั้ง";
+  if (lower.includes("popup") || lower.includes("blocked"))
+    return "เบราว์เซอร์บล็อกหน้าต่างล็อกอิน — กรุณากด “อนุญาต popup” สำหรับเว็บนี้ แล้วลองใหม่";
+  if (lower.includes("closed"))
+    return "หน้าต่างล็อกอินถูกปิดก่อนทำรายการเสร็จ — กรุณาลองใหม่อีกครั้ง";
+  if (lower.includes("phone"))
+    return "บัญชี Puter นี้ต้องยืนยันเบอร์โทรก่อน — กรุณาไปยืนยันที่ puter.com แล้วกลับมาลองใหม่";
+  if (
+    lower.includes("load") ||
+    lower.includes("network") ||
+    lower.includes("fetch") ||
+    lower.includes("failed")
+  )
+    return `เชื่อมต่อ Puter ไม่สำเร็จ (${msg}) — ตรวจสอบอินเทอร์เน็ตว่าสามารถเปิด js.puter.com ได้ แล้วกดลองใหม่`;
+  if (lower.includes("token") || lower.includes("session") || lower.includes("auth"))
+    return `เซสชัน Puter หมดอายุหรือไม่สมบูรณ์ (${msg}) — กรุณากดออกจากระบบแล้วเข้าสู่ระบบใหม่`;
+  return msg;
+}
+
+function dayBucket(ts: number): string {  const now = new Date();
   const day = new Date(ts);
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const diff = startOfToday - new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime();
@@ -190,7 +212,7 @@ const SUGGESTIONS = [
 ];
 
 export function MobileChat({ standalone = false }: { standalone?: boolean }) {
-  const { ready, signedIn, user, signIn, signOut } = usePuter();
+  const { ready, signedIn, user, signIn, signOut, error: puterError, refresh: refreshPuter } = usePuter();
 
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -483,7 +505,7 @@ export function MobileChat({ standalone = false }: { standalone?: boolean }) {
     try {
       await signIn();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง");
+      setError(thaiPuterError(err));
     } finally {
       setSigningIn(false);
     }
@@ -765,6 +787,21 @@ export function MobileChat({ standalone = false }: { standalone?: boolean }) {
         {/* messages */}
         <div ref={scrollRef} onScroll={handleScroll} className="relative flex-1 overflow-y-auto overscroll-contain">
           <div className="mx-auto w-full max-w-3xl px-4 py-6">
+            {ready && puterError && !signedIn && !sending && (
+              <div className="mb-4 flex items-start gap-3 rounded-2xl border border-warn/30 bg-warn/10 px-4 py-3">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warn" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-fg">{thaiPuterError(new Error(puterError))}</p>
+                  <button
+                    type="button"
+                    onClick={() => void refreshPuter()}
+                    className="mt-2 rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-fg hover:bg-elevated"
+                  >
+                    ลองเชื่อมต่อใหม่
+                  </button>
+                </div>
+              </div>
+            )}
             {messages.length === 0 && !sending ? (
               <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
                 <div className="grid size-14 place-items-center rounded-2xl bg-primary/15 text-primary">
