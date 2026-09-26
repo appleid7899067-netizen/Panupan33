@@ -10,16 +10,28 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/app'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as LabRouteImport } from './routes/lab'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as PluginsRouteImport } from './routes/plugins'
 import { Route as PreviewRouteImport } from './routes/preview'
 import { Route as SandboxRouteImport } from './routes/sandbox'
+import { Route as ApiCapabilitiesRouteImport } from './routes/api.capabilities'
+import { Route as ApiGrokRouteImport } from './routes/api.grok'
+import { Route as ApiGrokModelRouteImport } from './routes/api.grok-model'
+import { Route as ApiSandboxRouteImport } from './routes/api.sandbox'
+import { Route as ApiGrokModelV1ModelsRouteImport } from './routes/api.grok-model.v1.models'
+import { Route as ApiGrokModelV1ChatCompletionsRouteImport } from './routes/api.grok-model.v1.chat.completions'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatRoute = ChatRouteImport.update({
@@ -52,60 +64,151 @@ const SandboxRoute = SandboxRouteImport.update({
   path: '/sandbox',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCapabilitiesRoute = ApiCapabilitiesRouteImport.update({
+  id: '/api/capabilities',
+  path: '/api/capabilities',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGrokRoute = ApiGrokRouteImport.update({
+  id: '/api/grok',
+  path: '/api/grok',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGrokModelRoute = ApiGrokModelRouteImport.update({
+  id: '/api/grok-model',
+  path: '/api/grok-model',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSandboxRoute = ApiSandboxRouteImport.update({
+  id: '/api/sandbox',
+  path: '/api/sandbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGrokModelV1ModelsRoute = ApiGrokModelV1ModelsRouteImport.update({
+  id: '/v1/models',
+  path: '/v1/models',
+  getParentRoute: () => ApiGrokModelRoute,
+} as any)
+const ApiGrokModelV1ChatCompletionsRoute =
+  ApiGrokModelV1ChatCompletionsRouteImport.update({
+    id: '/v1/chat/completions',
+    path: '/v1/chat/completions',
+    getParentRoute: () => ApiGrokModelRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app': typeof AppRoute
   '/chat': typeof ChatRoute
   '/lab': typeof LabRoute
   '/models': typeof ModelsRoute
   '/plugins': typeof PluginsRoute
   '/preview': typeof PreviewRoute
   '/sandbox': typeof SandboxRoute
+  '/api/capabilities': typeof ApiCapabilitiesRoute
+  '/api/grok': typeof ApiGrokRoute
+  '/api/grok-model': typeof ApiGrokModelRouteWithChildren
+  '/api/sandbox': typeof ApiSandboxRoute
+  '/api/grok-model/v1/models': typeof ApiGrokModelV1ModelsRoute
+  '/api/grok-model/v1/chat/completions': typeof ApiGrokModelV1ChatCompletionsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app': typeof AppRoute
   '/chat': typeof ChatRoute
   '/lab': typeof LabRoute
   '/models': typeof ModelsRoute
   '/plugins': typeof PluginsRoute
   '/preview': typeof PreviewRoute
   '/sandbox': typeof SandboxRoute
+  '/api/capabilities': typeof ApiCapabilitiesRoute
+  '/api/grok': typeof ApiGrokRoute
+  '/api/grok-model': typeof ApiGrokModelRouteWithChildren
+  '/api/sandbox': typeof ApiSandboxRoute
+  '/api/grok-model/v1/models': typeof ApiGrokModelV1ModelsRoute
+  '/api/grok-model/v1/chat/completions': typeof ApiGrokModelV1ChatCompletionsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/app': typeof AppRoute
   '/chat': typeof ChatRoute
   '/lab': typeof LabRoute
   '/models': typeof ModelsRoute
   '/plugins': typeof PluginsRoute
   '/preview': typeof PreviewRoute
   '/sandbox': typeof SandboxRoute
+  '/api/capabilities': typeof ApiCapabilitiesRoute
+  '/api/grok': typeof ApiGrokRoute
+  '/api/grok-model': typeof ApiGrokModelRouteWithChildren
+  '/api/sandbox': typeof ApiSandboxRoute
+  '/api/grok-model/v1/models': typeof ApiGrokModelV1ModelsRoute
+  '/api/grok-model/v1/chat/completions': typeof ApiGrokModelV1ChatCompletionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/chat' | '/lab' | '/models' | '/plugins' | '/preview' | '/sandbox'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chat' | '/lab' | '/models' | '/plugins' | '/preview' | '/sandbox'
-  id:
-    | '__root__'
     | '/'
+    | '/app'
     | '/chat'
     | '/lab'
     | '/models'
     | '/plugins'
     | '/preview'
     | '/sandbox'
+    | '/api/capabilities'
+    | '/api/grok'
+    | '/api/grok-model'
+    | '/api/sandbox'
+    | '/api/grok-model/v1/models'
+    | '/api/grok-model/v1/chat/completions'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/app'
+    | '/chat'
+    | '/lab'
+    | '/models'
+    | '/plugins'
+    | '/preview'
+    | '/sandbox'
+    | '/api/capabilities'
+    | '/api/grok'
+    | '/api/grok-model'
+    | '/api/sandbox'
+    | '/api/grok-model/v1/models'
+    | '/api/grok-model/v1/chat/completions'
+  id:
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/chat'
+    | '/lab'
+    | '/models'
+    | '/plugins'
+    | '/preview'
+    | '/sandbox'
+    | '/api/capabilities'
+    | '/api/grok'
+    | '/api/grok-model'
+    | '/api/sandbox'
+    | '/api/grok-model/v1/models'
+    | '/api/grok-model/v1/chat/completions'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRoute
   ChatRoute: typeof ChatRoute
   LabRoute: typeof LabRoute
   ModelsRoute: typeof ModelsRoute
   PluginsRoute: typeof PluginsRoute
   PreviewRoute: typeof PreviewRoute
   SandboxRoute: typeof SandboxRoute
+  ApiCapabilitiesRoute: typeof ApiCapabilitiesRoute
+  ApiGrokRoute: typeof ApiGrokRoute
+  ApiGrokModelRoute: typeof ApiGrokModelRouteWithChildren
+  ApiSandboxRoute: typeof ApiSandboxRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -115,6 +218,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat': {
@@ -159,17 +269,78 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SandboxRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/capabilities': {
+      id: '/api/capabilities'
+      path: '/api/capabilities'
+      fullPath: '/api/capabilities'
+      preLoaderRoute: typeof ApiCapabilitiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/grok': {
+      id: '/api/grok'
+      path: '/api/grok'
+      fullPath: '/api/grok'
+      preLoaderRoute: typeof ApiGrokRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/grok-model': {
+      id: '/api/grok-model'
+      path: '/api/grok-model'
+      fullPath: '/api/grok-model'
+      preLoaderRoute: typeof ApiGrokModelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/sandbox': {
+      id: '/api/sandbox'
+      path: '/api/sandbox'
+      fullPath: '/api/sandbox'
+      preLoaderRoute: typeof ApiSandboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/grok-model/v1/models': {
+      id: '/api/grok-model/v1/models'
+      path: '/v1/models'
+      fullPath: '/api/grok-model/v1/models'
+      preLoaderRoute: typeof ApiGrokModelV1ModelsRouteImport
+      parentRoute: typeof ApiGrokModelRoute
+    }
+    '/api/grok-model/v1/chat/completions': {
+      id: '/api/grok-model/v1/chat/completions'
+      path: '/v1/chat/completions'
+      fullPath: '/api/grok-model/v1/chat/completions'
+      preLoaderRoute: typeof ApiGrokModelV1ChatCompletionsRouteImport
+      parentRoute: typeof ApiGrokModelRoute
+    }
   }
 }
 
+interface ApiGrokModelRouteChildren {
+  ApiGrokModelV1ModelsRoute: typeof ApiGrokModelV1ModelsRoute
+  ApiGrokModelV1ChatCompletionsRoute: typeof ApiGrokModelV1ChatCompletionsRoute
+}
+
+const ApiGrokModelRouteChildren: ApiGrokModelRouteChildren = {
+  ApiGrokModelV1ModelsRoute: ApiGrokModelV1ModelsRoute,
+  ApiGrokModelV1ChatCompletionsRoute: ApiGrokModelV1ChatCompletionsRoute,
+}
+
+const ApiGrokModelRouteWithChildren = ApiGrokModelRoute._addFileChildren(
+  ApiGrokModelRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRoute,
   ChatRoute: ChatRoute,
   LabRoute: LabRoute,
   ModelsRoute: ModelsRoute,
   PluginsRoute: PluginsRoute,
   PreviewRoute: PreviewRoute,
   SandboxRoute: SandboxRoute,
+  ApiCapabilitiesRoute: ApiCapabilitiesRoute,
+  ApiGrokRoute: ApiGrokRoute,
+  ApiGrokModelRoute: ApiGrokModelRouteWithChildren,
+  ApiSandboxRoute: ApiSandboxRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
