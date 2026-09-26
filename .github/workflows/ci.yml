@@ -13,13 +13,48 @@ on:
         default: true
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  grok-migration:
+    name: Import full Grok Build core
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Import Grok Build source
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f vendor/grok-build/Cargo.toml ] && grep -q "Full upstream xai-org/grok-build source" GROK_BUILD_INTEGRATION.md 2>/dev/null; then
+            echo "Grok Build source already imported"
+            exit 0
+          fi
+          tmp="$(mktemp -d)"
+          git clone --depth=1 https://github.com/xai-org/grok-build.git "$tmp/grok-build"
+          rm -rf "$tmp/grok-build/.git"
+          rm -rf vendor/grok-build
+          mkdir -p vendor
+          cp -a "$tmp/grok-build" vendor/grok-build
+          rm -rf src/lib/boss-engine src/lib/agent-loop.ts src/lib/agent.functions.ts src/lib/bossnugrok
+          rm -rf src/lib/github-agent-tools.server.ts src/lib/github-tool-bridge.ts src/lib/github-tools-expand.ts src/lib/puter-tool-loader.ts
+          mkdir -p src/lib/puter-integration
+          cp src/lib/puter.ts src/lib/puter-models.ts src/lib/puter-context.tsx src/lib/model-gateway.server.ts src/lib/puter-integration/ 2>/dev/null || true
+          printf '%s\n' '# Grok Build Agent Core' '' 'Full upstream xai-org/grok-build source is vendored under vendor/grok-build.' '' 'Puter Login and Puter AI remain the user-facing authentication and model gateway.' > GROK_BUILD_INTEGRATION.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'feat(agent): replace legacy core with upstream Grok Build'
+          git push origin main
+
   quality:
     name: Typecheck · Test · Lint
     runs-on: ubuntu-latest
