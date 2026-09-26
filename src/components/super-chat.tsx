@@ -596,9 +596,33 @@ export function SuperChat() {
       if (previewUrl && thread) {
         try { window.localStorage.setItem(`bossnu-preview:${thread.id}`, previewUrl); } catch { /* intentionally ignored */ }
       }
+      // Execution can finish successfully while a model round returns an empty final text.
+      // Never leave the user with a blank/placeholder response: ask Puter for a concise
+      // user-facing synthesis from the real execution trace before falling back to the trace itself.
+      let finalText = resultText;
+      if (!finalText && result.ok) {
+        try {
+          const synthesis = await chatWithPuter({
+            model: agentModel,
+            messages: [
+              {
+                role: "system",
+                content: "You are the final response layer for Boss Agent. The task has already been executed. Summarize what was actually completed using only the execution status below. Do not invent actions, commits, URLs, or verification. Reply in Thai, concise and useful.",
+              },
+              {
+                role: "user",
+                content: `USER REQUEST:\n${safeUserText}\n\nEXECUTION STATUS:\n${liveSteps.slice(-12).join("\n")}\n\nVERIFIED: ${result.verified === true}`,
+              },
+            ],
+          });
+          if (synthesis.ok && synthesis.text.trim()) finalText = displayAgentText(synthesis.text);
+        } catch {
+          // Keep the deterministic trace fallback below if final synthesis is unavailable.
+        }
+      }
       const response = result.ok
-        ? (resultText || "Boss ทำงานเสร็จแล้ว แต่ Agent ไม่ได้ส่งข้อความกลับมา")
-        : `ยังทำงานนี้ไม่สำเร็จ: ${resultText || "Agent ไม่มีผลลัพธ์"}`;
+        ? (finalText || liveSteps.slice(-6).join("\n") || "งานเสร็จแล้ว แต่ไม่มีข้อความสรุปจาก Agent")
+        : `ยังทำงานนี้ไม่สำเร็จ: ${finalText || liveSteps.slice(-6).join("\n") || "Agent ไม่มีผลลัพธ์"}`;
       patchVerified(thread.id, assistantId, result.verified === true);
       patchMessage(thread.id, assistantId, response);
       patchActivity(thread.id, assistantId, liveSteps.slice(-10));
