@@ -25,6 +25,7 @@ jobs:
           git clone --depth=1 https://github.com/xai-org/grok-build.git "$tmp/grok-build"
           mkdir -p vendor
           rm -rf vendor/grok-build
+          rm -rf "$tmp/grok-build/.git"
           cp -a "$tmp/grok-build" vendor/grok-build
           rm -rf src/lib/boss-engine src/lib/agent-loop.ts src/lib/agent.functions.ts
           rm -rf src/lib/bossnugrok
