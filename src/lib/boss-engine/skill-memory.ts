@@ -1,4 +1,0 @@
-export type SkillMemoryKind="experience"|"failure"|"discovery";
-export type SkillMemoryEntry={id:string;skillId?:string;kind:SkillMemoryKind;summary:string;evidence?:string;createdAt:number};
-export function createSkillMemory(kind:SkillMemoryKind,summary:string,skillId?:string,evidence?:string):SkillMemoryEntry{return{id:"skillmem_"+Date.now()+"_"+Math.random().toString(36).slice(2,8),skillId,kind,summary:summary.trim(),evidence,createdAt:Date.now()}}
-export function searchSkillMemory(entries:SkillMemoryEntry[],query:string,limit=5){const q=query.toLowerCase().split(/\s+/).filter(Boolean);return entries.map(entry=>({entry,score:q.filter(t=>entry.summary.toLowerCase().includes(t)).length})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||b.entry.createdAt-a.entry.createdAt).slice(0,limit).map(x=>x.entry)}
