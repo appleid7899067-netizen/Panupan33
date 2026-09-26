@@ -1,0 +1,32 @@
+name: CD · Render health ping
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Health check panupanboss
+        run: |
+          set -e
+          URL="${{ vars.PRODUCTION_URL || 'https://panupanboss.onrender.com' }}"
+          echo "Pinging $URL"
+          code=$(curl -sS -o /tmp/body -w "%{http_code}" --max-time 30 "$URL/api/capabilities" || echo 000)
+          echo "HTTP $code"
+          head -c 400 /tmp/body || true
+          echo
+          if [ "$code" != "200" ]; then
+            echo "Production capabilities endpoint not healthy"
+            exit 1
+          fi
+          echo "✓ production capabilities OK"
