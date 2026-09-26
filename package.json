@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080",
-    "build": "node scripts/with-app-env.mjs vite build && npm run db:migrate",
+    "build": "npm run build:grok && node scripts/with-app-env.mjs vite build && npm run db:migrate",
     "db:migrate": "node scripts/migrate.mjs",
     "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
     "preview": "node scripts/with-app-env.mjs vite preview --host 0.0.0.0 --port 4173",
@@ -21,7 +21,8 @@
     "format": "prettier --write .",
     "start": "node .output/server/index.mjs",
     "postinstall": "node scripts/render-build.mjs",
-    "agents:api": "node scripts/agents-api-run.mjs"
+    "agents:api": "node scripts/agents-api-run.mjs",
+    "build:grok": "node scripts/build-grok-runtime.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",
