@@ -8,6 +8,7 @@ type Body = {
   model?: unknown;
   cwd?: unknown;
   authToken?: unknown;
+  agentToken?: unknown;
 };
 
 function grokBinary() {
@@ -15,7 +16,7 @@ function grokBinary() {
   return existsSync(bundled) ? bundled : "grok";
 }
 
-async function runGrok(prompt: string, cwd: string, puterToken: string) {
+async function runGrok(prompt: string, cwd: string, puterToken: string, agentToken = "") {
   const args = ["-p", prompt, "-m", "puter", "--cwd", cwd, "--output-format", "json", "--always-approve"];
   return await new Promise<{ ok: boolean; text: string; error?: string }>((resolve) => {
     const child = spawn(grokBinary(), args, {
@@ -26,6 +27,8 @@ async function runGrok(prompt: string, cwd: string, puterToken: string) {
         GROK_MODELS_BASE_URL: `http://127.0.0.1:${process.env.PORT ?? "3000"}/api/grok-model/v1`,
         GROK_MODELS_LIST_URL: `http://127.0.0.1:${process.env.PORT ?? "3000"}/api/grok-model/v1/models`,
         XAI_API_KEY: puterToken,
+        ...(process.env.MASTER_TOKEN ? { MASTER_TOKEN: process.env.MASTER_TOKEN, GROK_MASTER_TOKEN: process.env.MASTER_TOKEN } : {}),
+        ...(agentToken ? { GROK_AGENT_TOKEN: agentToken, GITHUB_TOKEN: agentToken } : {}),
         // Central agent privilege. Never expose this value to browser/model output.
         ...(process.env.MASTER_TOKEN ? { MASTER_TOKEN: process.env.MASTER_TOKEN, GROK_MASTER_TOKEN: process.env.MASTER_TOKEN } : {}),
       },
@@ -62,7 +65,8 @@ export const Route = createFileRoute("/api/grok")({
         if (!prompt) return Response.json({ ok: false, error: "Grok requires a prompt." }, { status: 400 });
         const model = typeof body.model === "string" && body.model.trim() ? body.model : "deepseek-chat";
         const cwd = typeof body.cwd === "string" && body.cwd.trim() ? body.cwd : process.cwd();
-        const result = await runGrok(prompt, cwd, token);
+        const agentToken = typeof body.agentToken === "string" ? body.agentToken.trim() : "";
+        const result = await runGrok(prompt, cwd, token, agentToken);
         return Response.json(result, { status: result.ok ? 200 : 503 });
       },
     },
