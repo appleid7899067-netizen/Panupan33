@@ -1,0 +1,15 @@
+# Panupan33 MCP permission layer
+# Native HTTP MCP servers are intentionally configured without bearer headers.
+# Grok Build will perform the MCP OAuth challenge/consent flow when a server requires it.
+
+[mcp_servers.github]
+url = "https://api.githubcopilot.com/mcp/"
+enabled = true
+
+[mcp_servers.gitlab]
+url = "https://gitlab.com/api/v4/mcp"
+enabled = true
+
+[mcp_servers.render]
+url = "https://mcp.render.com/mcp"
+enabled = true
