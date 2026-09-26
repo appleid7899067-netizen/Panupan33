@@ -8,7 +8,7 @@ import { useEffect, useState, useRef } from "react";
 import { unzipSync, strFromU8 } from "fflate";
 import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X, Copy, Check, Download, Square, Github, KeyRound, Eye, Heart, ThumbsUp, Palette } from "lucide-react";
 import { useFleet } from "@/lib/store";
-import { runAgent, runAgentSandbox, runAgentStream, type AgentRunResult } from "@/lib/agent.functions";
+import { runAgent, runAgentSandbox, runAgentStream, type AgentRunResult } from "@/lib/grok-agent";
 import { chatWithPuter, listPuterModels, loadPuter, signInWithPuter, getPuterAuthToken, type PuterModel } from "@/lib/puter";
 import { executeWebSearch } from "@/lib/bossnugrok/skills/web-search";
 import { compileChatContext } from "@/lib/context-compiler";
@@ -578,7 +578,7 @@ export function SuperChat() {
           patchActivity(thread.id, assistantId, visibleSteps);
           setLiveStream({ id: assistantId, steps: visibleSteps, active: true });
         } else if (event.type === "done") {
-          if (event.result) result = event.result as import("@/lib/agent-loop").AgentRunResult;
+          if (event.result) result = event.result as AgentRunResult;
         }
       }
       if (!result) throw new Error("Agent stream ended without a final result.");
