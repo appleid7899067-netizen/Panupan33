@@ -287,7 +287,7 @@ export async function runAgentLoop(
   const foundation = buildAgentFoundation(prompt, maxIterations);
   const evidenceEngine: EvidenceEngine = createEvidenceEngine();
   const recoveryEngine: RecoveryEngine = createRecoveryEngine();
-  const budget = Math.min(iterationBudget(prompt, maxIterations), foundation.budget);
+  const budget = Math.max(2, Math.min(iterationBudget(prompt, maxIterations), foundation.budget));
   const foundationMemory: AgentMemory = createAgentMemory();
   const deepReasoning = wantsDeepReasoning(prompt);
   let available = tools.length ? [...tools] : await loadCodingFleetTools();
@@ -458,7 +458,7 @@ ROUTING SIGNAL: ${reason}`, 12);
     // No further tool calls → decide stop / verify / continue
     if (!result.toolCalls.length) {
       const { done, verified } = goalSatisfied(prompt, allResults, last, false);
-      if (done) {
+      if (done && i >= 1) {
         emit({ phase: "verify", detail: "🔬 Verify & Publish: ตรวจหลักฐานจริงก่อนยืนยันผลลัพธ์" });
         emit({ phase: "verify", detail: verified ? "✓ จบด้วยหลักฐาน" : "✓ จบ" });
         return { ok: true, text: last, steps, verified };
@@ -484,7 +484,7 @@ ROUTING SIGNAL: ${reason}`, 12);
     if (!failed.length && hasUsefulEvidence(result.toolResults)) {
       const { done, verified } = goalSatisfied(prompt, allResults, last, true);
       // For search-style tasks, one good evidence pass is enough
-      if (done || (looksLikeSearch(prompt) && !looksLikeMutation(prompt))) {
+      if ((done || (looksLikeSearch(prompt) && !looksLikeMutation(prompt))) && i >= 1) {
         emit({ phase: "verify", detail: "🔬 Verify & Publish: ตรวจหลักฐานจริงก่อนยืนยันผลลัพธ์" });
         emit({ phase: "verify", detail: "✓ ได้หลักฐานเพียงพอ — จบเร็ว" });
         // One short synthesis pass only if model gave empty text
