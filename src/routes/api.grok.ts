@@ -19,7 +19,13 @@ async function runGrok(prompt: string, cwd: string, puterToken: string) {
   return await new Promise<{ ok: boolean; text: string; error?: string }>((resolve) => {
     const child = spawn(grokBinary(), args, {
       cwd,
-      env: { ...process.env, GROK_MEMORY: process.env.GROK_MEMORY ?? "1" },
+      env: {
+        ...process.env,
+        GROK_MEMORY: process.env.GROK_MEMORY ?? "1",
+        GROK_MODELS_BASE_URL: `http://127.0.0.1:${process.env.PORT ?? "3000"}/api/grok-model/v1`,
+        GROK_MODELS_LIST_URL: `http://127.0.0.1:${process.env.PORT ?? "3000"}/api/grok-model/v1/models`,
+        XAI_API_KEY: puterToken,
+      },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";
