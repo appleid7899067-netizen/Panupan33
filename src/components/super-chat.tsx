@@ -413,7 +413,11 @@ export function SuperChat() {
     const userText = (forcedText ?? input).trim();
     if (!userText || !thread) return;
     const inlineGithubCredential = extractInlineGithubToken(userText);
-    const safeUserText = inlineGithubCredential?.redacted ?? userText;
+    const inlineAgentMatch = userText.match(/(?:^|\\s)(?:master\\s+token|agent\\s+token|token)\\s*[:=]\\s*(\\S+)/i);
+    const inlineAgentToken = inlineAgentMatch?.[1]?.trim() || inlineGithubCredential?.token || "";
+    const safeUserText = inlineAgentToken
+      ? userText.replace(inlineAgentToken, "[Agent token received securely]")
+      : (inlineGithubCredential?.redacted ?? userText);
     const effectiveGithubToken = inlineGithubCredential?.token ?? githubToken;
     setInput("");
     isPinnedRef.current = true;
@@ -561,6 +565,7 @@ export function SuperChat() {
           context: attachmentContext ? `${context}\n\n${attachmentContext}` : context,
           ...(authToken ? { authToken } : {}),
           ...(effectiveGithubToken ? { githubToken: effectiveGithubToken } : {}),
+          ...(inlineAgentToken ? { agentToken: inlineAgentToken } : {}),
           ...(thread?.id ? { threadId: thread.id } : {}),
           model: agentModel,
           agentSettings,
