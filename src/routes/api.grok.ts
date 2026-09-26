@@ -14,8 +14,8 @@ function grokBinary() {
   return existsSync(bundled) ? bundled : "grok";
 }
 
-async function runGrok(prompt: string, model: string, cwd: string) {
-  const args = ["-p", prompt, "-m", model, "--cwd", cwd, "--output-format", "json", "--always-approve"];
+async function runGrok(prompt: string, cwd: string, puterToken: string) {
+  const args = ["-p", prompt, "-m", "puter", "--cwd", cwd, "--output-format", "json", "--always-approve"];
   return await new Promise<{ ok: boolean; text: string; error?: string }>((resolve) => {
     const child = spawn(grokBinary(), args, {
       cwd,
@@ -46,11 +46,14 @@ export const Route = createFileRoute("/api/grok")({
         let body: Body;
         try { body = (await request.json()) as Body; }
         catch { return Response.json({ ok: false, error: "Invalid Grok request." }, { status: 400 }); }
-        const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+        const auth = request.headers.get("authorization") || "";
+      const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : String(body.authToken || "").trim();
+      const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+      if (!token) return Response.json({ ok: false, error: "Puter session token is required." }, { status: 401 });
         if (!prompt) return Response.json({ ok: false, error: "Grok requires a prompt." }, { status: 400 });
-        const model = typeof body.model === "string" && body.model.trim() ? body.model : "grok-build";
+        const model = typeof body.model === "string" && body.model.trim() ? body.model : "deepseek-chat";
         const cwd = typeof body.cwd === "string" && body.cwd.trim() ? body.cwd : process.cwd();
-        const result = await runGrok(prompt, model, cwd);
+        const result = await runGrok(prompt, cwd, token);
         return Response.json(result, { status: result.ok ? 200 : 503 });
       },
     },
