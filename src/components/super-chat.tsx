@@ -8,7 +8,7 @@ import { useEffect, useState, useRef } from "react";
 import { unzipSync, strFromU8 } from "fflate";
 import { Send, Paperclip, Mic, ChevronDown, Sparkles, History, Plus, Trash2, X, Copy, Check, Download, Square, Github, KeyRound, Eye, Heart, ThumbsUp, Palette } from "lucide-react";
 import { useFleet } from "@/lib/store";
-import { runAgent, runAgentSandbox, runAgentStream } from "@/lib/agent.functions";
+import { runAgent, runAgentSandbox, runAgentStream, type AgentRunResult } from "@/lib/agent.functions";
 import { chatWithPuter, listPuterModels, loadPuter, signInWithPuter, getPuterAuthToken, type PuterModel } from "@/lib/puter";
 import { executeWebSearch } from "@/lib/bossnugrok/skills/web-search";
 import { compileChatContext } from "@/lib/context-compiler";
@@ -555,7 +555,7 @@ export function SuperChat() {
       if (!authToken) throw new Error("ไม่พบ Puter auth token หลัง login — กรุณา sign in กับ Puter ใหม่");
       const staleModel = /inclusionai\/ling-3\.0-flash-sante|nex-agi\/nex-n2\.5-(mini|pro)/i.test(selectedModel);
       const agentModel = !staleModel && models.some((m) => m.id === selectedModel) ? selectedModel : DEFAULT_PUTER_MODEL;
-      let result: import("@/lib/agent-loop").AgentRunResult | null = null;
+      let result: AgentRunResult | null = null;
       const liveSteps: string[] = [];
       for await (const event of await runAgentStream({
         data: {
