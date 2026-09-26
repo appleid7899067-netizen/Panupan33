@@ -7,6 +7,7 @@ type Body = {
   prompt?: unknown;
   model?: unknown;
   cwd?: unknown;
+  authToken?: unknown;
 };
 
 function grokBinary() {
@@ -25,6 +26,8 @@ async function runGrok(prompt: string, cwd: string, puterToken: string) {
         GROK_MODELS_BASE_URL: `http://127.0.0.1:${process.env.PORT ?? "3000"}/api/grok-model/v1`,
         GROK_MODELS_LIST_URL: `http://127.0.0.1:${process.env.PORT ?? "3000"}/api/grok-model/v1/models`,
         XAI_API_KEY: puterToken,
+        // Central agent privilege. Never expose this value to browser/model output.
+        ...(process.env.MASTER_TOKEN ? { MASTER_TOKEN: process.env.MASTER_TOKEN, GROK_MASTER_TOKEN: process.env.MASTER_TOKEN } : {}),
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
