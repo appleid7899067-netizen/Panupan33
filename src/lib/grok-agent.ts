@@ -1,4 +1,4 @@
-import { chatWithPuter } from "@/lib/puter";
+import { chatWithPuter, getPuterAuthToken } from "@/lib/puter";
 
 export type AgentRunResult = { ok: boolean; text: string; verified?: boolean };
 
@@ -13,8 +13,11 @@ export async function* runAgentStream(input: { data: AgentData }): AsyncGenerato
   const prompt = input.data.context ? input.data.prompt + "\n\nบริบท:\n" + input.data.context : input.data.prompt;
   yield { type: "step", step: { phase: "agent", detail: "กำลังเรียก Grok Build Agent Runtime..." } };
   try {
+    const puterToken = await getPuterAuthToken();
+    if (!puterToken) throw new Error("Puter session token is unavailable.");
     const response = await fetch("/api/grok", {
-      method: "POST", headers: { "content-type": "application/json" },
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${puterToken}` },
       body: JSON.stringify({ prompt, model: "grok-build", cwd: "." }),
     });
     const data = await response.json().catch(() => ({})) as { ok?: boolean; text?: string; error?: string };
