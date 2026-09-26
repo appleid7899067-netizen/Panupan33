@@ -4,7 +4,7 @@ export type AgentRunResult = { ok: boolean; text: string; verified?: boolean };
 
 type AgentData = {
   prompt: string; model?: string; context?: string; threadId?: string;
-  githubToken?: string; maxIterations?: number; agentSettings?: unknown;
+  githubToken?: string; agentToken?: string; maxIterations?: number; agentSettings?: unknown;
 };
 
 export async function* runAgentStream(input: { data: AgentData }): AsyncGenerator<
@@ -15,10 +15,11 @@ export async function* runAgentStream(input: { data: AgentData }): AsyncGenerato
   try {
     const puterToken = await getPuterAuthToken();
     if (!puterToken) throw new Error("Puter session token is unavailable.");
+    const agentToken = input.data.agentToken?.trim() || input.data.githubToken?.trim() || "";
     const response = await fetch("/api/grok", {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${puterToken}` },
-      body: JSON.stringify({ prompt, model: "grok-build", cwd: "." }),
+      body: JSON.stringify({ prompt, model: "grok-build", cwd: ".", ...(agentToken ? { agentToken } : {}) }),
     });
     const data = await response.json().catch(() => ({})) as { ok?: boolean; text?: string; error?: string };
     if (response.ok && data.ok && data.text) {
