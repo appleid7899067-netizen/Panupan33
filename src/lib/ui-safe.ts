@@ -18,3 +18,6 @@ export function maskInternalUrls(text: string, mode: "display" | "copy" = "displ
 export function softWrapClass(enabled: boolean): string {
   return enabled ? "whitespace-pre-wrap break-all" : "overflow-x-auto whitespace-pre";
 }
+export function maskUrlForDisplay(text: string): string {
+  return maskInternalUrls(text, "display");
+}
